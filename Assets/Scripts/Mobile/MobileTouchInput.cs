@@ -182,7 +182,7 @@ namespace MechChess.Mobile
                 ChessPiece3D piece = hit.collider.GetComponentInParent<ChessPiece3D>();
                 if (piece != null && ChessBoard3DManager.Instance != null)
                 {
-                    ChessBoard3DManager.Instance.SelectPiece(piece);
+                    ChessBoard3DManager.Instance.HandlePieceClicked(piece);
                     return;
                 }
 

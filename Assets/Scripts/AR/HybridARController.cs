@@ -42,9 +42,11 @@ namespace MechChess.AR
     }
 
     /// <summary>
-    /// HybridARController supports both:
-    /// 1. AR Foundation plane tracking (in XR simulation or mobile AR hardware).
-    /// 2. Universal Webcam AR Fallback with real-time video feed and AI snapshot capture.
+    /// HybridARController supports:
+    /// 1. True Fullscreen AR Reality (Real-world webcam background Quad behind 3D board).
+    /// 2. Picture-in-Picture Tactical Card Scanner.
+    /// 3. AR Foundation plane tracking (in XR simulation or mobile AR hardware).
+    /// 4. Live camera frame capture to Deep Learning PyTorch Backend.
     /// </summary>
     public class HybridARController : MonoBehaviour
     {
@@ -57,10 +59,15 @@ namespace MechChess.AR
         [Header("References")]
         public Transform chessboardRoot;
 
-        // Webcam Fallback
+        // Webcam Video Feed
         private WebCamTexture _webcamTexture;
         private RawImage _backgroundRawImage;
         private Canvas _arCanvas;
+
+        // True AR Background Quad
+        private GameObject _backgroundQuad;
+        private Material _webcamQuadMat;
+        private int _arDisplayMode = 0; // 0 = Fullscreen AR Reality, 1 = PIP Scanner, 2 = Cyber Studio
 
 #if UNITY_XR_ARFOUNDATION
         private ARRaycastManager _raycastManager;
@@ -95,6 +102,10 @@ namespace MechChess.AR
             }
 
             StartWebcam();
+            SetupARBackgroundQuad();
+
+            // Default: Start in Fullscreen AR Reality mode
+            ApplyDisplayMode(0);
         }
 
         private void SetupWebcamBackgroundUI()
@@ -104,7 +115,7 @@ namespace MechChess.AR
 
             _arCanvas = canvasObj.AddComponent<Canvas>();
             _arCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            _arCanvas.sortingOrder = 95; // Under popups, above background
+            _arCanvas.sortingOrder = 95;
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -138,7 +149,7 @@ namespace MechChess.AR
             titleRt.anchoredPosition = new Vector2(0, 98);
             titleRt.sizeDelta = new Vector2(340, 24);
 
-            // Live Webcam Feed RawImage (Never blocks clicks)
+            // Live Webcam Feed RawImage
             GameObject rawImgObj = new GameObject("WebcamVideoFeed");
             rawImgObj.transform.SetParent(pipContainer.transform, false);
             _backgroundRawImage = rawImgObj.AddComponent<RawImage>();
@@ -149,12 +160,44 @@ namespace MechChess.AR
             rt.sizeDelta = new Vector2(340, 185);
         }
 
+        private void SetupARBackgroundQuad()
+        {
+            if (_backgroundQuad != null) return;
+            Camera cam = Camera.main;
+            if (cam == null) return;
+
+            _backgroundQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            _backgroundQuad.name = "AR_WebcamBackgroundQuad";
+            _backgroundQuad.transform.SetParent(cam.transform, false);
+
+            Collider c = _backgroundQuad.GetComponent<Collider>();
+            if (c != null) Destroy(c);
+
+            float dist = 18f;
+            _backgroundQuad.transform.localPosition = new Vector3(0, 0, dist);
+            _backgroundQuad.transform.localRotation = Quaternion.identity;
+
+            float frustumHeight = 2.0f * dist * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            float frustumWidth = frustumHeight * cam.aspect;
+            _backgroundQuad.transform.localScale = new Vector3(frustumWidth, frustumHeight, 1f);
+
+            Shader unlitShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Texture") ?? Shader.Find("Diffuse");
+            _webcamQuadMat = new Material(unlitShader) { name = "AR_WebcamQuadMat" };
+            if (_webcamTexture != null)
+            {
+                if (_webcamQuadMat.HasProperty("_BaseMap")) _webcamQuadMat.SetTexture("_BaseMap", _webcamTexture);
+                if (_webcamQuadMat.HasProperty("_MainTex")) _webcamQuadMat.SetTexture("_MainTex", _webcamTexture);
+            }
+
+            _backgroundQuad.GetComponent<Renderer>().sharedMaterial = _webcamQuadMat;
+        }
+
         public void StartWebcam()
         {
             if (WebCamTexture.devices.Length > 0)
             {
                 string cameraName = WebCamTexture.devices[0].name;
-                // Choose back camera on mobile if available
+                // Prefer back camera on mobile
                 foreach (var dev in WebCamTexture.devices)
                 {
                     if (!dev.isFrontFacing)
@@ -167,12 +210,18 @@ namespace MechChess.AR
                 _webcamTexture = new WebCamTexture(cameraName, 1280, 720, 30);
                 _backgroundRawImage.texture = _webcamTexture;
                 _webcamTexture.Play();
+
+                if (_webcamQuadMat != null)
+                {
+                    if (_webcamQuadMat.HasProperty("_BaseMap")) _webcamQuadMat.SetTexture("_BaseMap", _webcamTexture);
+                    if (_webcamQuadMat.HasProperty("_MainTex")) _webcamQuadMat.SetTexture("_MainTex", _webcamTexture);
+                }
+
                 Debug.Log($"[HybridAR] Webcam stream initiated: {cameraName}");
             }
             else
             {
                 Debug.LogWarning("[HybridAR] No physical webcam detected. Generating virtual AR grid backdrop.");
-                // Procedural cyber grid background
                 Texture2D virtualBackdrop = new Texture2D(256, 256);
                 for (int y = 0; y < 256; y++)
                 {
@@ -189,11 +238,46 @@ namespace MechChess.AR
 
         public void ToggleARMode()
         {
-            if (_arCanvas != null)
+            _arDisplayMode = (_arDisplayMode + 1) % 3;
+            ApplyDisplayMode(_arDisplayMode);
+        }
+
+        private void ApplyDisplayMode(int mode)
+        {
+            _arDisplayMode = mode;
+            if (_arDisplayMode == 0) // Fullscreen AR Reality (Real room background behind board)
             {
-                bool newState = !_arCanvas.gameObject.activeSelf;
-                _arCanvas.gameObject.SetActive(newState);
-                Debug.Log($"[HybridAR] AR Scanner Viewport toggled: {newState}");
+                if (_backgroundQuad != null) _backgroundQuad.SetActive(true);
+                if (_arCanvas != null) _arCanvas.gameObject.SetActive(false);
+                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Fullscreen Reality (Room Background) ON");
+            }
+            else if (_arDisplayMode == 1) // Corner PIP Tactical Scanner
+            {
+                if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
+                if (_arCanvas != null) _arCanvas.gameObject.SetActive(true);
+                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Corner PIP Scanner Viewport ON");
+            }
+            else // Pure Cyber Studio Arena
+            {
+                if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
+                if (_arCanvas != null) _arCanvas.gameObject.SetActive(false);
+                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Pure Cyber Studio Arena ON");
+            }
+        }
+
+        private void LateUpdate()
+        {
+            // Dynamically scale AR Background Quad to match camera aspect ratio
+            if (_backgroundQuad != null && _backgroundQuad.activeSelf)
+            {
+                Camera cam = Camera.main;
+                if (cam != null)
+                {
+                    float dist = 18f;
+                    float frustumHeight = 2.0f * dist * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+                    float frustumWidth = frustumHeight * cam.aspect;
+                    _backgroundQuad.transform.localScale = new Vector3(frustumWidth, frustumHeight, 1f);
+                }
             }
         }
 

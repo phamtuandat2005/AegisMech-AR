@@ -19,6 +19,7 @@ namespace MechChess.ProceduralMech
         private PieceColor _pieceColor;
         private Color _glowColor = Color.cyan;
         private Vector3 _baseLocalPosition;
+        private Quaternion _baseLocalRotation = Quaternion.identity;
         private float _timeOffset;
         private bool _isMoving = false;
         private bool _isDestroyed = false;
@@ -31,8 +32,15 @@ namespace MechChess.ProceduralMech
             _glowColor = glowColor;
             _timeOffset = UnityEngine.Random.Range(0f, 10f);
             _baseLocalPosition = transform.localPosition;
+            _baseLocalRotation = transform.localRotation;
 
             CreateMoveSparkParticles();
+        }
+
+        public void SetBaseOrientation(Quaternion rot)
+        {
+            _baseLocalRotation = rot;
+            transform.localRotation = rot;
         }
 
         private void Start()
@@ -41,20 +49,24 @@ namespace MechChess.ProceduralMech
             {
                 _baseLocalPosition = transform.localPosition;
             }
+            if (_baseLocalRotation == Quaternion.identity && transform.localRotation != Quaternion.identity)
+            {
+                _baseLocalRotation = transform.localRotation;
+            }
         }
 
         private void Update()
         {
             if (_isMoving || _isDestroyed) return;
 
-            // Idle Hovering / Breathing Sine Wave
+            // Idle Hovering / Breathing Sine Wave with preserved base orientation
             float t = (Time.time + _timeOffset) * hoverFrequency;
             float yOffset = Mathf.Sin(t) * hoverAmplitude;
             float roll = Mathf.Sin(t * 0.75f) * swayAngle;
             float pitch = Mathf.Cos(t * 0.5f) * (swayAngle * 0.6f);
 
             transform.localPosition = _baseLocalPosition + new Vector3(0, yOffset, 0);
-            transform.localRotation = Quaternion.Euler(pitch, 0, roll);
+            transform.localRotation = _baseLocalRotation * Quaternion.Euler(pitch, 0, roll);
         }
 
         /// <summary>
@@ -90,7 +102,7 @@ namespace MechChess.ProceduralMech
 
             transform.position = targetWorldPos;
             _baseLocalPosition = transform.localPosition;
-            transform.localRotation = Quaternion.identity;
+            transform.localRotation = _baseLocalRotation;
 
             if (_moveSparks != null) _moveSparks.Stop();
             _isMoving = false;

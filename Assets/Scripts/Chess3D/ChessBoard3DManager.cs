@@ -108,12 +108,12 @@ namespace MechChess.Chess3D
             _boardRoot = new GameObject("ProceduralChessBoard_3D").transform;
             _boardRoot.SetParent(transform, false);
 
-            // Outer Arena Platform Pedestal
+            // Outer Arena Platform Pedestal (Compact to expose AR real-world background)
             GameObject arenaPedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
             arenaPedestal.name = "CyberArenaPedestal";
             arenaPedestal.transform.SetParent(_boardRoot, false);
-            arenaPedestal.transform.localPosition = new Vector3(3.5f, -0.45f, 3.5f);
-            arenaPedestal.transform.localScale = new Vector3(14.0f, 0.6f, 14.0f);
+            arenaPedestal.transform.localPosition = new Vector3(3.5f, -0.2f, 3.5f);
+            arenaPedestal.transform.localScale = new Vector3(9.0f, 0.2f, 9.0f);
             arenaPedestal.GetComponent<Renderer>().sharedMaterial = _borderMat;
 
             // Outer Frame
@@ -215,7 +215,10 @@ namespace MechChess.Chess3D
             // Rotate Black pieces 180 degrees to face White
             if (color == PieceColor.Black)
             {
-                pieceObj.transform.localRotation = Quaternion.Euler(0, 180f, 0);
+                Quaternion rot180 = Quaternion.Euler(0, 180f, 0);
+                pieceObj.transform.localRotation = rot180;
+                MechChess.ProceduralMech.MechPieceAnimator anim = pieceObj.GetComponent<MechChess.ProceduralMech.MechPieceAnimator>();
+                if (anim != null) anim.SetBaseOrientation(rot180);
             }
 
             ChessPiece3D piece = pieceObj.AddComponent<ChessPiece3D>();
