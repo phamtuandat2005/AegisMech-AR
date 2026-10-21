@@ -1,4 +1,4 @@
-# 3D MECH AR CHESS (CỜ VUA CƠ KHÍ CHIẾN ĐẤU AR)
+# 3D MECH AR CHESS (CỜ VUA CHIẾN ĐẤU AR)
 > **Dự án Game Cờ Vua Cơ Khí Thực Tế Tăng Cường Tích Hợp Trí Tuệ Nhân Tạo & Điện Toán Đám Mây**  
 > *Đạt tuyệt đối 100/100 điểm theo 5 tiêu chí học phần & 0 điểm trừ tài liệu bổ trợ.*
 
