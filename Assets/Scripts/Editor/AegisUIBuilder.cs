@@ -22,6 +22,58 @@ namespace AegisMech.UI.EditorTools
         [MenuItem("Aegis/Build Menu UI Scene")]
         static void BuildMenu() { Debug.Log(BuildAll()); }
 
+        [MenuItem("Aegis/Capture Main Menu Screenshot", false, 50)]
+        public static void CaptureScreenshot()
+        {
+            var canvas = GameObject.Find("AegisUIRoot")?.GetComponent<Canvas>();
+            if (canvas == null) canvas = Object.FindFirstObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                Debug.LogWarning("[AegisUIBuilder] No canvas found. Building menu first...");
+                BuildAll();
+                canvas = GameObject.Find("AegisUIRoot")?.GetComponent<Canvas>();
+            }
+
+            Camera cam = Camera.main;
+            bool createdCam = false;
+            if (cam == null)
+            {
+                var camObj = new GameObject("TempCaptureCam");
+                cam = camObj.AddComponent<Camera>();
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = new Color(0.027f, 0.051f, 0.094f, 1f);
+                createdCam = true;
+            }
+
+            int width = 2130;
+            int height = 978;
+            RenderTexture rt = new RenderTexture(width, height, 24);
+            RenderTexture prevRT = RenderTexture.active;
+            RenderTexture.active = rt;
+
+            var prevTarget = cam.targetTexture;
+            cam.targetTexture = rt;
+            cam.Render();
+
+            Texture2D tex = new Texture2D(width, height, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+            tex.Apply();
+
+            cam.targetTexture = prevTarget;
+            RenderTexture.active = prevRT;
+            Object.DestroyImmediate(rt);
+            if (createdCam) Object.DestroyImmediate(cam.gameObject);
+
+            byte[] bytes = tex.EncodeToPNG();
+            Object.DestroyImmediate(tex);
+
+            string outDir = Path.Combine(Directory.GetCurrentDirectory(), "Reference");
+            if (!Directory.Exists(outDir)) Directory.CreateDirectory(outDir);
+            string outFile = Path.Combine(outDir, "Current_Screenshot_HD.png");
+            File.WriteAllBytes(outFile, bytes);
+            Debug.Log("[AegisUIBuilder] Screenshot successfully captured and saved to: " + outFile);
+        }
+
         // ------------------------------------------------------------------ sprites
         static Sprite Save(string name, Texture2D tex, Vector4 border)
         {

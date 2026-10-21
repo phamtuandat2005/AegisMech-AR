@@ -113,3 +113,16 @@ InitTestScene*.unity*
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
 .agent/*
+
+# Python cache & compiled binaries
+__pycache__/
+*.py[cod]
+*$py.class
+backend-ai-docker/**/__pycache__/
+
+# Large temporary screenshot comparisons
+Reference/Current_*.png
+Reference/Pixel_Difference_Heatmap.png
+Reference/Unity_vs_Reference_SideBySide.png
+Reference/Screens/
+Reference/Screens/
