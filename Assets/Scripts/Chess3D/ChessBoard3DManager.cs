@@ -103,7 +103,7 @@ namespace MechChess.Chess3D
         private void Awake()
         {
             if (Instance == null) Instance = this;
-            else Destroy(gameObject);
+            else { Destroy(this); return; }
 
             InitializeBoardMaterials();
         }
@@ -112,6 +112,12 @@ namespace MechChess.Chess3D
         {
             BuildProceduralBoard();
             SpawnAllPieces();
+
+            // Keep the 3D chessboard hidden initially until the player actually launches a match from the Main Menu
+            if (BoardRootContainer != null)
+            {
+                BoardRootContainer.gameObject.SetActive(false);
+            }
 
             // Link UI Manager Callbacks
             if (UIManager2D.Instance != null)

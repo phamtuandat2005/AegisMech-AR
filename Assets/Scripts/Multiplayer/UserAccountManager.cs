@@ -58,7 +58,7 @@ namespace MechChess.Multiplayer
             }
             else
             {
-                Destroy(gameObject);
+                Destroy(this);
             }
         }
 

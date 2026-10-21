@@ -237,7 +237,7 @@ namespace MechChess.UI
         private void Awake()
         {
             if (Instance == null) Instance = this;
-            else { Destroy(gameObject); return; }
+            else { Destroy(this); return; }
 
             BuildAllScreens();
         }
@@ -295,6 +295,10 @@ namespace MechChess.UI
         {
             if (_menuCanvasObj != null) _menuCanvasObj.SetActive(true);
             if (UIManager2D.Instance != null) UIManager2D.Instance.SetHUDVisible(false);
+            if (MechChess.Chess3D.ChessBoard3DManager.Instance != null && MechChess.Chess3D.ChessBoard3DManager.Instance.BoardRootContainer != null)
+            {
+                MechChess.Chess3D.ChessBoard3DManager.Instance.BoardRootContainer.gameObject.SetActive(false);
+            }
             NavigateToHome();
         }
 
@@ -302,6 +306,10 @@ namespace MechChess.UI
         {
             if (_menuCanvasObj != null) _menuCanvasObj.SetActive(false);
             if (UIManager2D.Instance != null) UIManager2D.Instance.SetHUDVisible(true);
+            if (MechChess.Chess3D.ChessBoard3DManager.Instance != null && MechChess.Chess3D.ChessBoard3DManager.Instance.BoardRootContainer != null)
+            {
+                MechChess.Chess3D.ChessBoard3DManager.Instance.BoardRootContainer.gameObject.SetActive(true);
+            }
         }
 
         // =========================================================================
@@ -313,7 +321,8 @@ namespace MechChess.UI
             if (_screenSplash != null) _screenSplash.SetActive(false);
             if (_screenModeSelect != null) _screenModeSelect.SetActive(false);
             if (_screenMainMenu != null) _screenMainMenu.SetActive(true);
-            UpdateNavSelection(_selectedMenuNavIndex);
+            _selectedMenuNavIndex = 0;
+            UpdateNavSelection(0);
         }
 
         public void NavigateToChooseMode()
@@ -349,7 +358,11 @@ namespace MechChess.UI
             {
                 GameObject esObj = new GameObject("EventSystem");
                 esObj.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+                esObj.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+#else
                 esObj.AddComponent<StandaloneInputModule>();
+#endif
             }
 
             _menuCanvasObj = new GameObject("ArcaneMenuCanvas");
@@ -390,10 +403,10 @@ namespace MechChess.UI
             BuildIncomingChallengeModal(_menuCanvasObj.transform, font);
 
             // Initially show Splash only
-            if (_screenSplash != null) _screenSplash.SetActive(true);
+            CloseAllModals();
             if (_screenMainMenu != null) _screenMainMenu.SetActive(false);
             if (_screenModeSelect != null) _screenModeSelect.SetActive(false);
-            CloseAllModals();
+            if (_screenSplash != null) _screenSplash.SetActive(true);
         }
 
         // =========================================================================
@@ -531,17 +544,6 @@ namespace MechChess.UI
                 bgImg.color = ColBg;
             }
 
-            // 0. Soft left atmospheric vignette shadow to anchor the left UI column
-            GameObject shadeObj = new GameObject("ShadeLeft");
-            shadeObj.transform.SetParent(_screenMainMenu.transform, false);
-            Image shadeImg = shadeObj.AddComponent<Image>();
-            shadeImg.color = new Color(0.02f, 0.05f, 0.12f, 0.55f);
-            shadeImg.raycastTarget = false;
-            RectTransform sRt = shadeObj.GetComponent<RectTransform>();
-            sRt.anchorMin = new Vector2(0f, 0f);
-            sRt.anchorMax = new Vector2(0.38f, 1f);
-            sRt.offsetMin = Vector2.zero;
-            sRt.offsetMax = Vector2.zero;
 
             // Top-Left Logo Badge: CHESS 3D AR (Exact User Design 100%)
             GameObject logoContainer = new GameObject("TopLeftLogo");
@@ -697,19 +699,58 @@ namespace MechChess.UI
             rt.anchoredPosition = pos;
             rt.sizeDelta = new Vector2(46f, 46f);
 
-            GameObject txtObj = new GameObject("Icon");
-            txtObj.transform.SetParent(btnObj.transform, false);
-            Text t = txtObj.AddComponent<Text>();
-            t.text = icon;
-            t.font = font;
-            t.fontSize = 22;
-            t.alignment = TextAnchor.MiddleCenter;
-            t.color = ColTextWhite;
-            RectTransform trt = txtObj.GetComponent<RectTransform>();
-            trt.anchorMin = Vector2.zero;
-            trt.anchorMax = Vector2.one;
-            trt.offsetMin = Vector2.zero;
-            trt.offsetMax = Vector2.zero;
+            if (name == "BtnQuickSettings")
+            {
+                Sprite setSpr = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_settings.png");
+                if (setSpr != null)
+                {
+                    GameObject imgObj = new GameObject("Icon");
+                    imgObj.transform.SetParent(btnObj.transform, false);
+                    Image icImg = imgObj.AddComponent<Image>();
+                    icImg.sprite = setSpr;
+                    icImg.color = ColTextWhite;
+                    icImg.preserveAspect = true;
+                    icImg.raycastTarget = false;
+                    RectTransform irt = imgObj.GetComponent<RectTransform>();
+                    irt.anchorMin = new Vector2(0.5f, 0.5f);
+                    irt.anchorMax = new Vector2(0.5f, 0.5f);
+                    irt.pivot = new Vector2(0.5f, 0.5f);
+                    irt.anchoredPosition = Vector2.zero;
+                    irt.sizeDelta = new Vector2(26f, 26f);
+                }
+                else
+                {
+                    GameObject txtObj = new GameObject("Icon");
+                    txtObj.transform.SetParent(btnObj.transform, false);
+                    Text t = txtObj.AddComponent<Text>();
+                    t.text = icon;
+                    t.font = font;
+                    t.fontSize = 22;
+                    t.alignment = TextAnchor.MiddleCenter;
+                    t.color = ColTextWhite;
+                    RectTransform trt = txtObj.GetComponent<RectTransform>();
+                    trt.anchorMin = Vector2.zero;
+                    trt.anchorMax = Vector2.one;
+                    trt.offsetMin = Vector2.zero;
+                    trt.offsetMax = Vector2.zero;
+                }
+            }
+            else
+            {
+                GameObject txtObj = new GameObject("Icon");
+                txtObj.transform.SetParent(btnObj.transform, false);
+                Text t = txtObj.AddComponent<Text>();
+                t.text = icon;
+                t.font = font;
+                t.fontSize = 22;
+                t.alignment = TextAnchor.MiddleCenter;
+                t.color = ColTextWhite;
+                RectTransform trt = txtObj.GetComponent<RectTransform>();
+                trt.anchorMin = Vector2.zero;
+                trt.anchorMax = Vector2.one;
+                trt.offsetMin = Vector2.zero;
+                trt.offsetMax = Vector2.zero;
+            }
 
             if (showRedBadge)
             {
@@ -766,6 +807,7 @@ namespace MechChess.UI
                 bg.color = Color.clear;
 
                 Button btn = itemObj.AddComponent<Button>();
+                btn.navigation = new Navigation { mode = Navigation.Mode.None };
                 btn.targetGraphic = bg;
                 btn.onClick.AddListener(() => OnNavMenuItemClicked(index));
                 itemObj.AddComponent<MenuButtonEffect>();
@@ -1031,20 +1073,30 @@ namespace MechChess.UI
             bbRt.anchoredPosition = new Vector2(10f, 0f);
             bbRt.sizeDelta = new Vector2(48f, 48f);
 
-            GameObject backTxtObj = new GameObject("Txt");
-            backTxtObj.transform.SetParent(backBtnObj.transform, false);
-            Text bkt = backTxtObj.AddComponent<Text>();
-            bkt.text = "❮";
-            bkt.font = font;
-            bkt.fontSize = 20;
-            bkt.fontStyle = FontStyle.Bold;
-            bkt.alignment = TextAnchor.MiddleCenter;
-            bkt.color = ColCyanGlow;
-            RectTransform bktrt = backTxtObj.GetComponent<RectTransform>();
-            bktrt.anchorMin = Vector2.zero;
-            bktrt.anchorMax = Vector2.one;
-            bktrt.offsetMin = Vector2.zero;
-            bktrt.offsetMax = Vector2.zero;
+            GameObject backIconObj = new GameObject("BackIcon");
+            backIconObj.transform.SetParent(backBtnObj.transform, false);
+            Image backIconImg = backIconObj.AddComponent<Image>();
+            Sprite backSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_back.png");
+            if (backSprite != null)
+            {
+                backIconImg.sprite = backSprite;
+                backIconImg.color = ColCyanGlow;
+            }
+            else
+            {
+                Text bkt = backIconObj.AddComponent<Text>();
+                bkt.text = "<";
+                bkt.font = font;
+                bkt.fontSize = 24;
+                bkt.fontStyle = FontStyle.Bold;
+                bkt.alignment = TextAnchor.MiddleCenter;
+                bkt.color = ColCyanGlow;
+            }
+            RectTransform backIconRt = backIconObj.GetComponent<RectTransform>();
+            backIconRt.anchorMin = Vector2.zero;
+            backIconRt.anchorMax = Vector2.one;
+            backIconRt.offsetMin = new Vector2(10f, 10f);
+            backIconRt.offsetMax = new Vector2(-10f, -10f);
 
             // Settings Cog Button [ ⚙ ] (Right)
             GameObject cogBtnObj = new GameObject("BtnSettings");
@@ -1340,7 +1392,7 @@ namespace MechChess.UI
             cRt.sizeDelta = new Vector2(1280f, 720f);
 
             // Modal Header
-            CreateModalHeader(cardObj.transform, "❮  ĐẤU VỚI MÁY", () => _aiDifficultyModal.SetActive(false), font);
+            CreateModalHeader(cardObj.transform, "<  ĐẤU VỚI MÁY", () => _aiDifficultyModal.SetActive(false), font);
 
             // Left Column: Paladin Knight Portrait
             GameObject portraitObj = new GameObject("PaladinPortrait");
@@ -2160,7 +2212,7 @@ namespace MechChess.UI
             cRt.anchoredPosition = Vector2.zero;
             cRt.sizeDelta = new Vector2(1180f, 680f);
 
-            CreateModalHeader(cardObj.transform, "❮  HƯỚNG DẪN", () => _tutorialModal.SetActive(false), font);
+            CreateModalHeader(cardObj.transform, "<  HƯỚNG DẪN", () => _tutorialModal.SetActive(false), font);
 
             // Sub-Tabs Header
             GameObject tabsHeader = new GameObject("TutorialTabs");
@@ -2250,7 +2302,7 @@ namespace MechChess.UI
             fRt.anchoredPosition = new Vector2(0f, -270f);
             fRt.sizeDelta = new Vector2(1000f, 50f);
 
-            CreateTextComp(footer.transform, "❮   1 / 5   ❯", 16, FontStyle.Bold, ColTextWhite, font, new Vector2(-100f, 0f), new Vector2(200f, 36f));
+            CreateTextComp(footer.transform, "<   1 / 5   >", 16, FontStyle.Bold, ColTextWhite, font, new Vector2(-100f, 0f), new Vector2(200f, 36f));
 
             GameObject nextBtnObj = new GameObject("BtnNext");
             nextBtnObj.transform.SetParent(footer.transform, false);
@@ -2287,17 +2339,8 @@ namespace MechChess.UI
             cRt.sizeDelta = new Vector2(1520f, 820f);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            Sprite winBgSprite = ArcaneAssetLoader.LoadArcaneSprite("mode_select_window_bg.png");
-            if (winBgSprite != null)
-            {
-                cardBg.sprite = winBgSprite;
-                cardBg.type = Image.Type.Simple;
-            }
-            else
-            {
-                cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1520, 820, 24f, new Color(0.03f, 0.08f, 0.16f, 0.94f), ColCyanBorder, 2f);
-                cardBg.type = Image.Type.Sliced;
-            }
+            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1520, 820, 24f, new Color(0.03f, 0.08f, 0.16f, 0.94f), ColCyanBorder, 2f);
+            cardBg.type = Image.Type.Sliced;
 
             // Window Header Bar (Height 64px, anchored top)
             GameObject headerObj = new GameObject("ShopHeader");
@@ -2324,20 +2367,30 @@ namespace MechChess.UI
             bbRt.anchoredPosition = new Vector2(10f, 0f);
             bbRt.sizeDelta = new Vector2(48f, 48f);
 
-            GameObject backTxtObj = new GameObject("Txt");
-            backTxtObj.transform.SetParent(backBtnObj.transform, false);
-            Text bkt = backTxtObj.AddComponent<Text>();
-            bkt.text = "❮";
-            bkt.font = font;
-            bkt.fontSize = 20;
-            bkt.fontStyle = FontStyle.Bold;
-            bkt.alignment = TextAnchor.MiddleCenter;
-            bkt.color = ColCyanGlow;
-            RectTransform bktrt = backTxtObj.GetComponent<RectTransform>();
-            bktrt.anchorMin = Vector2.zero;
-            bktrt.anchorMax = Vector2.one;
-            bktrt.offsetMin = Vector2.zero;
-            bktrt.offsetMax = Vector2.zero;
+            GameObject backIconObj = new GameObject("BackIcon");
+            backIconObj.transform.SetParent(backBtnObj.transform, false);
+            Image backIconImg = backIconObj.AddComponent<Image>();
+            Sprite backSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_back.png");
+            if (backSprite != null)
+            {
+                backIconImg.sprite = backSprite;
+                backIconImg.color = ColCyanGlow;
+            }
+            else
+            {
+                Text bkt = backIconObj.AddComponent<Text>();
+                bkt.text = "<";
+                bkt.font = font;
+                bkt.fontSize = 24;
+                bkt.fontStyle = FontStyle.Bold;
+                bkt.alignment = TextAnchor.MiddleCenter;
+                bkt.color = ColCyanGlow;
+            }
+            RectTransform backIconRt = backIconObj.GetComponent<RectTransform>();
+            backIconRt.anchorMin = Vector2.zero;
+            backIconRt.anchorMax = Vector2.one;
+            backIconRt.offsetMin = new Vector2(10f, 10f);
+            backIconRt.offsetMax = new Vector2(-10f, -10f);
 
             // Title: "CỬA HÀNG" placed next to back button
             GameObject titleObj = new GameObject("Title");
@@ -2574,10 +2627,14 @@ namespace MechChess.UI
             for (int i = 0; i < 4; i++)
             {
                 int idx = i;
-                GameObject btnObj = new GameObject("DockBtn_" + i);
+                GameObject btnObj = new GameObject("DockBtn_" + i, typeof(RectTransform));
                 btnObj.transform.SetParent(dockObj.transform, false);
 
+                Image btnHitImg = btnObj.AddComponent<Image>();
+                btnHitImg.color = Color.clear;
+
                 Button btn = btnObj.AddComponent<Button>();
+                btn.targetGraphic = btnHitImg;
                 btn.onClick.AddListener(() => dockActions[idx]?.Invoke());
                 btnObj.AddComponent<MenuButtonEffect>();
 
@@ -2939,7 +2996,12 @@ namespace MechChess.UI
         {
             _profileModal = CreateModalOverlay(parent, "Screen12_ProfileModal");
 
-            // Centered Main Window Card (1320 x 680)
+            // Tapping backdrop closes modal
+            Button overlayBtn = _profileModal.GetComponent<Button>();
+            if (overlayBtn == null) overlayBtn = _profileModal.AddComponent<Button>();
+            overlayBtn.onClick.AddListener(() => _profileModal.SetActive(false));
+
+            // Centered Main Cyber Profile Card (1280 x 510) - Prominent, Big, Crisp
             GameObject cardObj = new GameObject("ProfileCard");
             cardObj.transform.SetParent(_profileModal.transform, false);
             RectTransform cRt = cardObj.AddComponent<RectTransform>();
@@ -2947,80 +3009,45 @@ namespace MechChess.UI
             cRt.anchorMax = new Vector2(0.5f, 0.5f);
             cRt.pivot = new Vector2(0.5f, 0.5f);
             cRt.anchoredPosition = Vector2.zero;
-            cRt.sizeDelta = new Vector2(1320f, 680f);
+            cRt.sizeDelta = new Vector2(1280f, 510f);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            Sprite winBgSprite = ArcaneAssetLoader.LoadArcaneSprite("mode_select_window_bg.png");
-            if (winBgSprite != null)
-            {
-                cardBg.sprite = winBgSprite;
-                cardBg.type = Image.Type.Simple;
-            }
-            else
-            {
-                cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1320, 680, 24f, new Color(0.03f, 0.08f, 0.16f, 0.94f), ColCyanBorder, 2f);
-                cardBg.type = Image.Type.Sliced;
-            }
+            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1280, 510, 22f, new Color(0.02f, 0.05f, 0.10f, 0.96f), ColCyanBorder, 2.5f);
+            cardBg.type = Image.Type.Sliced;
+            cardBg.raycastTarget = true; // Blocks click from closing modal when tapping inside
 
-            // Window Header Bar
-            GameObject headerObj = new GameObject("ProfileHeader");
-            headerObj.transform.SetParent(cardObj.transform, false);
-            RectTransform hRt = headerObj.AddComponent<RectTransform>();
-            hRt.anchorMin = new Vector2(0.5f, 1f);
-            hRt.anchorMax = new Vector2(0.5f, 1f);
-            hRt.pivot = new Vector2(0.5f, 1f);
-            hRt.anchoredPosition = new Vector2(0f, -14f);
-            hRt.sizeDelta = new Vector2(1240f, 54f);
+            // Close Button [✕] at Top-Right
+            GameObject closeBtnObj = new GameObject("BtnClose");
+            closeBtnObj.transform.SetParent(cardObj.transform, false);
+            Image cbImg = closeBtnObj.AddComponent<Image>();
+            cbImg.sprite = ArcaneAssetLoader.GetCircleSprite(36, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
+            Button cbBtn = closeBtnObj.AddComponent<Button>();
+            cbBtn.onClick.AddListener(() => _profileModal.SetActive(false));
+            closeBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform cbRt = closeBtnObj.GetComponent<RectTransform>();
+            cbRt.anchorMin = new Vector2(1f, 1f);
+            cbRt.anchorMax = new Vector2(1f, 1f);
+            cbRt.pivot = new Vector2(1f, 1f);
+            cbRt.anchoredPosition = new Vector2(-16f, -16f);
+            cbRt.sizeDelta = new Vector2(36f, 36f);
 
-            // Back Button [ ❮ ]
-            GameObject backBtnObj = new GameObject("BtnBack");
-            backBtnObj.transform.SetParent(headerObj.transform, false);
-            Image bbImg = backBtnObj.AddComponent<Image>();
-            bbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(44, 44, 10f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
-            Button bbBtn = backBtnObj.AddComponent<Button>();
-            bbBtn.onClick.AddListener(() => _profileModal.SetActive(false));
-            backBtnObj.AddComponent<MenuButtonEffect>();
-            RectTransform bbRt = backBtnObj.GetComponent<RectTransform>();
-            bbRt.anchorMin = new Vector2(0f, 0.5f);
-            bbRt.anchorMax = new Vector2(0f, 0.5f);
-            bbRt.pivot = new Vector2(0f, 0.5f);
-            bbRt.anchoredPosition = new Vector2(10f, 0f);
-            bbRt.sizeDelta = new Vector2(44f, 44f);
-
-            GameObject backTxtObj = new GameObject("Txt");
-            backTxtObj.transform.SetParent(backBtnObj.transform, false);
-            Text bkt = backTxtObj.AddComponent<Text>();
-            bkt.text = "❮";
-            bkt.font = font;
-            bkt.fontSize = 18;
-            bkt.fontStyle = FontStyle.Bold;
-            bkt.alignment = TextAnchor.MiddleCenter;
-            bkt.color = ColCyanGlow;
-            RectTransform bktrt = backTxtObj.GetComponent<RectTransform>();
-            bktrt.anchorMin = Vector2.zero;
-            bktrt.anchorMax = Vector2.one;
-            bktrt.offsetMin = Vector2.zero;
-            bktrt.offsetMax = Vector2.zero;
-
-            // Title: "12. Hồ sơ người chơi (Profile)"
-            GameObject titleObj = new GameObject("Title");
-            titleObj.transform.SetParent(headerObj.transform, false);
-            Text titleTxt = titleObj.AddComponent<Text>();
-            titleTxt.text = "12. Hồ sơ người chơi (Profile)";
-            titleTxt.font = font;
-            titleTxt.fontSize = 20;
-            titleTxt.fontStyle = FontStyle.Bold;
-            titleTxt.alignment = TextAnchor.MiddleLeft;
-            titleTxt.color = ColCyanGlow;
-            RectTransform tRt = titleObj.GetComponent<RectTransform>();
-            tRt.anchorMin = new Vector2(0f, 0.5f);
-            tRt.anchorMax = new Vector2(0f, 0.5f);
-            tRt.pivot = new Vector2(0f, 0.5f);
-            tRt.anchoredPosition = new Vector2(64f, 0f);
-            tRt.sizeDelta = new Vector2(400f, 36f);
+            GameObject cbTxtObj = new GameObject("Txt");
+            cbTxtObj.transform.SetParent(closeBtnObj.transform, false);
+            Text cbt = cbTxtObj.AddComponent<Text>();
+            cbt.text = "✕";
+            cbt.font = font;
+            cbt.fontSize = 16;
+            cbt.fontStyle = FontStyle.Bold;
+            cbt.alignment = TextAnchor.MiddleCenter;
+            cbt.color = ColCyanGlow;
+            RectTransform cbtrt = cbTxtObj.GetComponent<RectTransform>();
+            cbtrt.anchorMin = Vector2.zero;
+            cbtrt.anchorMax = Vector2.one;
+            cbtrt.offsetMin = Vector2.zero;
+            cbtrt.offsetMax = Vector2.zero;
 
             // =====================================================================
-            // LEFT PANEL: Player Avatar, Name, Level, EXP Bar & Stats Table Card
+            // LEFT PANEL: Avatar + Info (Top) & Stats Table Card (Bottom)
             // =====================================================================
             GameObject leftPanel = new GameObject("LeftPanel");
             leftPanel.transform.SetParent(cardObj.transform, false);
@@ -3028,102 +3055,114 @@ namespace MechChess.UI
             lpRt.anchorMin = new Vector2(0.5f, 0.5f);
             lpRt.anchorMax = new Vector2(0.5f, 0.5f);
             lpRt.pivot = new Vector2(0.5f, 0.5f);
-            lpRt.anchoredPosition = new Vector2(-330f, -25f);
-            lpRt.sizeDelta = new Vector2(540f, 540f);
+            lpRt.anchoredPosition = new Vector2(-335f, 0f);
+            lpRt.sizeDelta = new Vector2(550f, 460f);
 
-            // Circular Avatar (profile_avatar_round.png)
-            GameObject avObj = new GameObject("Avatar");
-            avObj.transform.SetParent(leftPanel.transform, false);
+            // Circular Avatar Frame with glowing cyan ring (96x96)
+            GameObject avFrame = new GameObject("AvatarFrame");
+            avFrame.transform.SetParent(leftPanel.transform, false);
+            Image avFrameImg = avFrame.AddComponent<Image>();
+            avFrameImg.sprite = ArcaneAssetLoader.GetCircleSprite(96, new Color(0.04f, 0.12f, 0.22f, 0.95f), ColCyanGlow, 2.5f);
+            RectTransform afRt = avFrame.GetComponent<RectTransform>();
+            afRt.anchoredPosition = new Vector2(-215f, 160f);
+            afRt.sizeDelta = new Vector2(96f, 96f);
+
+            // Inner Avatar Image
+            GameObject avObj = new GameObject("AvatarImg");
+            avObj.transform.SetParent(avFrame.transform, false);
             Image avImg = avObj.AddComponent<Image>();
             Sprite avSp = ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png");
             if (avSp != null) avImg.sprite = avSp;
             else avImg.color = ColCyanBorder;
             RectTransform avRt = avObj.GetComponent<RectTransform>();
-            avRt.anchorMin = new Vector2(0f, 1f);
-            avRt.anchorMax = new Vector2(0f, 1f);
-            avRt.pivot = new Vector2(0f, 1f);
-            avRt.anchoredPosition = new Vector2(20f, -15f);
-            avRt.sizeDelta = new Vector2(100f, 100f);
+            avRt.anchorMin = new Vector2(0.5f, 0.5f);
+            avRt.anchorMax = new Vector2(0.5f, 0.5f);
+            avRt.pivot = new Vector2(0.5f, 0.5f);
+            avRt.anchoredPosition = Vector2.zero;
+            avRt.sizeDelta = new Vector2(84f, 84f);
 
-            // Username: "Player001"
-            CreateTextComp(leftPanel.transform, "Player001", 22, FontStyle.Bold, ColTextWhite, font, new Vector2(-30f, 235f), new Vector2(220f, 28f), TextAnchor.MiddleLeft);
+            // Username: "Player001" (Bold 24 White)
+            string currentName = "Player001";
+            if (UserAccountManager.Instance != null && !string.IsNullOrEmpty(UserAccountManager.Instance.CurrentUsername))
+                currentName = UserAccountManager.Instance.CurrentUsername;
+            CreateTextComp(leftPanel.transform, currentName, 24, FontStyle.Bold, ColTextWhite, font, new Vector2(-35f, 188f), new Vector2(230f, 32f), TextAnchor.MiddleLeft);
 
-            // Level: "Lv. 5"
-            CreateTextComp(leftPanel.transform, "Lv. 5", 14, FontStyle.Normal, new Color(0.0f, 0.85f, 1.0f), font, new Vector2(-80f, 205f), new Vector2(120f, 22f), TextAnchor.MiddleLeft);
+            // Level: "Lv. 5" (Cyan 15)
+            CreateTextComp(leftPanel.transform, "Lv. 5", 15, FontStyle.Bold, ColCyanGlow, font, new Vector2(-35f, 158f), new Vector2(120f, 22f), TextAnchor.MiddleLeft);
 
-            // EXP Progress Bar (Width 190px, fill ~64%) + "320 / 500"
+            // EXP Progress Bar (Width 180px, height 14px, fill ~64%) + "320 / 500"
             GameObject expBarObj = new GameObject("ExpBarBg");
             expBarObj.transform.SetParent(leftPanel.transform, false);
             Image expBg = expBarObj.AddComponent<Image>();
-            expBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(190, 14, 7f, new Color(0.06f, 0.12f, 0.22f, 0.95f), new Color(0.12f, 0.35f, 0.55f, 0.8f), 1f);
+            expBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(180, 14, 7f, new Color(0.05f, 0.10f, 0.20f, 0.95f), new Color(0.10f, 0.35f, 0.55f, 0.8f), 1f);
             expBg.type = Image.Type.Sliced;
             RectTransform expRt = expBarObj.GetComponent<RectTransform>();
-            expRt.anchorMin = new Vector2(0.5f, 0.5f);
-            expRt.anchorMax = new Vector2(0.5f, 0.5f);
-            expRt.pivot = new Vector2(0.5f, 0.5f);
-            expRt.anchoredPosition = new Vector2(-45f, 180f);
-            expRt.sizeDelta = new Vector2(190f, 14f);
+            expRt.anchoredPosition = new Vector2(-40f, 130f);
+            expRt.sizeDelta = new Vector2(180f, 14f);
 
             GameObject expFillObj = new GameObject("ExpFill");
             expFillObj.transform.SetParent(expBarObj.transform, false);
             Image expFill = expFillObj.AddComponent<Image>();
-            expFill.sprite = ArcaneAssetLoader.GetGlassBoxSprite(122, 14, 7f, ColCyanGlow, ColCyanGlow, 0f);
+            expFill.sprite = ArcaneAssetLoader.GetGlassBoxSprite(115, 14, 7f, ColCyanGlow, ColCyanGlow, 0f);
             expFill.type = Image.Type.Sliced;
             RectTransform fillRt = expFillObj.GetComponent<RectTransform>();
             fillRt.anchorMin = new Vector2(0f, 0.5f);
             fillRt.anchorMax = new Vector2(0f, 0.5f);
             fillRt.pivot = new Vector2(0f, 0.5f);
             fillRt.anchoredPosition = Vector2.zero;
-            fillRt.sizeDelta = new Vector2(122f, 14f); // 320 / 500 = 64%
+            fillRt.sizeDelta = new Vector2(115f, 14f); // 320 / 500 = 64%
 
-            CreateTextComp(leftPanel.transform, "320 / 500", 12, FontStyle.Bold, new Color(0.82f, 0.90f, 0.98f, 0.95f), font, new Vector2(110f, 180f), new Vector2(90f, 20f), TextAnchor.MiddleLeft);
+            CreateTextComp(leftPanel.transform, "320 / 500", 13, FontStyle.Bold, new Color(0.85f, 0.92f, 1.0f), font, new Vector2(105f, 130f), new Vector2(90f, 20f), TextAnchor.MiddleLeft);
 
-            // Stats Table Card (Lower Left)
+            // ---------------------------------------------------------------------
+            // Stats Table Card (Lower Left - Matching Image 2)
+            // ---------------------------------------------------------------------
             GameObject statsCard = new GameObject("StatsCard");
             statsCard.transform.SetParent(leftPanel.transform, false);
             Image scBg = statsCard.AddComponent<Image>();
-            scBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(500, 250, 18f, new Color(0.04f, 0.08f, 0.16f, 0.92f), ColMutedBorder, 1.2f);
+            scBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(530, 260, 16f, new Color(0.02f, 0.06f, 0.12f, 0.94f), ColMutedBorder, 1.2f);
             scBg.type = Image.Type.Sliced;
             RectTransform scRt = statsCard.GetComponent<RectTransform>();
-            scRt.anchorMin = new Vector2(0.5f, 0.5f);
-            scRt.anchorMax = new Vector2(0.5f, 0.5f);
-            scRt.pivot = new Vector2(0.5f, 0.5f);
-            scRt.anchoredPosition = new Vector2(0f, -25f);
-            scRt.sizeDelta = new Vector2(500f, 250f);
+            scRt.anchoredPosition = new Vector2(0f, -50f);
+            scRt.sizeDelta = new Vector2(530f, 260f);
 
-            // Subtle column separator lines in Stats Table
-            float[] divX = { -120f, 0f, 120f };
+            // 3 Column Dividers
+            float[] divX = { -130f, 0f, 130f };
             for (int d = 0; d < 3; d++)
             {
                 GameObject divObj = new GameObject("ColDiv_" + d);
                 divObj.transform.SetParent(statsCard.transform, false);
                 Image divImg = divObj.AddComponent<Image>();
-                divImg.color = new Color(0.08f, 0.22f, 0.38f, 0.45f);
+                divImg.color = new Color(0.08f, 0.28f, 0.45f, 0.50f);
                 RectTransform drt = divObj.GetComponent<RectTransform>();
                 drt.anchoredPosition = new Vector2(divX[d], 0f);
-                drt.sizeDelta = new Vector2(1f, 180f);
+                drt.sizeDelta = new Vector2(1.5f, 200f);
             }
-            // Horizontal divider line between rows
+
+            // 1 Horizontal Divider
             GameObject hDivObj = new GameObject("RowDiv");
             hDivObj.transform.SetParent(statsCard.transform, false);
             Image hDivImg = hDivObj.AddComponent<Image>();
-            hDivImg.color = new Color(0.08f, 0.22f, 0.38f, 0.45f);
+            hDivImg.color = new Color(0.08f, 0.28f, 0.45f, 0.50f);
             RectTransform hdrt = hDivObj.GetComponent<RectTransform>();
-            hdrt.anchoredPosition = new Vector2(0f, -18f);
-            hdrt.sizeDelta = new Vector2(460f, 1f);
+            hdrt.anchoredPosition = new Vector2(0f, -10f);
+            hdrt.sizeDelta = new Vector2(490f, 1.5f);
 
-            // 4 Columns: Elo, Thắng, Thua, Hòa
-            float[] colX = { -180f, -60f, 60f, 180f };
+            // 4 Column Headers: Elo, Thắng, Thua, Hòa
+            float[] colX = { -195f, -65f, 65f, 195f };
             string[] statHeaders = { "Elo", "Thắng", "Thua", "Hòa" };
             for (int i = 0; i < 4; i++)
             {
-                CreateTextComp(statsCard.transform, statHeaders[i], 14, FontStyle.Normal, new Color(0.58f, 0.68f, 0.80f), font, new Vector2(colX[i], 68f), new Vector2(100f, 26f), TextAnchor.MiddleCenter);
+                CreateTextComp(statsCard.transform, statHeaders[i], 16, FontStyle.Normal, ColTextMuted, font, new Vector2(colX[i], 78f), new Vector2(100f, 26f), TextAnchor.MiddleCenter);
             }
 
-            // Row 1: 1250 (Cyan), 129 (White), 8 (White), Draw Icon
-            CreateTextComp(statsCard.transform, "1250", 22, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[0], 15f), new Vector2(100f, 32f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "129", 19, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], 15f), new Vector2(100f, 32f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "8", 19, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], 15f), new Vector2(100f, 32f), TextAnchor.MiddleCenter);
+            // Row 1: 1250 (Cyan 24 Bold), 129 (White 21 Bold), 8 (White 21 Bold), Draw Icon
+            int currentElo = 1250;
+            if (UserAccountManager.Instance != null && UserAccountManager.Instance.CurrentElo > 0)
+                currentElo = UserAccountManager.Instance.CurrentElo;
+            CreateTextComp(statsCard.transform, currentElo.ToString(), 24, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[0], 30f), new Vector2(100f, 32f), TextAnchor.MiddleCenter);
+            CreateTextComp(statsCard.transform, "129", 21, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], 30f), new Vector2(100f, 32f), TextAnchor.MiddleCenter);
+            CreateTextComp(statsCard.transform, "8", 21, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], 30f), new Vector2(100f, 32f), TextAnchor.MiddleCenter);
 
             // Draw Icon (profile_draw_icon.png)
             GameObject drawIconObj = new GameObject("DrawIcon");
@@ -3134,8 +3173,8 @@ namespace MechChess.UI
             else drawIconImg.color = ColCyanGlow;
             drawIconImg.preserveAspect = true;
             RectTransform diRt = drawIconObj.GetComponent<RectTransform>();
-            diRt.anchoredPosition = new Vector2(colX[3], 15f);
-            diRt.sizeDelta = new Vector2(28f, 28f);
+            diRt.anchoredPosition = new Vector2(colX[3], 30f);
+            diRt.sizeDelta = new Vector2(32f, 32f);
 
             // Row 2: Rank Crest, 12 (White), 8 (Cyan), 2 (White)
             GameObject rankCrestObj = new GameObject("RankCrest");
@@ -3146,24 +3185,15 @@ namespace MechChess.UI
             else rankCrestImg.color = ColCyanGlow;
             rankCrestImg.preserveAspect = true;
             RectTransform rcRt = rankCrestObj.GetComponent<RectTransform>();
-            rcRt.anchoredPosition = new Vector2(colX[0], -50f);
-            rcRt.sizeDelta = new Vector2(30f, 30f);
+            rcRt.anchoredPosition = new Vector2(colX[0], -62f);
+            rcRt.sizeDelta = new Vector2(36f, 36f);
 
-            CreateTextComp(statsCard.transform, "12", 17, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], -50f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "8", 17, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[2], -50f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "2", 17, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], -50f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
-
-            // Logout Button at very bottom of Left Panel
-            CreateMenuActionButton(leftPanel.transform, "BtnProfileLogout", "ĐĂNG XUẤT", new Vector2(0f, -225f), new Vector2(200f, 38f), new Color(0.25f, 0.08f, 0.08f, 0.90f), new Color(1f, 0.45f, 0.45f), 13, () =>
-            {
-                if (UserAccountManager.Instance != null) UserAccountManager.Instance.Logout();
-                UpdateUserProfileUI();
-                _profileModal.SetActive(false);
-                ShowToast("Đã đăng xuất tài khoản.", ToastType.Info);
-            }, font, new Color(0.85f, 0.25f, 0.25f), 1.2f);
+            CreateTextComp(statsCard.transform, "12", 19, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], -62f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
+            CreateTextComp(statsCard.transform, "8", 19, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[2], -62f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
+            CreateTextComp(statsCard.transform, "2", 19, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], -62f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
 
             // =====================================================================
-            // RIGHT PANEL: Tabs (Lịch sử đấu, Thành tích, Skin) & Match History Card
+            // RIGHT PANEL: Sub-Tabs & Match History Card (Matching Image 2)
             // =====================================================================
             GameObject rightPanel = new GameObject("RightPanel");
             rightPanel.transform.SetParent(cardObj.transform, false);
@@ -3171,23 +3201,23 @@ namespace MechChess.UI
             rpRt.anchorMin = new Vector2(0.5f, 0.5f);
             rpRt.anchorMax = new Vector2(0.5f, 0.5f);
             rpRt.pivot = new Vector2(0.5f, 0.5f);
-            rpRt.anchoredPosition = new Vector2(310f, -25f);
-            rpRt.sizeDelta = new Vector2(640f, 540f);
+            rpRt.anchoredPosition = new Vector2(305f, 0f);
+            rpRt.sizeDelta = new Vector2(620f, 460f);
 
             // Category Sub-Tabs: Lịch sử đấu (Active), Thành tích, Skin
             GameObject profileTabs = new GameObject("ProfileTabs");
             profileTabs.transform.SetParent(rightPanel.transform, false);
             RectTransform ptRt = profileTabs.AddComponent<RectTransform>();
-            ptRt.anchorMin = new Vector2(0.5f, 0.5f);
-            ptRt.anchorMax = new Vector2(0.5f, 0.5f);
-            ptRt.pivot = new Vector2(0.5f, 0.5f);
-            ptRt.anchoredPosition = new Vector2(0f, 235f);
-            ptRt.sizeDelta = new Vector2(640f, 46f);
+            ptRt.anchoredPosition = new Vector2(0f, 185f);
+            ptRt.sizeDelta = new Vector2(610f, 46f);
 
             string[] pTabs = { "Lịch sử đấu", "Thành tích", "Skin" };
             Sprite pTabActSp = ArcaneAssetLoader.LoadArcaneSprite("profile_tab_active.png");
+            if (pTabActSp == null) pTabActSp = ArcaneAssetLoader.GetGlassBoxSprite(190, 44, 14f, new Color(0.04f, 0.16f, 0.32f, 0.95f), ColCyanGlow, 2f);
             Sprite pTabInactSp = ArcaneAssetLoader.LoadArcaneSprite("profile_tab_inactive.png");
 
+            float[] tabX = { -195f, 15f, 210f };
+            float[] tabW = { 190f, 170f, 150f };
             for (int i = 0; i < 3; i++)
             {
                 int tabIdx = i;
@@ -3205,21 +3235,18 @@ namespace MechChess.UI
                 tObj.AddComponent<MenuButtonEffect>();
 
                 RectTransform rt = tObj.GetComponent<RectTransform>();
-                rt.anchorMin = new Vector2(0.5f, 0.5f);
-                rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(-210f + i * 210f, 0f);
-                rt.sizeDelta = new Vector2(200f, 44f);
+                rt.anchoredPosition = new Vector2(tabX[i], 0f);
+                rt.sizeDelta = new Vector2(tabW[i], 44f);
 
                 GameObject txtObj = new GameObject("Txt");
                 txtObj.transform.SetParent(tObj.transform, false);
                 Text txtComp = txtObj.AddComponent<Text>();
                 txtComp.text = pTabs[i];
                 txtComp.font = font;
-                txtComp.fontSize = 15;
+                txtComp.fontSize = 16;
                 txtComp.fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
                 txtComp.alignment = TextAnchor.MiddleCenter;
-                txtComp.color = active ? ColCyanGlow : ColTextWhite;
+                txtComp.color = active ? ColTextWhite : ColTextMuted;
                 _profileTabTexts[i] = txtComp;
 
                 RectTransform txtRt = txtObj.GetComponent<RectTransform>();
@@ -3234,29 +3261,26 @@ namespace MechChess.UI
             historyContainer.transform.SetParent(rightPanel.transform, false);
             _profileTabContainers[0] = historyContainer;
             Image hcBg = historyContainer.AddComponent<Image>();
-            hcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(620, 410, 20f, new Color(0.03f, 0.07f, 0.14f, 0.94f), ColMutedBorder, 1.2f);
+            hcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(610, 360, 18f, new Color(0.02f, 0.05f, 0.10f, 0.94f), ColMutedBorder, 1.2f);
             hcBg.type = Image.Type.Sliced;
             RectTransform hcRt = historyContainer.GetComponent<RectTransform>();
-            hcRt.anchorMin = new Vector2(0.5f, 0.5f);
-            hcRt.anchorMax = new Vector2(0.5f, 0.5f);
-            hcRt.pivot = new Vector2(0.5f, 0.5f);
-            hcRt.anchoredPosition = new Vector2(0f, -20f);
-            hcRt.sizeDelta = new Vector2(620f, 410f);
+            hcRt.anchoredPosition = new Vector2(0f, -40f);
+            hcRt.sizeDelta = new Vector2(610f, 360f);
 
             // Horizontal row dividers in Match History
-            float[] rowDivY = { 50f, -50f };
+            float[] rowDivY = { 35f, -65f };
             for (int rd = 0; rd < 2; rd++)
             {
                 GameObject rdivObj = new GameObject("RowDiv_" + rd);
                 rdivObj.transform.SetParent(historyContainer.transform, false);
                 Image rdivImg = rdivObj.AddComponent<Image>();
-                rdivImg.color = new Color(0.08f, 0.22f, 0.38f, 0.45f);
+                rdivImg.color = new Color(0.08f, 0.28f, 0.45f, 0.50f);
                 RectTransform rdrt = rdivObj.GetComponent<RectTransform>();
                 rdrt.anchoredPosition = new Vector2(0f, rowDivY[rd]);
-                rdrt.sizeDelta = new Vector2(560f, 1f);
+                rdrt.sizeDelta = new Vector2(560f, 1.5f);
             }
 
-            // 3 Match Rows matching user image exactly:
+            // 3 Match Rows matching Image 2 exactly:
             // Row 0: Silver mech crest | VS AI | 1 - 0 | 10/10/2026
             // Row 1: Red circle avatar | VS Player | 0 - 1 | 08/10/2026
             // Row 2: Blue circle avatar | VS AI | 1 - 0 | 05/10/2026
@@ -3264,17 +3288,14 @@ namespace MechChess.UI
             string[] rowIcons = { "profile_vs_ai_icon.png", "profile_vs_player_icon.png", "profile_vs_ai_round.png" };
             string[] dates = { "10/10/2026", "08/10/2026", "05/10/2026" };
 
-            float[] rowY = { 100f, 0f, -100f };
+            float[] rowY = { 90f, -15f, -115f };
             for (int i = 0; i < 3; i++)
             {
                 GameObject rowObj = new GameObject("Row_" + i);
                 rowObj.transform.SetParent(historyContainer.transform, false);
                 RectTransform rRt = rowObj.AddComponent<RectTransform>();
-                rRt.anchorMin = new Vector2(0.5f, 0.5f);
-                rRt.anchorMax = new Vector2(0.5f, 0.5f);
-                rRt.pivot = new Vector2(0.5f, 0.5f);
                 rRt.anchoredPosition = new Vector2(0f, rowY[i]);
-                rRt.sizeDelta = new Vector2(580f, 76f);
+                rRt.sizeDelta = new Vector2(570f, 80f);
 
                 // Row Icon
                 GameObject rIconObj = new GameObject("Icon");
@@ -3285,43 +3306,37 @@ namespace MechChess.UI
                 else rIconImg.color = ColCyanGlow;
                 rIconImg.preserveAspect = true;
                 RectTransform riRt = rIconObj.GetComponent<RectTransform>();
-                riRt.anchorMin = new Vector2(0.5f, 0.5f);
-                riRt.anchorMax = new Vector2(0.5f, 0.5f);
-                riRt.pivot = new Vector2(0.5f, 0.5f);
                 riRt.anchoredPosition = new Vector2(-240f, 0f);
-                riRt.sizeDelta = new Vector2(42f, 42f);
+                riRt.sizeDelta = new Vector2(44f, 44f);
 
                 // Opponent Name
-                CreateTextComp(rowObj.transform, opponents[i], 17, FontStyle.Bold, ColTextWhite, font, new Vector2(-130f, 0f), new Vector2(160f, 30f), TextAnchor.MiddleLeft);
+                CreateTextComp(rowObj.transform, opponents[i], 18, FontStyle.Bold, ColTextWhite, font, new Vector2(-140f, 0f), new Vector2(160f, 30f), TextAnchor.MiddleLeft);
 
                 // Score
                 if (i == 1)
                 {
-                    // Loss score: 0 - 1 (1 in red)
+                    // Loss score: 0 - 1 (1 in bright red)
                     GameObject scoreObj = new GameObject("Score");
                     scoreObj.transform.SetParent(rowObj.transform, false);
                     Text scoreTxt = scoreObj.AddComponent<Text>();
-                    scoreTxt.text = "0 - <color=#FF5555>1</color>";
+                    scoreTxt.text = "0 - <color=#FF4444>1</color>";
                     scoreTxt.font = font;
-                    scoreTxt.fontSize = 18;
+                    scoreTxt.fontSize = 20;
                     scoreTxt.fontStyle = FontStyle.Bold;
                     scoreTxt.alignment = TextAnchor.MiddleCenter;
                     scoreTxt.color = ColTextWhite;
                     scoreTxt.supportRichText = true;
                     RectTransform sRt = scoreObj.GetComponent<RectTransform>();
-                    sRt.anchorMin = new Vector2(0.5f, 0.5f);
-                    sRt.anchorMax = new Vector2(0.5f, 0.5f);
-                    sRt.pivot = new Vector2(0.5f, 0.5f);
-                    sRt.anchoredPosition = new Vector2(30f, 0f);
+                    sRt.anchoredPosition = new Vector2(35f, 0f);
                     sRt.sizeDelta = new Vector2(100f, 30f);
                 }
                 else
                 {
-                    CreateTextComp(rowObj.transform, "1 - 0", 18, FontStyle.Bold, ColTextWhite, font, new Vector2(30f, 0f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
+                    CreateTextComp(rowObj.transform, "1 - 0", 20, FontStyle.Bold, ColTextWhite, font, new Vector2(35f, 0f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
                 }
 
                 // Date
-                CreateTextComp(rowObj.transform, dates[i], 15, FontStyle.Normal, new Color(0.55f, 0.65f, 0.78f), font, new Vector2(200f, 0f), new Vector2(130f, 30f), TextAnchor.MiddleRight);
+                CreateTextComp(rowObj.transform, dates[i], 15, FontStyle.Normal, new Color(0.65f, 0.75f, 0.88f), font, new Vector2(210f, 0f), new Vector2(130f, 30f), TextAnchor.MiddleRight);
             }
 
             // Tab 1 Content: Achievements (Thành tích)
@@ -3329,21 +3344,18 @@ namespace MechChess.UI
             achContainer.transform.SetParent(rightPanel.transform, false);
             _profileTabContainers[1] = achContainer;
             Image achBg = achContainer.AddComponent<Image>();
-            achBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(660, 380, 20f, new Color(0.03f, 0.07f, 0.14f, 0.94f), ColMutedBorder, 1.2f);
+            achBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(610, 360, 18f, new Color(0.02f, 0.05f, 0.10f, 0.94f), ColMutedBorder, 1.2f);
             achBg.type = Image.Type.Sliced;
             RectTransform achRt = achContainer.GetComponent<RectTransform>();
-            achRt.anchorMin = new Vector2(0.5f, 0.5f);
-            achRt.anchorMax = new Vector2(0.5f, 0.5f);
-            achRt.pivot = new Vector2(0.5f, 0.5f);
             achRt.anchoredPosition = new Vector2(0f, -40f);
-            achRt.sizeDelta = new Vector2(660f, 380f);
+            achRt.sizeDelta = new Vector2(610f, 360f);
 
             string[] achTitles = { "Chiến Tướng Khởi Nguyên", "Đại Sư Đấu Máy", "Bậc Thầy AR" };
             string[] achProgress = { "100 / 100 (Đạt)", "Hoàn thành", "38 / 50" };
             for (int i = 0; i < 3; i++)
             {
-                CreateTextComp(achContainer.transform, "🏆  " + achTitles[i], 16, FontStyle.Bold, ColTextWhite, font, new Vector2(-120f, 90f - i * 90f), new Vector2(320f, 30f), TextAnchor.MiddleLeft);
-                CreateTextComp(achContainer.transform, achProgress[i], 14, FontStyle.Bold, ColCyanGlow, font, new Vector2(210f, 90f - i * 90f), new Vector2(130f, 30f), TextAnchor.MiddleRight);
+                CreateTextComp(achContainer.transform, "🏆  " + achTitles[i], 16, FontStyle.Bold, ColTextWhite, font, new Vector2(-120f, 80f - i * 80f), new Vector2(320f, 30f), TextAnchor.MiddleLeft);
+                CreateTextComp(achContainer.transform, achProgress[i], 15, FontStyle.Bold, ColCyanGlow, font, new Vector2(190f, 80f - i * 80f), new Vector2(130f, 30f), TextAnchor.MiddleRight);
             }
             achContainer.SetActive(false);
 
@@ -3352,19 +3364,16 @@ namespace MechChess.UI
             skinTabContainer.transform.SetParent(rightPanel.transform, false);
             _profileTabContainers[2] = skinTabContainer;
             Image stkBg = skinTabContainer.AddComponent<Image>();
-            stkBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(660, 380, 20f, new Color(0.03f, 0.07f, 0.14f, 0.94f), ColMutedBorder, 1.2f);
+            stkBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(610, 360, 18f, new Color(0.02f, 0.05f, 0.10f, 0.94f), ColMutedBorder, 1.2f);
             stkBg.type = Image.Type.Sliced;
             RectTransform stkRt = skinTabContainer.GetComponent<RectTransform>();
-            stkRt.anchorMin = new Vector2(0.5f, 0.5f);
-            stkRt.anchorMax = new Vector2(0.5f, 0.5f);
-            stkRt.pivot = new Vector2(0.5f, 0.5f);
             stkRt.anchoredPosition = new Vector2(0f, -40f);
-            stkRt.sizeDelta = new Vector2(660f, 380f);
+            stkRt.sizeDelta = new Vector2(610f, 360f);
 
             string[] ownedSkins = { "Knight of Light (Đang dùng)", "Dark Legion (Đã sở hữu)", "Cyber Future (Đã sở hữu)" };
             for (int i = 0; i < 3; i++)
             {
-                CreateTextComp(skinTabContainer.transform, "🛡  " + ownedSkins[i], 16, FontStyle.Bold, ColTextWhite, font, new Vector2(-120f, 90f - i * 90f), new Vector2(320f, 30f), TextAnchor.MiddleLeft);
+                CreateTextComp(skinTabContainer.transform, "🛡  " + ownedSkins[i], 16, FontStyle.Bold, ColTextWhite, font, new Vector2(-120f, 80f - i * 80f), new Vector2(320f, 30f), TextAnchor.MiddleLeft);
             }
             skinTabContainer.SetActive(false);
 
@@ -3418,7 +3427,7 @@ namespace MechChess.UI
             cRt.anchoredPosition = Vector2.zero;
             cRt.sizeDelta = new Vector2(1280f, 720f);
 
-            CreateModalHeader(cardObj.transform, "❮  KHAI CUỘC - Phòng thủ Sicilian", () => _learnScreenModal.SetActive(false), font);
+            CreateModalHeader(cardObj.transform, "<  KHAI CUỘC - Phòng thủ Sicilian", () => _learnScreenModal.SetActive(false), font);
 
             // Left: Lessons List
             GameObject lessonsCol = new GameObject("LessonsColumn");
@@ -4136,8 +4145,14 @@ namespace MechChess.UI
                 case GameLaunchMode.AugmentedReality:
                     if (UIManager2D.Instance != null)
                     {
+                        UIManager2D.Instance.SetHUDVisible(true);
+                        UIManager2D.Instance.SetARHUDVisible(true);
                         UIManager2D.Instance.RecordMove("[BẮT ĐẦU] Chế độ AR Thực Tế Tăng Cường kích hoạt.");
-                        UIManager2D.Instance.OnToggleARClicked?.Invoke();
+                    }
+                    if (MechChess.AR.HybridARController.Instance != null)
+                    {
+                        MechChess.AR.HybridARController.Instance.ApplyDisplayMode(0);
+                        MechChess.AR.HybridARController.Instance.SetARActive(true);
                     }
                     ShowToast("Chế độ AR Camera sẵn sàng!", ToastType.Success);
                     break;
@@ -4155,11 +4170,13 @@ namespace MechChess.UI
 
         public void OpenAIDifficultyModal()
         {
+            CloseAllModals();
             if (_aiDifficultyModal != null) _aiDifficultyModal.SetActive(true);
         }
 
         public void OpenSettingsModal()
         {
+            CloseAllModals();
             if (_settingsModal != null)
             {
                 _settingsModal.SetActive(true);
@@ -4169,11 +4186,13 @@ namespace MechChess.UI
 
         public void OpenTutorialModal()
         {
+            CloseAllModals();
             if (_tutorialModal != null) _tutorialModal.SetActive(true);
         }
 
         public void OpenShopModal()
         {
+            CloseAllModals();
             if (_shopModal != null) _shopModal.SetActive(true);
         }
 
@@ -4204,6 +4223,7 @@ namespace MechChess.UI
             rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
+            obj.SetActive(false);
             return obj;
         }
 
@@ -4222,6 +4242,7 @@ namespace MechChess.UI
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
 
+            overlay.SetActive(false);
             return overlay;
         }
 
@@ -4350,6 +4371,7 @@ namespace MechChess.UI
             bg.type = Image.Type.Sliced;
 
             Button btn = btnObj.AddComponent<Button>();
+            btn.navigation = new Navigation { mode = Navigation.Mode.None };
             btn.onClick.AddListener(() => onClick?.Invoke());
             btnObj.AddComponent<MenuButtonEffect>();
 

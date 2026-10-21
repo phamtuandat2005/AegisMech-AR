@@ -65,6 +65,13 @@ namespace MechChess
                 }
             }
 
+            // 4. Suppress URP runtime debug manager overlay UI
+            try
+            {
+                UnityEngine.Rendering.DebugManager.instance.enableRuntimeUI = false;
+            }
+            catch { }
+
             Debug.Log("[MechChess Bootstrap] All Subsystems and EventSystem successfully initialized!");
         }
     }

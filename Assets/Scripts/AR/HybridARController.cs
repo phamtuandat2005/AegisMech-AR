@@ -60,7 +60,8 @@ namespace MechChess.AR
         public Transform chessboardRoot;
 
         [Header("Board Scale Configuration (F10)")]
-        public float currentScaleMeters = 0.40f; // 40cm default (20cm to 80cm range)
+        public float currentScaleMultiplier = 1.0f; // 1.0 = 100% standard full-size board (0.6x to 2.0x range)
+        public float currentScaleMeters => currentScaleMultiplier * 0.5f;
 
         // Webcam Video Feed
         private WebCamTexture _webcamTexture;
@@ -76,7 +77,7 @@ namespace MechChess.AR
         private GameObject _pipContainer;
         private GameObject _guidanceOverlay;
         private Text _scaleIndicatorText;
-        private bool _isGuidanceMinimized = false;
+        private bool _isGuidanceMinimized = true;
 
 #if UNITY_XR_ARFOUNDATION
         private ARRaycastManager _raycastManager;
@@ -87,7 +88,7 @@ namespace MechChess.AR
         private void Awake()
         {
             if (Instance == null) Instance = this;
-            else Destroy(gameObject);
+            else Destroy(this);
 
             SetupWebcamBackgroundUI();
 
@@ -117,7 +118,7 @@ namespace MechChess.AR
 
             // Default display mode: Pure Cyber Studio Arena (Mode 2)
             // Clean 3D studio chessboard at scale 1.0, with zero webcam background intrusion
-            currentScaleMeters = 0.40f;
+            currentScaleMultiplier = 1.0f;
             ApplyDisplayMode(2);
 
             // Initially hide AR overlays and ensure camera is stopped if MainMenu is active
@@ -211,52 +212,59 @@ namespace MechChess.AR
             _guidanceOverlay = new GameObject("AR_GuidanceOverlay");
             _guidanceOverlay.transform.SetParent(canvasObj.transform, false);
             Image guideBg = _guidanceOverlay.AddComponent<Image>();
-            guideBg.color = new Color(0.04f, 0.08f, 0.12f, 0.92f);
+            guideBg.color = new Color(0.04f, 0.08f, 0.12f, 0.94f);
             RectTransform guideRt = _guidanceOverlay.GetComponent<RectTransform>();
             guideRt.anchorMin = new Vector2(0.5f, 1f);
             guideRt.anchorMax = new Vector2(0.5f, 1f);
             guideRt.pivot = new Vector2(0.5f, 1f);
-            guideRt.anchoredPosition = new Vector2(0, -95);
-            guideRt.sizeDelta = new Vector2(1250, 52);
+            guideRt.anchoredPosition = new Vector2(0, -90);
+            guideRt.sizeDelta = new Vector2(1300, 58);
 
             // Guidance step instruction text
             GameObject guideTxtObj = new GameObject("InstructionText");
             guideTxtObj.transform.SetParent(_guidanceOverlay.transform, false);
             Text guideTxt = guideTxtObj.AddComponent<Text>();
-            guideTxt.text = "💡 HƯỚNG DẪN AR: 1. Quét camera quanh mặt bàn/sàn | 2. Chạm màn hình để cố định bàn cờ | 3. Chạm quân cờ để di chuyển";
+            guideTxt.text = "💡 HƯỚNG DẪN AR: 1. Quét camera quanh mặt bàn | 2. Chạm màn hình để chỉnh vị trí | 3. Chạm quân cờ để di chuyển";
             guideTxt.font = defaultFont;
-            guideTxt.fontSize = 13;
+            guideTxt.fontSize = 15;
+            guideTxt.fontStyle = FontStyle.Bold;
             guideTxt.alignment = TextAnchor.MiddleLeft;
             guideTxt.color = new Color(0.3f, 0.95f, 1.0f);
             RectTransform guideTxtRt = guideTxtObj.GetComponent<RectTransform>();
-            guideTxtRt.anchoredPosition = new Vector2(-155, 0);
-            guideTxtRt.sizeDelta = new Vector2(760, 40);
+            guideTxtRt.anchorMin = new Vector2(0f, 0.5f);
+            guideTxtRt.anchorMax = new Vector2(0f, 0.5f);
+            guideTxtRt.pivot = new Vector2(0f, 0.5f);
+            guideTxtRt.anchoredPosition = new Vector2(20, 0);
+            guideTxtRt.sizeDelta = new Vector2(820, 44);
 
             // Scale Indicator Text
             GameObject scaleLblObj = new GameObject("ScaleIndicator");
             scaleLblObj.transform.SetParent(_guidanceOverlay.transform, false);
             _scaleIndicatorText = scaleLblObj.AddComponent<Text>();
-            _scaleIndicatorText.text = "SIZE: 40 CM";
+            _scaleIndicatorText.text = "CỠ: 100%";
             _scaleIndicatorText.font = defaultFont;
-            _scaleIndicatorText.fontSize = 12;
+            _scaleIndicatorText.fontSize = 15;
             _scaleIndicatorText.fontStyle = FontStyle.Bold;
             _scaleIndicatorText.alignment = TextAnchor.MiddleCenter;
             _scaleIndicatorText.color = new Color(1.0f, 0.75f, 0.1f);
             RectTransform scaleLblRt = scaleLblObj.GetComponent<RectTransform>();
-            scaleLblRt.anchoredPosition = new Vector2(250, 0);
-            scaleLblRt.sizeDelta = new Vector2(100, 36);
+            scaleLblRt.anchorMin = new Vector2(1f, 0.5f);
+            scaleLblRt.anchorMax = new Vector2(1f, 0.5f);
+            scaleLblRt.pivot = new Vector2(1f, 0.5f);
+            scaleLblRt.anchoredPosition = new Vector2(-285, 0);
+            scaleLblRt.sizeDelta = new Vector2(100, 40);
 
-            // Scale Button: 20cm (Min)
-            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale20", "20cm", new Vector2(325, 0), new Vector2(60, 32), () => SetBoardScale(0.20f), defaultFont);
+            // Scale Button: 80% (Nhỏ)
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale80", "80%", new Vector2(-225, 0), new Vector2(68, 38), () => SetBoardScale(0.80f), defaultFont);
 
-            // Scale Button: 40cm (Standard)
-            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale40", "40cm", new Vector2(395, 0), new Vector2(60, 32), () => SetBoardScale(0.40f), defaultFont);
+            // Scale Button: 100% (Chuẩn)
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale100", "100%", new Vector2(-150, 0), new Vector2(72, 38), () => SetBoardScale(1.00f), defaultFont);
 
-            // Scale Button: 80cm (Max)
-            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale80", "80cm", new Vector2(465, 0), new Vector2(60, 32), () => SetBoardScale(0.80f), defaultFont);
+            // Scale Button: 130% (Lớn)
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale130", "130%", new Vector2(-72, 0), new Vector2(72, 38), () => SetBoardScale(1.30f), defaultFont);
 
             // Close / Minimize guidance button
-            CreateARQuickButton(_guidanceOverlay.transform, "BtnCloseGuide", "✕", new Vector2(535, 0), new Vector2(36, 32), () =>
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnCloseGuide", "✕", new Vector2(-15, 0), new Vector2(38, 38), () =>
             {
                 _isGuidanceMinimized = true;
                 _guidanceOverlay.SetActive(false);
@@ -269,12 +277,15 @@ namespace MechChess.AR
             btnObj.transform.SetParent(parent, false);
 
             Image img = btnObj.AddComponent<Image>();
-            img.color = new Color(0.12f, 0.22f, 0.32f, 0.9f);
+            img.color = new Color(0.12f, 0.22f, 0.32f, 0.95f);
 
             Button btn = btnObj.AddComponent<Button>();
             btn.onClick.AddListener(() => onClick?.Invoke());
 
             RectTransform rt = btnObj.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1f, 0.5f);
+            rt.anchorMax = new Vector2(1f, 0.5f);
+            rt.pivot = new Vector2(1f, 0.5f);
             rt.anchoredPosition = pos;
             rt.sizeDelta = size;
 
@@ -283,7 +294,7 @@ namespace MechChess.AR
             Text txt = txtObj.AddComponent<Text>();
             txt.text = label;
             txt.font = font;
-            txt.fontSize = 11;
+            txt.fontSize = 14;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = Color.white;
@@ -371,18 +382,28 @@ namespace MechChess.AR
             }
             else
             {
-                Debug.LogWarning("[HybridAR] No physical webcam detected. Generating virtual AR grid backdrop.");
-                Texture2D virtualBackdrop = new Texture2D(256, 256);
-                for (int y = 0; y < 256; y++)
+                Debug.LogWarning("[HybridAR] No physical webcam detected. Loading AR table backdrop.");
+                Sprite tableSprite = MechChess.UI.ArcaneAssetLoader.LoadArcaneSprite("ingame_3d_table_bg.png");
+                Texture2D virtualBackdrop = (tableSprite != null) ? tableSprite.texture : null;
+                if (virtualBackdrop == null)
                 {
-                    for (int x = 0; x < 256; x++)
+                    virtualBackdrop = new Texture2D(256, 256);
+                    for (int y = 0; y < 256; y++)
                     {
-                        bool isLine = (x % 32 == 0) || (y % 32 == 0);
-                        virtualBackdrop.SetPixel(x, y, isLine ? new Color(0, 0.4f, 0.6f, 0.5f) : new Color(0.02f, 0.04f, 0.06f));
+                        for (int x = 0; x < 256; x++)
+                        {
+                            bool isLine = (x % 32 == 0) || (y % 32 == 0);
+                            virtualBackdrop.SetPixel(x, y, isLine ? new Color(0, 0.4f, 0.6f, 0.5f) : new Color(0.02f, 0.04f, 0.06f));
+                        }
                     }
+                    virtualBackdrop.Apply();
                 }
-                virtualBackdrop.Apply();
                 if (_backgroundRawImage != null) _backgroundRawImage.texture = virtualBackdrop;
+                if (_webcamQuadMat != null)
+                {
+                    if (_webcamQuadMat.HasProperty("_BaseMap")) _webcamQuadMat.SetTexture("_BaseMap", virtualBackdrop);
+                    if (_webcamQuadMat.HasProperty("_MainTex")) _webcamQuadMat.SetTexture("_MainTex", virtualBackdrop);
+                }
             }
         }
 
@@ -401,7 +422,7 @@ namespace MechChess.AR
             ApplyDisplayMode(_arDisplayMode);
         }
 
-        private void ApplyDisplayMode(int mode)
+        public void ApplyDisplayMode(int mode)
         {
             _arDisplayMode = mode;
             if (_arDisplayMode == 0) // Fullscreen AR Reality (Real room background behind board)
@@ -413,8 +434,7 @@ namespace MechChess.AR
                 if (_arCanvas != null) _arCanvas.gameObject.SetActive(true);
                 if (chessboardRoot != null)
                 {
-                    float scaleFactor = currentScaleMeters / 8.0f;
-                    chessboardRoot.localScale = Vector3.one * scaleFactor;
+                    chessboardRoot.localScale = Vector3.one * currentScaleMultiplier;
                 }
                 if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Fullscreen Reality (Room Background) ON");
             }
@@ -448,37 +468,28 @@ namespace MechChess.AR
             }
         }
 
-        public void SetBoardScale(float meters)
+        public void SetBoardScale(float scaleMultiplier)
         {
-            currentScaleMeters = Mathf.Clamp(meters, 0.20f, 0.80f);
+            currentScaleMultiplier = Mathf.Clamp(scaleMultiplier, 0.50f, 2.0f);
             if (chessboardRoot != null)
             {
-                if (_arDisplayMode == 0)
-                {
-                    // Procedural board is 8.0 units wide - only scale in Fullscreen AR mode
-                    float scaleFactor = currentScaleMeters / 8.0f;
-                    chessboardRoot.localScale = Vector3.one * scaleFactor;
-                }
-                else
-                {
-                    chessboardRoot.localScale = Vector3.one;
-                }
+                chessboardRoot.localScale = Vector3.one * currentScaleMultiplier;
             }
 
             if (_scaleIndicatorText != null)
             {
-                _scaleIndicatorText.text = $"SIZE: {Mathf.RoundToInt(currentScaleMeters * 100f)} CM";
+                _scaleIndicatorText.text = $"SIZE: {Mathf.RoundToInt(currentScaleMultiplier * 100f)}%";
             }
 
             if (UIManager2D.Instance != null)
             {
-                UIManager2D.Instance.RecordMove($"[AR SCALE] Kích thước bàn cờ: {Mathf.RoundToInt(currentScaleMeters * 100f)} cm (20cm - 80cm)");
+                UIManager2D.Instance.RecordMove($"[AR SCALE] Kích thước bàn cờ: {Mathf.RoundToInt(currentScaleMultiplier * 100f)}% (Chuẩn)");
             }
         }
 
-        public void ScaleBoardDelta(float deltaMeters)
+        public void ScaleBoardDelta(float deltaMultiplier)
         {
-            SetBoardScale(currentScaleMeters + deltaMeters);
+            SetBoardScale(currentScaleMultiplier + deltaMultiplier);
         }
 
         private void LateUpdate()

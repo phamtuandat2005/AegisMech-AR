@@ -194,6 +194,25 @@ namespace MechChess.ProceduralMech
 
             var renderer = pObj.GetComponent<ParticleSystemRenderer>();
             renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            Material mat = GetParticleMaterial();
+            if (mat != null) renderer.material = mat;
+        }
+
+        private static Material _particleMat;
+        private static Material GetParticleMaterial()
+        {
+            if (_particleMat == null)
+            {
+                Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit")
+                             ?? Shader.Find("Universal Render Pipeline/Unlit")
+                             ?? Shader.Find("Particles/Standard Unlit")
+                             ?? Shader.Find("Sprites/Default");
+                if (shader != null)
+                {
+                    _particleMat = new Material(shader);
+                }
+            }
+            return _particleMat;
         }
 
         private void SpawnExplosionBurst(Vector3 worldPos, Color color)
@@ -215,6 +234,14 @@ namespace MechChess.ProceduralMech
             var shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Sphere;
             shape.radius = 0.4f;
+
+            var renderer = explosion.GetComponent<ParticleSystemRenderer>();
+            if (renderer != null)
+            {
+                renderer.renderMode = ParticleSystemRenderMode.Billboard;
+                Material mat = GetParticleMaterial();
+                if (mat != null) renderer.material = mat;
+            }
 
             ps.Play();
         }

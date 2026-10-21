@@ -324,8 +324,7 @@ namespace MechChess.UI
         {
             _whiteTimer = Mathf.Max(0f, whiteSec);
             _blackTimer = Mathf.Max(0f, blackSec);
-            if (_whiteTimerText != null) _whiteTimerText.text = FormatTime(_whiteTimer);
-            if (_blackTimerText != null) _blackTimerText.text = FormatTime(_blackTimer);
+            UpdateTimers(_whiteTimer, _blackTimer);
         }
 
         public void ConfigureTimeControl(string timeControlStr)
@@ -362,9 +361,18 @@ namespace MechChess.UI
             _firstMoveTimer = 60f;
             _isFirstMoveWaiting = true;
 
-            if (_whiteTimerText != null) _whiteTimerText.text = FormatTime(_whiteTimer);
-            if (_blackTimerText != null) _blackTimerText.text = FormatTime(_blackTimer);
+            UpdateTimers(_whiteTimer, _blackTimer);
             RecordMove($"[ĐỒNG HỒ] Thể thức: {timeControlStr} ({FormatTime(totalSec)} + {incSec}s/nước)");
+        }
+
+        private void UpdateTimers(float whiteSec, float blackSec)
+        {
+            string wStr = FormatTime(whiteSec);
+            string bStr = FormatTime(blackSec);
+            if (_whiteTimerText != null) _whiteTimerText.text = wStr;
+            if (_blackTimerText != null) _blackTimerText.text = bStr;
+            if (_arWhiteTimerText != null) _arWhiteTimerText.text = wStr;
+            if (_arBlackTimerText != null) _arBlackTimerText.text = bStr;
         }
 
         private List<string> _moveHistory = new List<string>();
@@ -407,11 +415,15 @@ namespace MechChess.UI
 
         // Screen 9: AR Overlay References
         private GameObject _arHudOverlayObj;
+        private GameObject _standardHudRoot;
+        private Text _arWhiteTimerText;
+        private Text _arBlackTimerText;
         public bool isAROverlayActive { get; private set; } = false;
 
         public void SetARHUDVisible(bool visible)
         {
             isAROverlayActive = visible;
+            if (_standardHudRoot != null) _standardHudRoot.SetActive(!visible);
             if (_arHudOverlayObj != null) _arHudOverlayObj.SetActive(visible);
         }
 
@@ -427,7 +439,7 @@ namespace MechChess.UI
         private void Awake()
         {
             if (Instance == null) Instance = this;
-            else Destroy(gameObject);
+            else { Destroy(this); return; }
 
             BuildHUD();
             SetHUDVisible(false);
@@ -510,100 +522,194 @@ namespace MechChess.UI
             Font defaultFont = GetDefaultFont();
 
             // =========================================================================
-            // 1. TOP HEADER: Suspended Arcane Command Capsule (Screen 8 & 9)
+            // Container for Screen 8 Standard 3D HUD Elements (Hidden in AR Screen 9)
             // =========================================================================
-            GameObject topBar = CreatePanel(canvasObj.transform, "TopBar", Vector2.zero, Vector2.zero, CyberButtonColor.PanelFrame);
-            RectTransform tbRt = topBar.GetComponent<RectTransform>();
-            tbRt.anchorMin = new Vector2(0.5f, 1f);
-            tbRt.anchorMax = new Vector2(0.5f, 1f);
-            tbRt.pivot = new Vector2(0.5f, 1f);
-            tbRt.anchoredPosition = new Vector2(0f, -14f);
-            tbRt.sizeDelta = new Vector2(980f, 68f);
+            _standardHudRoot = new GameObject("StandardHUD_Root");
+            _standardHudRoot.transform.SetParent(canvasObj.transform, false);
+            RectTransform shrRt = _standardHudRoot.AddComponent<RectTransform>();
+            shrRt.anchorMin = Vector2.zero;
+            shrRt.anchorMax = Vector2.one;
+            shrRt.offsetMin = Vector2.zero;
+            shrRt.offsetMax = Vector2.zero;
 
-            // Left Wing: Player Avatar, Name, Level & White Chronometer (09:45)
-            GameObject playerCapsule = new GameObject("PlayerCapsule");
-            playerCapsule.transform.SetParent(topBar.transform, false);
-            RectTransform pcRt = playerCapsule.AddComponent<RectTransform>();
-            pcRt.anchorMin = new Vector2(0f, 0.5f);
-            pcRt.anchorMax = new Vector2(0f, 0.5f);
-            pcRt.pivot = new Vector2(0f, 0.5f);
-            pcRt.anchoredPosition = new Vector2(16f, 0f);
-            pcRt.sizeDelta = new Vector2(360f, 54f);
+            // =========================================================================
+            // 1. TOP HEADER: Floating Hex-Pill Clocks & Profiles (Matching Image 2 Screen 8)
+            // =========================================================================
 
-            GameObject avObj = new GameObject("Avatar");
-            avObj.transform.SetParent(playerCapsule.transform, false);
+            // --- A. Left Wing: Player Profile ---
+            GameObject playerProfile = new GameObject("PlayerProfile");
+            playerProfile.transform.SetParent(_standardHudRoot.transform, false);
+            RectTransform ppRt = playerProfile.AddComponent<RectTransform>();
+            ppRt.anchorMin = new Vector2(0f, 1f);
+            ppRt.anchorMax = new Vector2(0f, 1f);
+            ppRt.pivot = new Vector2(0f, 1f);
+            ppRt.anchoredPosition = new Vector2(30f, -22f);
+            ppRt.sizeDelta = new Vector2(240f, 64f);
+
+            // Circular Avatar Frame with Neon Cyan Glow
+            GameObject pAvFrame = new GameObject("PlayerAvatarFrame");
+            pAvFrame.transform.SetParent(playerProfile.transform, false);
+            Image pAvFrameImg = pAvFrame.AddComponent<Image>();
+            pAvFrameImg.sprite = ArcaneAssetLoader.GetCircleSprite(60, new Color(0.02f, 0.08f, 0.16f, 0.95f), new Color(0.0f, 0.95f, 1.0f), 2.5f);
+            RectTransform pafRt = pAvFrame.GetComponent<RectTransform>();
+            pafRt.anchorMin = new Vector2(0f, 0.5f);
+            pafRt.anchorMax = new Vector2(0f, 0.5f);
+            pafRt.pivot = new Vector2(0f, 0.5f);
+            pafRt.anchoredPosition = new Vector2(0f, 0f);
+            pafRt.sizeDelta = new Vector2(58f, 58f);
+
+            // Inner Avatar Image
+            GameObject avObj = new GameObject("AvatarImg");
+            avObj.transform.SetParent(pAvFrame.transform, false);
             Image avImg = avObj.AddComponent<Image>();
-            Sprite avSprite = ArcaneAssetLoader.LoadArcaneSprite("user_avatar.png");
+            Sprite avSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png");
+            if (avSprite == null) avSprite = ArcaneAssetLoader.LoadArcaneSprite("user_avatar.png");
             if (avSprite != null) avImg.sprite = avSprite;
             else avImg.color = Color.cyan;
             RectTransform avRt = avObj.GetComponent<RectTransform>();
-            avRt.anchorMin = new Vector2(0f, 0.5f);
-            avRt.anchorMax = new Vector2(0f, 0.5f);
-            avRt.pivot = new Vector2(0f, 0.5f);
-            avRt.anchoredPosition = new Vector2(0f, 0f);
-            avRt.sizeDelta = new Vector2(44f, 44f);
+            avRt.anchorMin = new Vector2(0.5f, 0.5f);
+            avRt.anchorMax = new Vector2(0.5f, 0.5f);
+            avRt.pivot = new Vector2(0.5f, 0.5f);
+            avRt.anchoredPosition = Vector2.zero;
+            avRt.sizeDelta = new Vector2(50f, 50f);
 
-            CreateText(playerCapsule.transform, "PlayerName", "Player001", 15, TextAnchor.MiddleLeft, new Vector2(52f, 8f), new Vector2(140f, 22f), Color.white, defaultFont, true);
-            CreateText(playerCapsule.transform, "PlayerLevel", "Lv. 5", 11, TextAnchor.MiddleLeft, new Vector2(52f, -10f), new Vector2(140f, 18f), new Color(0.0f, 0.85f, 1.0f), defaultFont, true);
+            // Player Name & Level
+            string pName = "Player001";
+            string pLevel = "Lv. 5";
+            if (MechChess.Multiplayer.UserAccountManager.Instance != null && !string.IsNullOrEmpty(MechChess.Multiplayer.UserAccountManager.Instance.CurrentUsername))
+            {
+                pName = MechChess.Multiplayer.UserAccountManager.Instance.CurrentUsername;
+            }
 
-            // White Timer Box
-            GameObject whiteTimerBox = CreatePanel(playerCapsule.transform, "WhiteTimerBox", new Vector2(275f, 0f), new Vector2(130f, 44f), CyberButtonColor.Cyan);
-            _whiteTimerText = CreateText(whiteTimerBox.transform, "WhiteTimer", "10:00", 20, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(120f, 36f), Color.white, defaultFont, true);
+            Text pnText = CreateText(playerProfile.transform, "PlayerName", pName, 18, TextAnchor.MiddleLeft, Vector2.zero, new Vector2(160f, 24f), Color.white, defaultFont, true);
+            RectTransform pntRt = pnText.rectTransform;
+            pntRt.anchorMin = new Vector2(0f, 0.5f);
+            pntRt.anchorMax = new Vector2(0f, 0.5f);
+            pntRt.pivot = new Vector2(0f, 0.5f);
+            pntRt.anchoredPosition = new Vector2(68f, 12f);
 
-            // Center Node: VS Badge + Turn Indicator
-            GameObject centerNode = CreatePanel(topBar.transform, "CenterNode", Vector2.zero, new Vector2(180f, 54f), CyberButtonColor.Gunmetal);
-            RectTransform cnRt = centerNode.GetComponent<RectTransform>();
-            cnRt.anchorMin = new Vector2(0.5f, 0.5f);
-            cnRt.anchorMax = new Vector2(0.5f, 0.5f);
-            cnRt.pivot = new Vector2(0.5f, 0.5f);
-            cnRt.anchoredPosition = Vector2.zero;
+            Text plText = CreateText(playerProfile.transform, "PlayerLevel", pLevel, 13, TextAnchor.MiddleLeft, Vector2.zero, new Vector2(160f, 18f), new Color(0.85f, 0.95f, 1.0f), defaultFont, true);
+            RectTransform pltRt = plText.rectTransform;
+            pltRt.anchorMin = new Vector2(0f, 0.5f);
+            pltRt.anchorMax = new Vector2(0f, 0.5f);
+            pltRt.pivot = new Vector2(0f, 0.5f);
+            pltRt.anchoredPosition = new Vector2(68f, -10f);
 
-            _turnIndicatorText = CreateText(centerNode.transform, "TurnIndicator", "VS", 18, TextAnchor.MiddleCenter, new Vector2(0f, 8f), new Vector2(160f, 26f), new Color(0.0f, 0.95f, 1.0f), defaultFont, true);
-            _firstMoveWarningText = CreateText(centerNode.transform, "FirstMoveWarning", "⏱️ 60s", 11, TextAnchor.MiddleCenter, new Vector2(0f, -12f), new Vector2(160f, 20f), new Color(1.0f, 0.75f, 0.1f), defaultFont, true);
+            // Sleek Golden Accent Bar under Level
+            CreateCyberUnderline(playerProfile.transform, "PlayerUnderline", new Vector2(68f, -22f), new Vector2(65f, 3.5f), new Color(0.95f, 0.75f, 0.15f, 0.95f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
 
-            // Right Wing: Black Chronometer + AI / Opponent Info (10:00)
-            GameObject aiCapsule = new GameObject("AICapsule");
-            aiCapsule.transform.SetParent(topBar.transform, false);
-            RectTransform acRt = aiCapsule.AddComponent<RectTransform>();
-            acRt.anchorMin = new Vector2(1f, 0.5f);
-            acRt.anchorMax = new Vector2(1f, 0.5f);
-            acRt.pivot = new Vector2(1f, 0.5f);
-            acRt.anchoredPosition = new Vector2(-16f, 0f);
-            acRt.sizeDelta = new Vector2(360f, 54f);
+            // --- B. Center Wing: Match Clocks & VS ---
+            GameObject centerGroup = new GameObject("CenterMatchClocks");
+            centerGroup.transform.SetParent(_standardHudRoot.transform, false);
+            RectTransform cgRt = centerGroup.AddComponent<RectTransform>();
+            cgRt.anchorMin = new Vector2(0.5f, 1f);
+            cgRt.anchorMax = new Vector2(0.5f, 1f);
+            cgRt.pivot = new Vector2(0.5f, 1f);
+            cgRt.anchoredPosition = new Vector2(0f, -22f);
+            cgRt.sizeDelta = new Vector2(380f, 54f);
 
-            // Black Timer Box
-            GameObject blackTimerBox = CreatePanel(aiCapsule.transform, "BlackTimerBox", new Vector2(-275f, 0f), new Vector2(130f, 44f), CyberButtonColor.Crimson);
-            _blackTimerText = CreateText(blackTimerBox.transform, "BlackTimer", "10:00", 20, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(120f, 36f), Color.white, defaultFont, true);
+            // 1. White Player Timer Pill (Pointing Left `<`)
+            GameObject whiteTimerCapsule = CreatePanel(centerGroup.transform, "WhiteTimerCapsule", new Vector2(-96f, 0f), new Vector2(144f, 46f), CyberButtonColor.Cyan);
+            CreateText(whiteTimerCapsule.transform, "ChevronLeft", "〈", 18, TextAnchor.MiddleCenter, new Vector2(-52f, 0f), new Vector2(30f, 36f), new Color(0.0f, 0.95f, 1.0f), defaultFont, true);
+            _whiteTimerText = CreateText(whiteTimerCapsule.transform, "WhiteTimer", "09:45", 20, TextAnchor.MiddleCenter, new Vector2(10f, 0f), new Vector2(105f, 36f), Color.white, defaultFont, true);
 
-            CreateText(aiCapsule.transform, "AIName", "AI", 15, TextAnchor.MiddleRight, new Vector2(-52f, 8f), new Vector2(140f, 22f), Color.white, defaultFont, true);
-            CreateText(aiCapsule.transform, "AILevel", "Lv. 5", 11, TextAnchor.MiddleRight, new Vector2(-52f, -10f), new Vector2(140f, 18f), new Color(1.0f, 0.35f, 0.45f), defaultFont, true);
+            // 2. Center VS Badge
+            CreateText(centerGroup.transform, "VS_Badge", "VS", 18, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(48f, 36f), new Color(0.85f, 0.92f, 1.0f), defaultFont, true);
 
-            GameObject aiAvObj = new GameObject("AIAvatar");
-            aiAvObj.transform.SetParent(aiCapsule.transform, false);
+            // 3. Black AI Timer Pill (Pointing Right `>`)
+            GameObject blackTimerCapsule = CreatePanel(centerGroup.transform, "BlackTimerCapsule", new Vector2(96f, 0f), new Vector2(144f, 46f), CyberButtonColor.Crimson);
+            CreateText(blackTimerCapsule.transform, "RedIcon", "🔥", 16, TextAnchor.MiddleCenter, new Vector2(-50f, 0f), new Vector2(30f, 36f), new Color(1.0f, 0.35f, 0.45f), defaultFont, false);
+            _blackTimerText = CreateText(blackTimerCapsule.transform, "BlackTimer", "10:00", 20, TextAnchor.MiddleCenter, new Vector2(4f, 0f), new Vector2(95f, 36f), Color.white, defaultFont, true);
+            CreateText(blackTimerCapsule.transform, "ChevronRight", "〉", 18, TextAnchor.MiddleCenter, new Vector2(52f, 0f), new Vector2(30f, 36f), new Color(1.0f, 0.35f, 0.45f), defaultFont, true);
+
+            // Subtle Status Ticker under clocks
+            _turnIndicatorText = CreateText(centerGroup.transform, "TurnIndicator", ">> LƯỢT: LIÊN MINH (TRẮNG) <<", 11, TextAnchor.MiddleCenter, new Vector2(0f, -32f), new Vector2(320f, 18f), new Color(0.0f, 0.95f, 1.0f), defaultFont, true);
+            _firstMoveWarningText = CreateText(centerGroup.transform, "FirstMoveWarning", "⏱️ NƯỚC ĐẦU: 60s", 10, TextAnchor.MiddleCenter, new Vector2(0f, -48f), new Vector2(320f, 16f), new Color(1.0f, 0.75f, 0.1f), defaultFont, true);
+
+            // --- C. Right Wing: AI Profile ---
+            GameObject aiProfile = new GameObject("AIProfile");
+            aiProfile.transform.SetParent(_standardHudRoot.transform, false);
+            RectTransform aipRt = aiProfile.AddComponent<RectTransform>();
+            aipRt.anchorMin = new Vector2(1f, 1f);
+            aipRt.anchorMax = new Vector2(1f, 1f);
+            aipRt.pivot = new Vector2(1f, 1f);
+            aipRt.anchoredPosition = new Vector2(-30f, -22f);
+            aipRt.sizeDelta = new Vector2(240f, 64f);
+
+            // AI Avatar Frame with Neon Crimson Glow
+            GameObject aiAvFrame = new GameObject("AIAvatarFrame");
+            aiAvFrame.transform.SetParent(aiProfile.transform, false);
+            Image aiAvFrameImg = aiAvFrame.AddComponent<Image>();
+            aiAvFrameImg.sprite = ArcaneAssetLoader.GetCircleSprite(60, new Color(0.16f, 0.04f, 0.07f, 0.95f), new Color(1.0f, 0.22f, 0.35f), 2.5f);
+            RectTransform aiafRt = aiAvFrame.GetComponent<RectTransform>();
+            aiafRt.anchorMin = new Vector2(1f, 0.5f);
+            aiafRt.anchorMax = new Vector2(1f, 0.5f);
+            aiafRt.pivot = new Vector2(1f, 0.5f);
+            aiafRt.anchoredPosition = new Vector2(0f, 0f);
+            aiafRt.sizeDelta = new Vector2(58f, 58f);
+
+            // Inner AI Avatar Image
+            GameObject aiAvObj = new GameObject("AIAvatarImg");
+            aiAvObj.transform.SetParent(aiAvFrame.transform, false);
             Image aiAvImg = aiAvObj.AddComponent<Image>();
-            aiAvImg.sprite = ArcaneAssetLoader.GetCircleSprite(44, new Color(0.35f, 0.08f, 0.12f), new Color(1.0f, 0.35f, 0.45f), 1.5f);
+            Sprite aiAvSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_vs_ai_round.png");
+            if (aiAvSprite == null) aiAvSprite = ArcaneAssetLoader.LoadArcaneSprite("ai_portrait_full.png");
+            if (aiAvSprite != null)
+            {
+                aiAvImg.sprite = aiAvSprite;
+            }
+            else
+            {
+                CreateText(aiAvObj.transform, "Icon", "AI", 16, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(44f, 44f), Color.white, defaultFont, true);
+            }
             RectTransform aiavRt = aiAvObj.GetComponent<RectTransform>();
-            aiavRt.anchorMin = new Vector2(1f, 0.5f);
-            aiavRt.anchorMax = new Vector2(1f, 0.5f);
-            aiavRt.pivot = new Vector2(1f, 0.5f);
+            aiavRt.anchorMin = new Vector2(0.5f, 0.5f);
+            aiavRt.anchorMax = new Vector2(0.5f, 0.5f);
+            aiavRt.pivot = new Vector2(0.5f, 0.5f);
             aiavRt.anchoredPosition = Vector2.zero;
-            aiavRt.sizeDelta = new Vector2(44f, 44f);
-            CreateText(aiAvObj.transform, "Icon", "🤖", 18, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(44f, 44f), Color.white, defaultFont, false);
+            aiavRt.sizeDelta = new Vector2(50f, 50f);
+
+            // AI Name & Level (Right-aligned next to avatar)
+            Text aiNameText = CreateText(aiProfile.transform, "AIName", "AI", 18, TextAnchor.MiddleRight, Vector2.zero, new Vector2(160f, 24f), Color.white, defaultFont, true);
+            RectTransform ainRt = aiNameText.rectTransform;
+            ainRt.anchorMin = new Vector2(1f, 0.5f);
+            ainRt.anchorMax = new Vector2(1f, 0.5f);
+            ainRt.pivot = new Vector2(1f, 0.5f);
+            ainRt.anchoredPosition = new Vector2(-68f, 12f);
+
+            Text aiLvlText = CreateText(aiProfile.transform, "AILevel", "Lv. 5", 13, TextAnchor.MiddleRight, Vector2.zero, new Vector2(160f, 18f), new Color(1.0f, 0.45f, 0.55f), defaultFont, true);
+            RectTransform ailRt = aiLvlText.rectTransform;
+            ailRt.anchorMin = new Vector2(1f, 0.5f);
+            ailRt.anchorMax = new Vector2(1f, 0.5f);
+            ailRt.pivot = new Vector2(1f, 0.5f);
+            ailRt.anchoredPosition = new Vector2(-68f, -10f);
+
+            // Sleek Crimson Accent Bar under Level
+            CreateCyberUnderline(aiProfile.transform, "AIUnderline", new Vector2(-68f, -22f), new Vector2(65f, 3.5f), new Color(1.0f, 0.25f, 0.35f, 0.95f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
 
             // =========================================================================
-            // 2. LEFT QUICK ACTION TOOLBAR (Vertical Stack matching Screen 8)
+            // 2. LEFT QUICK ACTION TOOLBAR (Matching Image 2 Screen 8)
             // =========================================================================
             GameObject leftToolbar = new GameObject("LeftQuickToolbar");
-            leftToolbar.transform.SetParent(canvasObj.transform, false);
+            leftToolbar.transform.SetParent(_standardHudRoot.transform, false);
             RectTransform ltRt = leftToolbar.AddComponent<RectTransform>();
             ltRt.anchorMin = new Vector2(0f, 0.5f);
             ltRt.anchorMax = new Vector2(0f, 0.5f);
             ltRt.pivot = new Vector2(0f, 0.5f);
-            ltRt.anchoredPosition = new Vector2(25f, 0f);
-            ltRt.sizeDelta = new Vector2(60f, 320f);
+            ltRt.anchoredPosition = new Vector2(25f, 30f);
+            ltRt.sizeDelta = new Vector2(76f, 330f);
 
-            CreateCyberGameButton(leftToolbar.transform, "BtnHome", "🏠", "", "", new Vector2(0f, 120f), new Vector2(54f, 54f), CyberButtonColor.Gunmetal, ReturnToMainMenu, defaultFont);
-            CreateCyberGameButton(leftToolbar.transform, "BtnUndo", "↩️", "", "", new Vector2(0f, 60f), new Vector2(54f, 54f), CyberButtonColor.Cyan, () =>
+            // 1. Tạm dừng
+            CreateArcaneToolbarButton(leftToolbar.transform, "BtnPause", "❚❚", "Tạm dừng", new Vector2(0f, 114f), ToggleTacticalDrawer, defaultFont);
+
+            // 2. Gợi ý
+            CreateArcaneToolbarButton(leftToolbar.transform, "BtnHint", "🛡️", "Gợi ý", new Vector2(0f, 38f), () =>
+            {
+                OnTriggerAIClicked?.Invoke();
+            }, defaultFont);
+
+            // 3. Hủy nước đi
+            CreateArcaneToolbarButton(leftToolbar.transform, "BtnUndo", "↺", "Hủy nước đi", new Vector2(0f, -38f), () =>
             {
                 if (isRankedMode)
                 {
@@ -613,26 +719,29 @@ namespace MechChess.UI
                 if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
                     MechChess.Chess3D.ChessBoard3DManager.Instance.UndoMove();
             }, defaultFont);
-            CreateCyberGameButton(leftToolbar.transform, "BtnHint", "💡", "", "", new Vector2(0f, 0f), new Vector2(54f, 54f), CyberButtonColor.Amber, () =>
-            {
-                OnTriggerAIClicked?.Invoke();
-            }, defaultFont);
-            CreateCyberGameButton(leftToolbar.transform, "BtnResign", "✖️", "", "", new Vector2(0f, -60f), new Vector2(54f, 54f), CyberButtonColor.Crimson, () =>
-            {
-                if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
-                    MechChess.Chess3D.ChessBoard3DManager.Instance.Resign(_activeColor);
-            }, defaultFont);
-            CreateCyberGameButton(leftToolbar.transform, "BtnSettings", "⚙️", "", "", new Vector2(0f, -120f), new Vector2(54f, 54f), CyberButtonColor.Gunmetal, () =>
+
+            // 4. Thiết lập
+            CreateArcaneToolbarButton(leftToolbar.transform, "BtnSettings", "⚙", "Thiết lập", new Vector2(0f, -114f), () =>
             {
                 if (MainMenu2D.Instance != null) MainMenu2D.Instance.OpenSettingsModal();
             }, defaultFont);
+
+            // Subtle chevron (>>) next to toolbar
+            GameObject chevObj = new GameObject("ToolbarChevron");
+            chevObj.transform.SetParent(leftToolbar.transform, false);
+            RectTransform chevRt = chevObj.AddComponent<RectTransform>();
+            chevRt.anchoredPosition = new Vector2(50f, -114f);
+            chevRt.sizeDelta = new Vector2(26f, 36f);
+            Button chevBtn = chevObj.AddComponent<Button>();
+            chevBtn.onClick.AddListener(ToggleTacticalDrawer);
+            CreateText(chevObj.transform, "Icon", ">>", 16, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(26f, 36f), new Color(0.0f, 0.85f, 1.0f, 0.80f), defaultFont, true);
 
             // =========================================================================
             // 2. IN-GAME COLLAPSIBLE SIDEBAR DRAWER (Tucked away, slides out on demand)
             // =========================================================================
             // Dark Backdrop (tapping outside closes drawer)
             GameObject backdrop = new GameObject("TacticalDrawerBackdrop");
-            backdrop.transform.SetParent(canvasObj.transform, false);
+            backdrop.transform.SetParent(_standardHudRoot.transform, false);
             RectTransform brt = backdrop.AddComponent<RectTransform>();
             brt.anchorMin = Vector2.zero;
             brt.anchorMax = Vector2.one;
@@ -646,7 +755,7 @@ namespace MechChess.UI
             _drawerBackdropObj = backdrop;
 
             // Sidebar Drawer Panel (Anchored to Right Side)
-            GameObject drawer = CreatePanel(canvasObj.transform, "TacticalDrawer", Vector2.zero, Vector2.zero, CyberButtonColor.ModalFrame);
+            GameObject drawer = CreatePanel(_standardHudRoot.transform, "TacticalDrawer", Vector2.zero, Vector2.zero, CyberButtonColor.ModalFrame);
             RectTransform dRt = drawer.GetComponent<RectTransform>();
             dRt.anchorMin = new Vector2(1f, 0f);
             dRt.anchorMax = new Vector2(1f, 1f);
@@ -816,62 +925,44 @@ namespace MechChess.UI
             _drawerBackdropObj.SetActive(false);
 
             // =========================================================================
-            // 3. BOTTOM-LEFT COMMANDER CARD (Screen 8)
+            // 4. BOTTOM-CENTER PIECE STATUS DOCK (Matching Image 2 Screen 8)
             // =========================================================================
-            GameObject cmdCard = CreatePanel(canvasObj.transform, "CommanderCard", Vector2.zero, Vector2.zero, CyberButtonColor.PanelFrame);
-            RectTransform cmdRt = cmdCard.GetComponent<RectTransform>();
-            cmdRt.anchorMin = new Vector2(0f, 0f);
-            cmdRt.anchorMax = new Vector2(0f, 0f);
-            cmdRt.pivot = new Vector2(0f, 0f);
-            cmdRt.anchoredPosition = new Vector2(25f, 20f);
-            cmdRt.sizeDelta = new Vector2(220f, 80f);
-
-            GameObject cmdPortObj = new GameObject("CommanderPortrait");
-            cmdPortObj.transform.SetParent(cmdCard.transform, false);
-            Image cmdImg = cmdPortObj.AddComponent<Image>();
-            Sprite cmdSprite = ArcaneAssetLoader.LoadArcaneSprite("commander_portrait.png");
-            if (cmdSprite != null) cmdImg.sprite = cmdSprite;
-            else cmdImg.color = Color.cyan;
-            cmdImg.preserveAspect = true;
-            RectTransform cmdPortRt = cmdPortObj.GetComponent<RectTransform>();
-            cmdPortRt.anchorMin = new Vector2(0f, 0.5f);
-            cmdPortRt.anchorMax = new Vector2(0f, 0.5f);
-            cmdPortRt.pivot = new Vector2(0f, 0.5f);
-            cmdPortRt.anchoredPosition = new Vector2(10f, 0f);
-            cmdPortRt.sizeDelta = new Vector2(60f, 60f);
-
-            CreateText(cmdCard.transform, "CmdTitle", "COMMANDER", 13, TextAnchor.MiddleLeft, new Vector2(80f, 14f), new Vector2(120f, 22f), Color.white, defaultFont, true);
-            CreateText(cmdCard.transform, "CmdStatus", "● SẴN SÀNG", 11, TextAnchor.MiddleLeft, new Vector2(80f, -12f), new Vector2(120f, 18f), new Color(0.2f, 0.95f, 0.5f), defaultFont, true);
-
-            // =========================================================================
-            // 4. BOTTOM-CENTER PIECE CEMETERY / TRAY (Screen 8)
-            // =========================================================================
-            GameObject pieceTray = CreatePanel(canvasObj.transform, "PieceTray", Vector2.zero, Vector2.zero, CyberButtonColor.PanelFrame);
+            GameObject pieceTray = CreatePanel(_standardHudRoot.transform, "PieceTray", Vector2.zero, Vector2.zero, CyberButtonColor.PanelFrame);
             RectTransform ptRt = pieceTray.GetComponent<RectTransform>();
             ptRt.anchorMin = new Vector2(0.5f, 0f);
             ptRt.anchorMax = new Vector2(0.5f, 0f);
             ptRt.pivot = new Vector2(0.5f, 0f);
-            ptRt.anchoredPosition = new Vector2(0f, 20f);
-            ptRt.sizeDelta = new Vector2(560f, 52f);
+            ptRt.anchoredPosition = new Vector2(0f, 16f);
+            ptRt.sizeDelta = new Vector2(620f, 68f);
 
-            string[] pieceIcons = { "♟", "♞", "♝", "♜", "♛", "♚" };
+            string[] pieceIcons = { "♟", "♞", "♜", "♝", "♛", "♚" };
             string[] pieceNames = { "Tốt", "Mã", "Tượng", "Xe", "Hậu", "Vua" };
             float trayStartX = -225f;
-            float trayStepX = 90f;
+            float trayStepX = 78f;
             for (int i = 0; i < 6; i++)
             {
-                CreateText(pieceTray.transform, $"Piece_{i}", $"{pieceIcons[i]} {pieceNames[i]}", 13, TextAnchor.MiddleCenter, new Vector2(trayStartX + i * trayStepX, 0f), new Vector2(85f, 40f), new Color(0.85f, 0.92f, 1.0f), defaultFont, true);
+                GameObject slot = new GameObject($"PieceSlot_{i}");
+                slot.transform.SetParent(pieceTray.transform, false);
+                RectTransform slotRt = slot.AddComponent<RectTransform>();
+                slotRt.anchoredPosition = new Vector2(trayStartX + i * trayStepX, 0f);
+                slotRt.sizeDelta = new Vector2(72f, 60f);
+
+                CreateText(slot.transform, "Icon", pieceIcons[i], 24, TextAnchor.MiddleCenter, new Vector2(0f, 10f), new Vector2(68f, 32f), Color.white, defaultFont, true);
+                CreateText(slot.transform, "Name", pieceNames[i], 12, TextAnchor.MiddleCenter, new Vector2(0f, -14f), new Vector2(68f, 20f), new Color(0.75f, 0.90f, 1.0f), defaultFont, true);
             }
 
-            // =========================================================================
-            // 5. BOTTOM-RIGHT ACTION BUTTON: GOLDEN DIAMOND [TÁC CHIẾN] (Screen 8)
-            // =========================================================================
-            GameObject actionBtnObj = CreateCyberGameButton(canvasObj.transform, "BtnTacticalCommand", "⚡", "TÁC CHIẾN", "MENU & LOGS", Vector2.zero, new Vector2(170f, 60f), CyberButtonColor.Amber, ToggleTacticalDrawer, defaultFont);
-            RectTransform actRt = actionBtnObj.GetComponent<RectTransform>();
-            actRt.anchorMin = new Vector2(1f, 0f);
-            actRt.anchorMax = new Vector2(1f, 0f);
-            actRt.pivot = new Vector2(1f, 0f);
-            actRt.anchoredPosition = new Vector2(-25f, 20f);
+            // Circular Cyan Forward Action Button (Matching Image 2 Screen 8)
+            GameObject endTurnBtnObj = new GameObject("BtnEndTurn");
+            endTurnBtnObj.transform.SetParent(pieceTray.transform, false);
+            Image etImg = endTurnBtnObj.AddComponent<Image>();
+            etImg.sprite = ArcaneAssetLoader.GetCircleSprite(52, new Color(0.04f, 0.12f, 0.22f, 0.95f), new Color(0.0f, 0.95f, 1.0f), 2.5f);
+            Button etBtn = endTurnBtnObj.AddComponent<Button>();
+            etBtn.onClick.AddListener(ToggleTacticalDrawer);
+            endTurnBtnObj.AddComponent<CyberButtonEffect>();
+            RectTransform etRt = endTurnBtnObj.GetComponent<RectTransform>();
+            etRt.anchoredPosition = new Vector2(258f, 0f);
+            etRt.sizeDelta = new Vector2(52f, 52f);
+            CreateText(endTurnBtnObj.transform, "Arrow", "➔➔", 16, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(50f, 50f), new Color(0.0f, 0.95f, 1.0f), defaultFont, true);
 
             // =========================================================================
             // 6. SCREEN 9: AR IN-GAME HUD OVERLAY
@@ -889,6 +980,37 @@ namespace MechChess.UI
             BuildPromotionModal(canvasObj.transform, defaultFont);
         }
 
+        private GameObject CreateARActionTile(Transform parent, string name, string icon, string label, Vector2 tilePos, Action onClick, Font font)
+        {
+            GameObject tileContainer = new GameObject(name);
+            tileContainer.transform.SetParent(parent, false);
+            RectTransform tcRt = tileContainer.AddComponent<RectTransform>();
+            tcRt.anchoredPosition = tilePos;
+            tcRt.sizeDelta = new Vector2(88f, 92f);
+
+            // Square/Rounded Chamfered Button Tile (Matching Screen 09)
+            GameObject btnObj = new GameObject("BtnTile");
+            btnObj.transform.SetParent(tileContainer.transform, false);
+            Image btnImg = btnObj.AddComponent<Image>();
+            btnImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(64, 64, 18f, new Color(0.02f, 0.08f, 0.16f, 0.90f), new Color(0.0f, 0.85f, 1.0f, 0.95f), 2.2f);
+            btnImg.type = Image.Type.Sliced;
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.onClick.AddListener(() => onClick?.Invoke());
+            btnObj.AddComponent<CyberButtonEffect>();
+
+            RectTransform btnRt = btnObj.GetComponent<RectTransform>();
+            btnRt.anchoredPosition = new Vector2(0f, 14f);
+            btnRt.sizeDelta = new Vector2(64f, 64f);
+
+            CreateText(btnObj.transform, "Icon", icon, 26, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(56f, 56f), Color.white, font, false);
+
+            // Vietnamese Label Underneath (e.g. "Chụp ảnh", "Quay video", "Cài đặt AR", "Thoát AR")
+            CreateText(tileContainer.transform, "Label", label, 12, TextAnchor.MiddleCenter, new Vector2(0f, -28f), new Vector2(96f, 20f), new Color(0.85f, 0.95f, 1.0f), font, true);
+
+            return tileContainer;
+        }
+
         private void BuildScreen9AROverlay(Transform parent, Font font)
         {
             _arHudOverlayObj = new GameObject("Screen9_AROverlay");
@@ -899,53 +1021,212 @@ namespace MechChess.UI
             arRt.offsetMin = Vector2.zero;
             arRt.offsetMax = Vector2.zero;
 
-            // Center-Bottom Floating Guidance Banner
-            GameObject bannerObj = CreatePanel(_arHudOverlayObj.transform, "ARGuideBanner", Vector2.zero, Vector2.zero, CyberButtonColor.PanelFrame);
-            RectTransform bRt = bannerObj.GetComponent<RectTransform>();
-            bRt.anchorMin = new Vector2(0.5f, 0f);
-            bRt.anchorMax = new Vector2(0.5f, 0f);
-            bRt.pivot = new Vector2(0.5f, 0f);
-            bRt.anchoredPosition = new Vector2(0f, 85f);
-            bRt.sizeDelta = new Vector2(480f, 44f);
+            // =========================================================================
+            // 1. TOP-LEFT: Combined Player Info Capsule with Integrated Cyan Timer Sub-Pill
+            // =========================================================================
+            GameObject playerCapsule = CreatePanel(_arHudOverlayObj.transform, "ARPlayerCapsule", Vector2.zero, Vector2.zero, CyberButtonColor.Cyan);
+            RectTransform pcRt = playerCapsule.GetComponent<RectTransform>();
+            pcRt.anchorMin = new Vector2(0f, 1f);
+            pcRt.anchorMax = new Vector2(0f, 1f);
+            pcRt.pivot = new Vector2(0f, 1f);
+            pcRt.anchoredPosition = new Vector2(30f, -22f);
+            pcRt.sizeDelta = new Vector2(305f, 62f);
 
-            CreateText(bannerObj.transform, "GuideTxt", "Chạm vào quân cờ để di chuyển", 15, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(460f, 36f), new Color(0.0f, 0.95f, 1.0f), font, true);
+            // Circular Player Avatar with Cyan Glowing Ring
+            GameObject pAvFrame = new GameObject("ARPlayerAvatarFrame");
+            pAvFrame.transform.SetParent(playerCapsule.transform, false);
+            Image pAvFrameImg = pAvFrame.AddComponent<Image>();
+            pAvFrameImg.sprite = ArcaneAssetLoader.GetCircleSprite(54, new Color(0.02f, 0.08f, 0.16f, 0.95f), new Color(0.0f, 0.95f, 1.0f), 2.5f);
+            RectTransform pafRt = pAvFrame.GetComponent<RectTransform>();
+            pafRt.anchorMin = new Vector2(0f, 0.5f);
+            pafRt.anchorMax = new Vector2(0f, 0.5f);
+            pafRt.pivot = new Vector2(0f, 0.5f);
+            pafRt.anchoredPosition = new Vector2(6f, 0f);
+            pafRt.sizeDelta = new Vector2(52f, 52f);
 
-            // Right Vertical AR Controls
-            GameObject arControls = new GameObject("ARRightControls");
-            arControls.transform.SetParent(_arHudOverlayObj.transform, false);
-            RectTransform acRt = arControls.AddComponent<RectTransform>();
-            acRt.anchorMin = new Vector2(1f, 0.5f);
-            acRt.anchorMax = new Vector2(1f, 0.5f);
-            acRt.pivot = new Vector2(1f, 0.5f);
-            acRt.anchoredPosition = new Vector2(-25f, 0f);
-            acRt.sizeDelta = new Vector2(80f, 260f);
+            GameObject avObj = new GameObject("AvatarImg");
+            avObj.transform.SetParent(pAvFrame.transform, false);
+            Image avImg = avObj.AddComponent<Image>();
+            Sprite avSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png");
+            if (avSprite == null) avSprite = ArcaneAssetLoader.LoadArcaneSprite("user_avatar.png");
+            if (avSprite != null) avImg.sprite = avSprite;
+            else avImg.color = Color.cyan;
+            RectTransform avRt = avObj.GetComponent<RectTransform>();
+            avRt.anchorMin = new Vector2(0.5f, 0.5f);
+            avRt.anchorMax = new Vector2(0.5f, 0.5f);
+            avRt.pivot = new Vector2(0.5f, 0.5f);
+            avRt.anchoredPosition = Vector2.zero;
+            avRt.sizeDelta = new Vector2(46f, 46f);
 
-            CreateCyberGameButton(arControls.transform, "BtnPhoto", "📷", "CHỤP", "", new Vector2(0f, 80f), new Vector2(74f, 60f), CyberButtonColor.Cyan, () =>
+            // Player Name & Level
+            string pName = "Player001";
+            string pLevel = "Lv. 5";
+            if (MechChess.Multiplayer.UserAccountManager.Instance != null && !string.IsNullOrEmpty(MechChess.Multiplayer.UserAccountManager.Instance.CurrentUsername))
             {
-                if (MainMenu2D.Instance != null) MainMenu2D.Instance.ShowToast("Đã chụp và lưu ảnh AR!", ToastType.Success);
+                pName = MechChess.Multiplayer.UserAccountManager.Instance.CurrentUsername;
+            }
+
+            Text pnText = CreateText(playerCapsule.transform, "PlayerName", pName, 17, TextAnchor.MiddleLeft, Vector2.zero, new Vector2(125f, 22f), Color.white, font, true);
+            RectTransform pntRt = pnText.rectTransform;
+            pntRt.anchorMin = new Vector2(0f, 0.5f);
+            pntRt.anchorMax = new Vector2(0f, 0.5f);
+            pntRt.pivot = new Vector2(0f, 0.5f);
+            pntRt.anchoredPosition = new Vector2(66f, 11f);
+
+            Text plText = CreateText(playerCapsule.transform, "PlayerLevel", pLevel, 12, TextAnchor.MiddleLeft, Vector2.zero, new Vector2(125f, 18f), new Color(0.70f, 0.90f, 1.0f), font, true);
+            RectTransform pltRt = plText.rectTransform;
+            pltRt.anchorMin = new Vector2(0f, 0.5f);
+            pltRt.anchorMax = new Vector2(0f, 0.5f);
+            pltRt.pivot = new Vector2(0f, 0.5f);
+            pltRt.anchoredPosition = new Vector2(66f, -11f);
+
+            // Embedded Cyan Timer Sub-Pill (Right side of Player Capsule)
+            GameObject whiteTimerSubPill = CreatePanel(playerCapsule.transform, "WhiteTimerSubPill", Vector2.zero, Vector2.zero, CyberButtonColor.Cyan);
+            RectTransform wtspRt = whiteTimerSubPill.GetComponent<RectTransform>();
+            wtspRt.anchorMin = new Vector2(1f, 0.5f);
+            wtspRt.anchorMax = new Vector2(1f, 0.5f);
+            wtspRt.pivot = new Vector2(1f, 0.5f);
+            wtspRt.anchoredPosition = new Vector2(-8f, 0f);
+            wtspRt.sizeDelta = new Vector2(94f, 44f);
+
+            _arWhiteTimerText = CreateText(whiteTimerSubPill.transform, "ARWhiteTimer", FormatTime(_whiteTimer), 19, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(90f, 36f), Color.white, font, true);
+
+            // =========================================================================
+            // 2. TOP-RIGHT: Combined AI Info Capsule with Integrated Crimson Timer
+            // =========================================================================
+            GameObject aiCapsule = CreatePanel(_arHudOverlayObj.transform, "AICapsule", Vector2.zero, Vector2.zero, CyberButtonColor.Crimson);
+            RectTransform aicRt = aiCapsule.GetComponent<RectTransform>();
+            aicRt.anchorMin = new Vector2(1f, 1f);
+            aicRt.anchorMax = new Vector2(1f, 1f);
+            aicRt.pivot = new Vector2(1f, 1f);
+            aicRt.anchoredPosition = new Vector2(-30f, -22f);
+            aicRt.sizeDelta = new Vector2(305f, 62f);
+
+            // AI Name & Level on the left
+            Text aiNameText = CreateText(aiCapsule.transform, "AIName", "AI", 17, TextAnchor.MiddleLeft, Vector2.zero, new Vector2(60f, 22f), Color.white, font, true);
+            RectTransform ainRt = aiNameText.rectTransform;
+            ainRt.anchorMin = new Vector2(0f, 0.5f);
+            ainRt.anchorMax = new Vector2(0f, 0.5f);
+            ainRt.pivot = new Vector2(0f, 0.5f);
+            ainRt.anchoredPosition = new Vector2(16f, 11f);
+
+            Text aiLvlText = CreateText(aiCapsule.transform, "AILevel", "Lv. 5", 12, TextAnchor.MiddleLeft, Vector2.zero, new Vector2(60f, 18f), new Color(1.0f, 0.45f, 0.55f), font, true);
+            RectTransform ailRt = aiLvlText.rectTransform;
+            ailRt.anchorMin = new Vector2(0f, 0.5f);
+            ailRt.anchorMax = new Vector2(0f, 0.5f);
+            ailRt.pivot = new Vector2(0f, 0.5f);
+            ailRt.anchoredPosition = new Vector2(16f, -11f);
+
+            // Embedded Crimson Timer Sub-Pill
+            GameObject blackTimerSubPill = CreatePanel(aiCapsule.transform, "BlackTimerSubPill", Vector2.zero, Vector2.zero, CyberButtonColor.Crimson);
+            RectTransform btspRt = blackTimerSubPill.GetComponent<RectTransform>();
+            btspRt.anchorMin = new Vector2(0.5f, 0.5f);
+            btspRt.anchorMax = new Vector2(0.5f, 0.5f);
+            btspRt.pivot = new Vector2(0.5f, 0.5f);
+            btspRt.anchoredPosition = new Vector2(18f, 0f);
+            btspRt.sizeDelta = new Vector2(94f, 44f);
+
+            _arBlackTimerText = CreateText(blackTimerSubPill.transform, "ARBlackTimer", FormatTime(_blackTimer), 19, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(90f, 36f), Color.white, font, true);
+
+            // Circular AI Avatar with Crimson Glowing Ring on Far Right
+            GameObject aiAvFrame = new GameObject("ARAIAvatarFrame");
+            aiAvFrame.transform.SetParent(aiCapsule.transform, false);
+            Image aiAvFrameImg = aiAvFrame.AddComponent<Image>();
+            aiAvFrameImg.sprite = ArcaneAssetLoader.GetCircleSprite(54, new Color(0.16f, 0.04f, 0.07f, 0.95f), new Color(1.0f, 0.22f, 0.35f), 2.5f);
+            RectTransform aiafRt = aiAvFrame.GetComponent<RectTransform>();
+            aiafRt.anchorMin = new Vector2(1f, 0.5f);
+            aiafRt.anchorMax = new Vector2(1f, 0.5f);
+            aiafRt.pivot = new Vector2(1f, 0.5f);
+            aiafRt.anchoredPosition = new Vector2(-6f, 0f);
+            aiafRt.sizeDelta = new Vector2(52f, 52f);
+
+            GameObject aiAvObj = new GameObject("AIAvatarImg");
+            aiAvObj.transform.SetParent(aiAvFrame.transform, false);
+            Image aiAvImg = aiAvObj.AddComponent<Image>();
+            Sprite aiAvSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_vs_ai_round.png");
+            if (aiAvSprite == null) aiAvSprite = ArcaneAssetLoader.LoadArcaneSprite("ai_portrait_full.png");
+            if (aiAvSprite != null)
+            {
+                aiAvImg.sprite = aiAvSprite;
+            }
+            else
+            {
+                CreateText(aiAvObj.transform, "Icon", "AI", 16, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(44f, 44f), Color.white, font, true);
+            }
+            RectTransform aiavRt = aiAvObj.GetComponent<RectTransform>();
+            aiavRt.anchorMin = new Vector2(0.5f, 0.5f);
+            aiavRt.anchorMax = new Vector2(0.5f, 0.5f);
+            aiavRt.pivot = new Vector2(0.5f, 0.5f);
+            aiavRt.anchoredPosition = Vector2.zero;
+            aiavRt.sizeDelta = new Vector2(46f, 46f);
+
+            // =========================================================================
+            // 3. RIGHT VERTICAL TOOLBAR: 3 Cyber Action Buttons (Matching Screen 09)
+            // =========================================================================
+            GameObject rightToolbar = new GameObject("ARRightToolbar");
+            rightToolbar.transform.SetParent(_arHudOverlayObj.transform, false);
+            RectTransform rtRt = rightToolbar.AddComponent<RectTransform>();
+            rtRt.anchorMin = new Vector2(1f, 0.5f);
+            rtRt.anchorMax = new Vector2(1f, 0.5f);
+            rtRt.pivot = new Vector2(1f, 0.5f);
+            rtRt.anchoredPosition = new Vector2(-30f, -10f);
+            rtRt.sizeDelta = new Vector2(90f, 320f);
+
+            // 1. Chụp ảnh (Camera)
+            CreateARActionTile(rightToolbar.transform, "BtnPhoto", "📷", "Chụp ảnh", new Vector2(0f, 105f), () =>
+            {
+                if (MainMenu2D.Instance != null) MainMenu2D.Instance.ShowToast("Đã chụp và lưu ảnh AR vào thư viện!", ToastType.Success);
             }, font);
 
-            CreateCyberGameButton(arControls.transform, "BtnVideo", "🎥", "QUAY", "", new Vector2(0f, 0f), new Vector2(74f, 60f), CyberButtonColor.Crimson, () =>
+            // 2. Quay video (Video camera)
+            CreateARActionTile(rightToolbar.transform, "BtnVideo", "🎥", "Quay video", new Vector2(0f, 0f), () =>
             {
                 if (MainMenu2D.Instance != null) MainMenu2D.Instance.ShowToast("Đang ghi hình trận đấu AR...", ToastType.Info);
             }, font);
 
-            CreateCyberGameButton(arControls.transform, "BtnARSettings", "⚙️", "CÀI ĐẶT", "AR", new Vector2(0f, -80f), new Vector2(74f, 60f), CyberButtonColor.Gunmetal, () =>
+            // 3. Cài đặt AR (Settings gear)
+            CreateARActionTile(rightToolbar.transform, "BtnARSettings", "⚙", "Cài đặt AR", new Vector2(0f, -105f), () =>
             {
-                if (MainMenu2D.Instance != null) MainMenu2D.Instance.ShowToast("Đã hiệu chuẩn mặt phẳng AR!", ToastType.Success);
+                if (MainMenu2D.Instance != null) MainMenu2D.Instance.ShowToast("Đã hiệu chuẩn mặt phẳng AR và camera!", ToastType.Success);
             }, font);
 
-            // Bottom-Left Exit AR Button
-            GameObject exitARBtn = CreateCyberGameButton(_arHudOverlayObj.transform, "BtnExitAR", "🚪", "THOÁT AR", "", Vector2.zero, new Vector2(140f, 48f), CyberButtonColor.Crimson, () =>
+            // =========================================================================
+            // 4. BOTTOM-LEFT: Thoát AR Action Tile (Matching Screen 09)
+            // =========================================================================
+            GameObject exitTileContainer = new GameObject("ARExitContainer");
+            exitTileContainer.transform.SetParent(_arHudOverlayObj.transform, false);
+            RectTransform etcRt = exitTileContainer.AddComponent<RectTransform>();
+            etcRt.anchorMin = new Vector2(0f, 0f);
+            etcRt.anchorMax = new Vector2(0f, 0f);
+            etcRt.pivot = new Vector2(0f, 0f);
+            etcRt.anchoredPosition = new Vector2(30f, 25f);
+            etcRt.sizeDelta = new Vector2(90f, 96f);
+
+            CreateARActionTile(exitTileContainer.transform, "BtnExitAR", "⌖", "Thoát AR", new Vector2(45f, 48f), () =>
             {
                 SetARHUDVisible(false);
-                OnToggleARClicked?.Invoke();
+                if (MechChess.AR.HybridARController.Instance != null)
+                {
+                    MechChess.AR.HybridARController.Instance.SetARActive(false);
+                }
+                if (MainMenu2D.Instance != null)
+                {
+                    MainMenu2D.Instance.ShowMenu();
+                }
             }, font);
-            RectTransform ebRt = exitARBtn.GetComponent<RectTransform>();
-            ebRt.anchorMin = new Vector2(0f, 0f);
-            ebRt.anchorMax = new Vector2(0f, 0f);
-            ebRt.pivot = new Vector2(0f, 0f);
-            ebRt.anchoredPosition = new Vector2(25f, 115f);
+
+            // =========================================================================
+            // 5. BOTTOM-CENTER: Floating Guidance Banner ("Chạm vào quân cờ để di chuyển")
+            // =========================================================================
+            GameObject bannerObj = CreatePanel(_arHudOverlayObj.transform, "ARGuideBanner", Vector2.zero, Vector2.zero, CyberButtonColor.Cyan);
+            RectTransform bRt = bannerObj.GetComponent<RectTransform>();
+            bRt.anchorMin = new Vector2(0.5f, 0f);
+            bRt.anchorMax = new Vector2(0.5f, 0f);
+            bRt.pivot = new Vector2(0.5f, 0f);
+            bRt.anchoredPosition = new Vector2(0f, 32f);
+            bRt.sizeDelta = new Vector2(480f, 50f);
+
+            CreateText(bannerObj.transform, "GuideTxt", "Chạm vào quân cờ để di chuyển", 17, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(460f, 38f), Color.white, font, true);
 
             _arHudOverlayObj.SetActive(false);
         }
@@ -1102,7 +1383,7 @@ namespace MechChess.UI
                 if (_firstMoveWarningText != null)
                 {
                     int secLeft = Mathf.CeilToInt(_firstMoveTimer);
-                    _firstMoveWarningText.text = $"⏱️ NƯỚC ĐẦU: {secLeft}s (HỦY NẾU HẾT)";
+                    _firstMoveWarningText.text = $"⏱️ NƯỚC ĐẦU: {secLeft}s";
                     if (secLeft <= 15)
                     {
                         float pulse = Mathf.PingPong(Time.time * 4f, 1f);
@@ -1135,8 +1416,7 @@ namespace MechChess.UI
                 }
             }
 
-            if (_whiteTimerText != null) _whiteTimerText.text = FormatTime(_whiteTimer);
-            if (_blackTimerText != null) _blackTimerText.text = FormatTime(_blackTimer);
+            UpdateTimers(_whiteTimer, _blackTimer);
 
             // Subtle live glow pulse on turn indicator
             if (_turnIndicatorText != null)
@@ -1162,13 +1442,13 @@ namespace MechChess.UI
 
             if (_turnIndicatorText != null)
             {
-                _turnIndicatorText.text = "⚠️ TRẬN ĐẤU ĐÃ HỦY: Quá 1 phút không có nước đi đầu!";
+                _turnIndicatorText.text = "⚠️ TRẬN ĐẤU ĐÃ HỦY";
                 _turnIndicatorText.color = Color.red;
             }
 
             if (_firstMoveWarningText != null)
             {
-                _firstMoveWarningText.text = "⛔ TRẬN ĐẤU ĐÃ BỊ HỦY TỰ ĐỘNG";
+                _firstMoveWarningText.text = "Quá 60s không đi nước đầu!";
                 _firstMoveWarningText.color = Color.red;
             }
 
@@ -1194,7 +1474,7 @@ namespace MechChess.UI
                 MechChess.Chess3D.ChessBoard3DManager.Instance.isGameOver = true;
             }
 
-            string winnerName = (winner == PieceColor.White) ? "LIÊN MINH (WHITE)" : "HẮC ÁM (BLACK)";
+            string winnerName = (winner == PieceColor.White) ? "LIÊN MINH" : "HẮC ÁM";
             if (_turnIndicatorText != null)
             {
                 _turnIndicatorText.text = $"🏆 {winnerName} CHIẾN THẮNG!";
@@ -1228,18 +1508,17 @@ namespace MechChess.UI
             _isTimerRunning = true;
             _activeColor = PieceColor.White;
 
-            if (_whiteTimerText != null) _whiteTimerText.text = FormatTime(_whiteTimer);
-            if (_blackTimerText != null) _blackTimerText.text = FormatTime(_blackTimer);
+            UpdateTimers(_whiteTimer, _blackTimer);
 
             if (_firstMoveWarningText != null)
             {
-                _firstMoveWarningText.text = "⏱️ NƯỚC ĐẦU: 60s (HỦY NẾU HẾT)";
+                _firstMoveWarningText.text = "⏱️ NƯỚC ĐẦU: 60s";
                 _firstMoveWarningText.color = new Color(1.0f, 0.75f, 0.1f);
             }
 
             if (_turnIndicatorText != null)
             {
-                _turnIndicatorText.text = ">>> CURRENT TURN: ALLIANCE (WHITE) <<<";
+                _turnIndicatorText.text = ">> LƯỢT: LIÊN MINH (TRẮNG) <<";
                 _turnIndicatorText.color = new Color(0.0f, 0.95f, 1.0f);
             }
         }
@@ -1259,12 +1538,12 @@ namespace MechChess.UI
                 if (color == PieceColor.Black && _activeColor == PieceColor.White)
                 {
                     _whiteTimer += _timeIncrement;
-                    if (_whiteTimerText != null) _whiteTimerText.text = FormatTime(_whiteTimer);
+                    UpdateTimers(_whiteTimer, _blackTimer);
                 }
                 else if (color == PieceColor.White && _activeColor == PieceColor.Black)
                 {
                     _blackTimer += _timeIncrement;
-                    if (_blackTimerText != null) _blackTimerText.text = FormatTime(_blackTimer);
+                    UpdateTimers(_whiteTimer, _blackTimer);
                 }
             }
 
@@ -1275,7 +1554,7 @@ namespace MechChess.UI
             {
                 if (_turnIndicatorText != null)
                 {
-                    _turnIndicatorText.text = ">>> CURRENT TURN: ALLIANCE (WHITE) <<<";
+                    _turnIndicatorText.text = ">> LƯỢT: LIÊN MINH (TRẮNG) <<";
                     _turnIndicatorText.color = new Color(0.0f, 0.95f, 1.0f);
                 }
             }
@@ -1283,7 +1562,7 @@ namespace MechChess.UI
             {
                 if (_turnIndicatorText != null)
                 {
-                    _turnIndicatorText.text = ">>> CURRENT TURN: SYNDICATE (BLACK) <<<";
+                    _turnIndicatorText.text = ">> LƯỢT: HẮC ÁM (ĐEN) <<";
                     _turnIndicatorText.color = new Color(1.0f, 0.25f, 0.35f);
                 }
             }
@@ -1361,6 +1640,60 @@ namespace MechChess.UI
         // =========================================================================
         // UI Construction Helpers
         // =========================================================================
+        private GameObject CreateCyberUnderline(Transform parent, string name, Vector2 pos, Vector2 size, Color color, Vector2 anchor, Vector2 pivot)
+        {
+            GameObject lineObj = new GameObject(name);
+            lineObj.transform.SetParent(parent, false);
+            Image img = lineObj.AddComponent<Image>();
+            img.sprite = ArcaneAssetLoader.GetSolidSprite(4, 4, color);
+            img.color = Color.white;
+            img.raycastTarget = false;
+
+            RectTransform rt = lineObj.GetComponent<RectTransform>();
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.pivot = pivot;
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            return lineObj;
+        }
+
+        private GameObject CreateArcaneToolbarButton(Transform parent, string name, string icon, string label, Vector2 pos, Action onClick, Font font)
+        {
+            GameObject btnObj = new GameObject(name);
+            btnObj.transform.SetParent(parent, false);
+
+            RectTransform rt = btnObj.AddComponent<RectTransform>();
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(56f, 56f);
+
+            Image img = btnObj.AddComponent<Image>();
+            img.sprite = ProceduralUISpriteGenerator.GetCyberSprite(CyberButtonColor.PanelFrame, 64, 64, 10f, 2f);
+            img.type = Image.Type.Sliced;
+            img.color = Color.white;
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = img;
+
+            ColorBlock cb = btn.colors;
+            cb.normalColor = Color.white;
+            cb.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
+            cb.pressedColor = new Color(0.7f, 1.1f, 1.4f, 1f);
+            cb.fadeDuration = 0.06f;
+            btn.colors = cb;
+
+            btn.onClick.AddListener(() => onClick?.Invoke());
+            btnObj.AddComponent<CyberButtonEffect>();
+
+            // Icon inside the box
+            CreateText(btnObj.transform, "Icon", icon, 20, TextAnchor.MiddleCenter, new Vector2(0f, 0f), new Vector2(50f, 50f), Color.white, font, true);
+
+            // Label text underneath the box
+            CreateText(btnObj.transform, "Label", label, 10, TextAnchor.MiddleCenter, new Vector2(0f, -36f), new Vector2(76f, 16f), new Color(0.78f, 0.92f, 1.0f), font, true);
+
+            return btnObj;
+        }
+
         private GameObject CreatePanel(Transform parent, string name, Vector2 pos, Vector2 size, CyberButtonColor style)
         {
             GameObject panel = new GameObject(name);

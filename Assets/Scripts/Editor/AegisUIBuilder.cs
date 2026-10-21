@@ -517,10 +517,6 @@ namespace AegisMech.UI.EditorTools
             var mm = MakeScreen<AegisScreen>(root, "Screen_2_MainMenu", AegisScreenId.MainMenu);
             Cover("Bg", mm.transform, "main_menu_bg");
             
-            // Left Shadow Vignette
-            var shade = Rt("ShadeLeft", mm.transform, 0f, 0f, 0.38f, 1f);
-            Im(shade, "grad_left", new Color(0.02f, 0.05f, 0.12f, 0.55f));
-            
             // Top-Left Logo Badge: CHESS 3D AR (Exact User Design 100%)
             var logoBadge = Pt("TopLeftLogo", mm.transform, 0f, 1f, 400f, 157f, 60f, -36f, 0f, 1f);
             Im(logoBadge, "hud_logo_chess_3dar", Color.white, false);

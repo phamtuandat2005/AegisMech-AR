@@ -27,9 +27,9 @@ namespace MechChess.Mobile
         public float tapMaxDuration = 0.35f;
 
         private Camera _mainCamera;
-        private float _currentDistance = 9.5f;
+        private float _currentDistance = 8.8f;
         private float _yaw = 0f;
-        private float _pitch = 45f;
+        private float _pitch = 38f;
 
         private Vector2 _touchStartPos;
         private float _touchStartTime;
