@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace AegisMech.UI
 {
-    public enum AegisScreenId { None, Splash, MainMenu, ModeSelect, AIDifficulty, Settings, Tutorial, Shop, Back, Quit }
+    public enum AegisScreenId { None, Splash, MainMenu, ModeSelect, AIDifficulty, Settings, Tutorial, Shop, Profile, Notification, AR, Pause, Result, Back, Quit }
     public enum AegisGameMode { VsAI, TwoPlayer, AR, Learn }
 
     public static class AegisTheme
