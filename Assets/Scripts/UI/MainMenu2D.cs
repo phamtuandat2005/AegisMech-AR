@@ -181,7 +181,18 @@ namespace MechChess.UI
 
         // AI Selector elements
         private int _selectedAIDifficulty = 2; // 1: Dễ, 2: Trung bình, 3: Khó, 4: Rất khó
-        private string _selectedAITime = "10 phút";
+        private int _selectedAITimeIndex = 2; // 0: 3m, 1: 5m, 2: 10m, 3: 15m, 4: unlimited
+        private string GetAITimeDisplay(int idx)
+        {
+            switch (idx)
+            {
+                case 0: return AegisLocalization.T("3 phút", "3 mins");
+                case 1: return AegisLocalization.T("5 phút", "5 mins");
+                case 2: return AegisLocalization.T("10 phút", "10 mins");
+                case 3: return AegisLocalization.T("15 phút", "15 mins");
+                default: return AegisLocalization.T("Không giới hạn", "Unlimited");
+            }
+        }
         private PieceColor _selectedAIPieceColor = PieceColor.White;
         private Image[] _aiDiffCardBgs;
         private Text[] _aiDiffCardTitles;
@@ -239,7 +250,92 @@ namespace MechChess.UI
             if (Instance == null) Instance = this;
             else { Destroy(this); return; }
 
-            BuildAllScreens();
+            AegisLocalization.LoadSavedLanguage();
+            AegisLocalization.OnLanguageChanged += OnLanguageChanged;
+
+            BuildAllScreens(false);
+        }
+
+        private void OnDestroy()
+        {
+            AegisLocalization.OnLanguageChanged -= OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged()
+        {
+            RefreshLanguageUI();
+        }
+
+        public void RefreshLanguageUI()
+        {
+            bool isSettingsOpen = _settingsModal != null && _settingsModal.activeSelf;
+            int savedSettingsTab = _selectedSettingsTab;
+            bool isModeSelectOpen = _screenModeSelect != null && _screenModeSelect.activeSelf;
+            bool isTutorialOpen = _tutorialModal != null && _tutorialModal.activeSelf;
+            bool isShopOpen = _shopModal != null && _shopModal.activeSelf;
+            int savedShopTab = _selectedShopTab;
+            bool isProfileOpen = _profileModal != null && _profileModal.activeSelf;
+            int savedProfileTab = _selectedProfileTab;
+            bool isAIDiffOpen = _aiDifficultyModal != null && _aiDifficultyModal.activeSelf;
+            bool isPauseOpen = _pauseModal != null && _pauseModal.activeSelf;
+            bool isResultOpen = _resultScreenModal != null && _resultScreenModal.activeSelf;
+            bool isLearnOpen = _learnScreenModal != null && _learnScreenModal.activeSelf;
+
+            if (_menuCanvasObj != null)
+            {
+                Destroy(_menuCanvasObj);
+                _menuCanvasObj = null;
+            }
+
+            BuildAllScreens(true);
+
+            if (isSettingsOpen)
+            {
+                OpenSettingsModal();
+                SwitchSettingsTab(savedSettingsTab);
+            }
+            else if (isModeSelectOpen)
+            {
+                NavigateToChooseMode();
+            }
+            else if (isTutorialOpen)
+            {
+                OpenTutorialModal();
+            }
+            else if (isShopOpen)
+            {
+                OpenShopModal();
+                SwitchShopTab(savedShopTab);
+            }
+            else if (isProfileOpen)
+            {
+                OpenProfileModal();
+                SwitchProfileTab(savedProfileTab);
+            }
+            else if (isAIDiffOpen)
+            {
+                OpenAIDifficultyModal();
+            }
+            else if (isPauseOpen)
+            {
+                ShowPauseModal();
+            }
+            else if (isResultOpen)
+            {
+                if (_resultScreenModal != null) _resultScreenModal.SetActive(true);
+            }
+            else if (isLearnOpen)
+            {
+                OpenLearnScreen();
+            }
+            else
+            {
+                NavigateToHome();
+            }
+
+            UpdateUserProfileUI();
+
+            ShowToast(AegisLocalization.T("Đã chuyển sang Tiếng Việt", "Switched to English"), ToastType.Success);
         }
 
         private void Start()
@@ -352,7 +448,7 @@ namespace MechChess.UI
         // =========================================================================
         // MASTER UI BUILDER
         // =========================================================================
-        private void BuildAllScreens()
+        private void BuildAllScreens(bool isRefresh = false)
         {
             if (EventSystem.current == null)
             {
@@ -402,11 +498,14 @@ namespace MechChess.UI
             BuildFriendModal(_menuCanvasObj.transform, font);
             BuildIncomingChallengeModal(_menuCanvasObj.transform, font);
 
-            // Initially show Splash only
+            // Initially show Splash only if not refresh
             CloseAllModals();
-            if (_screenMainMenu != null) _screenMainMenu.SetActive(false);
-            if (_screenModeSelect != null) _screenModeSelect.SetActive(false);
-            if (_screenSplash != null) _screenSplash.SetActive(true);
+            if (!isRefresh)
+            {
+                if (_screenMainMenu != null) _screenMainMenu.SetActive(false);
+                if (_screenModeSelect != null) _screenModeSelect.SetActive(false);
+                if (_screenSplash != null) _screenSplash.SetActive(true);
+            }
         }
 
         // =========================================================================
@@ -483,7 +582,7 @@ namespace MechChess.UI
             GameObject txtObj = new GameObject("LoadingText");
             txtObj.transform.SetParent(_screenSplash.transform, false);
             Text loadingTxt = txtObj.AddComponent<Text>();
-            loadingTxt.text = "Đang tải...";
+            loadingTxt.text = AegisLocalization.T("Đang tải...", "Loading...");
             loadingTxt.font = font;
             loadingTxt.fontSize = 14;
             loadingTxt.fontStyle = FontStyle.Normal;
@@ -674,8 +773,8 @@ namespace MechChess.UI
             dRt.sizeDelta = new Vector2(20f, 22f);
 
             // 3 Quick Action Icons (Mail, Reward with red dot, Settings) inside recessed right sub-panel
-            CreateHeaderIconButton(headerObj.transform, "BtnMail", "✉", false, new Vector2(355f, 0f), () => ShowToast("Không có thư mới.", ToastType.Info), font);
-            CreateHeaderIconButton(headerObj.transform, "BtnInbox", "📥", true, new Vector2(415f, 0f), () => ShowToast("1 phần thưởng chưa nhận!", ToastType.Success), font);
+            CreateHeaderIconButton(headerObj.transform, "BtnMail", "✉", false, new Vector2(355f, 0f), () => ShowToast(AegisLocalization.T("Không có thư mới.", "No new mail."), ToastType.Info), font);
+            CreateHeaderIconButton(headerObj.transform, "BtnInbox", "📥", true, new Vector2(415f, 0f), () => ShowToast(AegisLocalization.T("1 phần thưởng chưa nhận!", "1 unclaimed reward!"), ToastType.Success), font);
             CreateHeaderIconButton(headerObj.transform, "BtnQuickSettings", "⚙", false, new Vector2(475f, 0f), OpenSettingsModal, font);
         }
 
@@ -786,7 +885,13 @@ namespace MechChess.UI
             vlg.childForceExpandWidth = false;
             vlg.childForceExpandHeight = false;
 
-            string[] navLabels = { "Chơi ngay", "Hướng dẫn", "Cài đặt", "Cửa hàng", "Thoát" };
+            string[] navLabels = {
+                AegisLocalization.T("Chơi ngay", "Play"),
+                AegisLocalization.T("Hướng dẫn", "Tutorial"),
+                AegisLocalization.T("Cài đặt", "Settings"),
+                AegisLocalization.T("Cửa hàng", "Shop"),
+                AegisLocalization.T("Thoát", "Exit")
+            };
             string[] navIcons = { "icon_nav_home.png", "icon_nav_guide.png", "icon_nav_settings.png", "icon_nav_shop.png", "icon_nav_exit.png" };
 
             for (int i = 0; i < 5; i++)
@@ -961,7 +1066,10 @@ namespace MechChess.UI
                     OpenShopModal();
                     break;
                 case 4:
-                    ShowConfirmDialog("Thoát trò chơi", "Bạn có muốn thoát khỏi trò chơi?", () =>
+                    ShowConfirmDialog(
+                        AegisLocalization.T("Thoát trò chơi", "Exit Game"),
+                        AegisLocalization.T("Bạn có muốn thoát khỏi trò chơi?", "Are you sure you want to exit the game?"),
+                        () =>
                     {
 #if UNITY_EDITOR
                         UnityEditor.EditorApplication.isPlaying = false;
@@ -1000,7 +1108,7 @@ namespace MechChess.UI
             GameObject txtObj = new GameObject("DialogueText");
             txtObj.transform.SetParent(bubbleObj.transform, false);
             Text t = txtObj.AddComponent<Text>();
-            t.text = "Khám phá thế giới cờ vua\ntrong không gian 3D và AR";
+            t.text = AegisLocalization.T("Khám phá thế giới cờ vua\ntrong không gian 3D và AR", "Explore the world of chess\nin 3D and AR space");
             t.font = font;
             t.fontSize = 21;
             t.lineSpacing = 1.15f;
@@ -1141,7 +1249,7 @@ namespace MechChess.UI
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(headerObj.transform, false);
             Text titleTxt = titleObj.AddComponent<Text>();
-            titleTxt.text = "CHỌN CHẾ ĐỘ CHƠI";
+            titleTxt.text = AegisLocalization.T("CHỌN CHẾ ĐỘ CHƠI", "CHOOSE GAME MODE");
             titleTxt.font = font;
             titleTxt.fontSize = 24;
             titleTxt.fontStyle = FontStyle.Bold;
@@ -1205,16 +1313,28 @@ namespace MechChess.UI
             float startX = -totalSpan / 2f + cardWidth / 2f;
 
             // Card 1: Đấu với máy (Index 0)
-            CreateModeFeatureCard(0, cardsContainer.transform, "CardAI", "Đấu với máy", "Chọn độ khó và bắt đầu\nthử thách AI", "mode_card_ai.png", new Vector2(startX + 0 * (cardWidth + cardGap), 0f), OpenAIDifficultyModal, font);
+            CreateModeFeatureCard(0, cardsContainer.transform, "CardAI",
+                AegisLocalization.T("Đấu với máy", "Vs Computer"),
+                AegisLocalization.T("Chọn độ khó và bắt đầu\nthử thách AI", "Choose difficulty & challenge\nintelligent AI"),
+                "mode_card_ai.png", new Vector2(startX + 0 * (cardWidth + cardGap), 0f), OpenAIDifficultyModal, font);
 
             // Card 2: Hai người (Index 1)
-            CreateModeFeatureCard(1, cardsContainer.transform, "Card2P", "Hai người", "Chơi cùng bạn bè\ntrên cùng thiết bị", "mode_card_2p.png", new Vector2(startX + 1 * (cardWidth + cardGap), 0f), () => LaunchGame(GameLaunchMode.LocalPassAndPlay), font);
+            CreateModeFeatureCard(1, cardsContainer.transform, "Card2P",
+                AegisLocalization.T("Hai người", "Pass & Play"),
+                AegisLocalization.T("Chơi cùng bạn bè\ntrên cùng thiết bị", "Play with friends\non the same device"),
+                "mode_card_2p.png", new Vector2(startX + 1 * (cardWidth + cardGap), 0f), () => LaunchGame(GameLaunchMode.LocalPassAndPlay), font);
 
             // Card 3: AR (Index 2)
-            CreateModeFeatureCard(2, cardsContainer.transform, "CardAR", "AR", "Đặt bàn cờ lên mặt bàn thật\nqua camera", "mode_card_ar.png", new Vector2(startX + 2 * (cardWidth + cardGap), 0f), () => LaunchGame(GameLaunchMode.AugmentedReality), font);
+            CreateModeFeatureCard(2, cardsContainer.transform, "CardAR",
+                AegisLocalization.T("AR", "AR Mode"),
+                AegisLocalization.T("Đặt bàn cờ lên mặt bàn thật\nqua camera", "Place board on tabletop\nvia camera tracking"),
+                "mode_card_ar.png", new Vector2(startX + 2 * (cardWidth + cardGap), 0f), () => LaunchGame(GameLaunchMode.AugmentedReality), font);
 
             // Card 4: Học cờ & Puzzle (Index 3)
-            CreateModeFeatureCard(3, cardsContainer.transform, "CardLearn", "Học cờ & Puzzle", "Nâng cao kỹ năng\nvà tư duy chiến thuật", "mode_card_learn.png", new Vector2(startX + 3 * (cardWidth + cardGap), 0f), OpenLearnScreen, font);
+            CreateModeFeatureCard(3, cardsContainer.transform, "CardLearn",
+                AegisLocalization.T("Học cờ & Puzzle", "Learn & Puzzles"),
+                AegisLocalization.T("Nâng cao kỹ năng\nvà tư duy chiến thuật", "Enhance chess tactics\nand strategic thinking"),
+                "mode_card_learn.png", new Vector2(startX + 3 * (cardWidth + cardGap), 0f), OpenLearnScreen, font);
         }
 
         private void CreateModeFeatureCard(int index, Transform parent, string name, string title, string desc, string textureName, Vector2 pos, Action onClick, Font font)
@@ -1361,7 +1481,9 @@ namespace MechChess.UI
             GameObject txtObj = new GameObject("Txt");
             txtObj.transform.SetParent(bannerObj.transform, false);
             Text t = txtObj.AddComponent<Text>();
-            t.text = "🌐  <color=#00D2FF><b>ĐẤU ONLINE:</b></color> Ghép Trận Ngẫu Nhiên & Thách Đấu Bạn Bè  ➜  <color=#F59E0B><b>THAM GIA NGAY</b></color>";
+            t.text = AegisLocalization.T(
+                "🌐  <color=#00D2FF><b>ĐẤU ONLINE:</b></color> Ghép Trận Ngẫu Nhiên & Thách Đấu Bạn Bè  ➜  <color=#F59E0B><b>THAM GIA NGAY</b></color>",
+                "🌐  <color=#00D2FF><b>ONLINE MULTIPLAYER:</b></color> Auto Matchmaking & Friend Duel  ➜  <color=#F59E0B><b>JOIN NOW</b></color>");
             t.font = font;
             t.fontSize = 15;
             t.alignment = TextAnchor.MiddleCenter;
@@ -1392,7 +1514,7 @@ namespace MechChess.UI
             cRt.sizeDelta = new Vector2(1280f, 720f);
 
             // Modal Header
-            CreateModalHeader(cardObj.transform, "<  ĐẤU VỚI MÁY", () => _aiDifficultyModal.SetActive(false), font);
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("<  ĐẤU VỚI MÁY", "<  VS COMPUTER"), () => _aiDifficultyModal.SetActive(false), font);
 
             // Left Column: Paladin Knight Portrait
             GameObject portraitObj = new GameObject("PaladinPortrait");
@@ -1412,7 +1534,7 @@ namespace MechChess.UI
             GameObject tipObj = new GameObject("PortTip");
             tipObj.transform.SetParent(portraitObj.transform, false);
             Text tipTxt = tipObj.AddComponent<Text>();
-            tipTxt.text = "Chọn cấp độ của AI\nvà thiết lập thời gian.";
+            tipTxt.text = AegisLocalization.T("Chọn cấp độ của AI\nvà thiết lập thời gian.", "Select AI difficulty\nand match timer.");
             tipTxt.font = font;
             tipTxt.fontSize = 14;
             tipTxt.fontStyle = FontStyle.Italic;
@@ -1438,7 +1560,12 @@ namespace MechChess.UI
             _aiDiffCardBgs = new Image[4];
             _aiDiffCardTitles = new Text[4];
 
-            string[] diffTitles = { "DỄ", "TRUNG BÌNH", "KHÓ", "RẤT KHÓ" };
+            string[] diffTitles = {
+                AegisLocalization.T("DỄ", "EASY"),
+                AegisLocalization.T("TRUNG BÌNH", "MEDIUM"),
+                AegisLocalization.T("KHÓ", "HARD"),
+                AegisLocalization.T("RẤT KHÓ", "EXPERT")
+            };
             string[] diffElos = { "Elo ~ 900", "Elo ~ 1200", "Elo ~ 1600", "Elo ~ 2000" };
             float diffStartY = 160f;
             float diffStepY = 105f;
@@ -1507,26 +1634,20 @@ namespace MechChess.UI
             rcRt.sizeDelta = new Vector2(380f, 480f);
 
             // Time Section
-            CreateConfigLabel(rightCol.transform, "Thời gian", new Vector2(0f, 180f), font);
+            CreateConfigLabel(rightCol.transform, AegisLocalization.T("Thời gian", "Time Control"), new Vector2(0f, 180f), font);
             GameObject timeDropdownObj = null;
-            timeDropdownObj = CreateGlassPill(rightCol.transform, "TimePill", "10 phút  ▼", new Vector2(0f, 135f), new Vector2(360f, 50f), font, () =>
+            timeDropdownObj = CreateGlassPill(rightCol.transform, "TimePill", $"{GetAITimeDisplay(_selectedAITimeIndex)}  ▼", new Vector2(0f, 135f), new Vector2(360f, 50f), font, () =>
             {
-                // Cycle time options
-                if (_selectedAITime == "3 phút") _selectedAITime = "5 phút";
-                else if (_selectedAITime == "5 phút") _selectedAITime = "10 phút";
-                else if (_selectedAITime == "10 phút") _selectedAITime = "15 phút";
-                else if (_selectedAITime == "15 phút") _selectedAITime = "Không giới hạn";
-                else _selectedAITime = "3 phút";
-
+                _selectedAITimeIndex = (_selectedAITimeIndex + 1) % 5;
                 if (timeDropdownObj != null)
                 {
                     Text tt = timeDropdownObj.GetComponentInChildren<Text>();
-                    if (tt != null) tt.text = $"{_selectedAITime}  ▼";
+                    if (tt != null) tt.text = $"{GetAITimeDisplay(_selectedAITimeIndex)}  ▼";
                 }
             });
 
             // Side Color Section
-            CreateConfigLabel(rightCol.transform, "Màu quân", new Vector2(0f, 65f), font);
+            CreateConfigLabel(rightCol.transform, AegisLocalization.T("Màu quân", "Your Side"), new Vector2(0f, 65f), font);
 
             // Radio White
             GameObject radioW = new GameObject("RadioWhite");
@@ -1539,7 +1660,7 @@ namespace MechChess.UI
             rwRt.sizeDelta = new Vector2(140f, 40f);
 
             _radioWhiteImg = CreateRadioIndicator(radioW.transform, new Vector2(-45f, 0f));
-            CreateTextComp(radioW.transform, "Trắng (White)", 14, FontStyle.Bold, ColTextWhite, font, new Vector2(15f, 0f), new Vector2(90f, 30f));
+            CreateTextComp(radioW.transform, AegisLocalization.T("Trắng", "White"), 14, FontStyle.Bold, ColTextWhite, font, new Vector2(15f, 0f), new Vector2(90f, 30f));
 
             // Radio Black
             GameObject radioB = new GameObject("RadioBlack");
@@ -1552,7 +1673,7 @@ namespace MechChess.UI
             rbRt.sizeDelta = new Vector2(140f, 40f);
 
             _radioBlackImg = CreateRadioIndicator(radioB.transform, new Vector2(-45f, 0f));
-            CreateTextComp(radioB.transform, "Đen (Black)", 14, FontStyle.Bold, ColTextWhite, font, new Vector2(15f, 0f), new Vector2(90f, 30f));
+            CreateTextComp(radioB.transform, AegisLocalization.T("Đen", "Black"), 14, FontStyle.Bold, ColTextWhite, font, new Vector2(15f, 0f), new Vector2(90f, 30f));
 
             RefreshRadioVisuals();
 
@@ -1572,7 +1693,7 @@ namespace MechChess.UI
             GameObject ctaTxtObj = new GameObject("Txt");
             ctaTxtObj.transform.SetParent(ctaObj.transform, false);
             Text ctaTxt = ctaTxtObj.AddComponent<Text>();
-            ctaTxt.text = "BẮT ĐẦU";
+            ctaTxt.text = AegisLocalization.T("BẮT ĐẦU", "START MATCH");
             ctaTxt.font = font;
             ctaTxt.fontSize = 22;
             ctaTxt.fontStyle = FontStyle.Bold;
@@ -1657,12 +1778,18 @@ namespace MechChess.UI
             if (UIManager2D.Instance != null)
             {
                 UIManager2D.Instance.isRankedMode = false;
-                UIManager2D.Instance.ConfigureTimeControl(_selectedAITime);
-                string levelStr = (level == 1) ? "Dễ (800)" : (level == 2) ? "Trung bình (1200)" : (level == 3) ? "Khó (1600)" : "Rất khó (2000)";
-                UIManager2D.Instance.RecordMove($"[BẮT ĐẦU] Đấu với Máy: Cấp độ {levelStr} | Bên: {_selectedAIPieceColor} | Thời gian: {_selectedAITime}");
+                string[] standardTimeControlCodes = { "3 + 2", "5 + 0", "10 + 0", "15 + 10", "10 + 0" };
+                UIManager2D.Instance.ConfigureTimeControl(standardTimeControlCodes[_selectedAITimeIndex]);
+                string levelStr = (level == 1) ? AegisLocalization.T("Dễ (800)", "Easy (800)") :
+                                  (level == 2) ? AegisLocalization.T("Trung bình (1200)", "Medium (1200)") :
+                                  (level == 3) ? AegisLocalization.T("Khó (1600)", "Hard (1600)") :
+                                                 AegisLocalization.T("Rất khó (2000)", "Expert (2000)");
+                UIManager2D.Instance.RecordMove(AegisLocalization.T(
+                    $"[BẮT ĐẦU] Đấu với Máy: Cấp độ {levelStr} | Bên: {_selectedAIPieceColor} | Thời gian: {GetAITimeDisplay(_selectedAITimeIndex)}",
+                    $"[START] Vs Computer: Level {levelStr} | Side: {_selectedAIPieceColor} | Time: {GetAITimeDisplay(_selectedAITimeIndex)}"));
             }
 
-            ShowToast($"Bắt đầu ván đấu với AI ({level})!", ToastType.Success);
+            ShowToast(AegisLocalization.T($"Bắt đầu ván đấu với AI ({level})!", $"Started match vs AI ({level})!"), ToastType.Success);
         }
 
         // =========================================================================
@@ -1701,14 +1828,9 @@ namespace MechChess.UI
             hlRt.anchorMax = new Vector2(0f, 1f);
             hlRt.pivot = new Vector2(0f, 1f);
             hlRt.anchoredPosition = new Vector2(28f, -16f);
-            hlRt.sizeDelta = new Vector2(250f, 44f);
-
-            Button backBtn = headerLeftObj.AddComponent<Button>();
-            backBtn.onClick.AddListener(() => _settingsModal.SetActive(false));
-            headerLeftObj.AddComponent<MenuButtonEffect>();
-
+            hlRt.sizeDelta = new Vector2(300f, 44f);
             Text hlText = headerLeftObj.AddComponent<Text>();
-            hlText.text = "<b><color=#00D2FF>‹</color>  CÀI ĐẶT</b>";
+            hlText.text = AegisLocalization.T("<b><color=#00D2FF>‹</color>  CÀI ĐẶT</b>", "<b><color=#00D2FF>‹</color>  SETTINGS</b>");
             hlText.font = font;
             hlText.fontSize = 24;
             hlText.alignment = TextAnchor.MiddleLeft;
@@ -1717,7 +1839,7 @@ namespace MechChess.UI
             // Right Close: "✕"
             GameObject closeBtnObj = new GameObject("HeaderCloseBtn");
             closeBtnObj.transform.SetParent(cardObj.transform, false);
-            RectTransform cbRt = closeBtnObj.AddComponent<RectTransform>();
+            RectTransform cbRt = closeBtnObj.GetComponent<RectTransform>();
             cbRt.anchorMin = new Vector2(1f, 1f);
             cbRt.anchorMax = new Vector2(1f, 1f);
             cbRt.pivot = new Vector2(1f, 1f);
@@ -1766,7 +1888,13 @@ namespace MechChess.UI
             tvlg.childForceExpandWidth = true;
             tvlg.childForceExpandHeight = false;
 
-            string[] tabLabels = { "Game", "Đồ họa", "Âm thanh", "Điều khiển", "Ngôn ngữ" };
+            string[] tabLabels = {
+                AegisLocalization.T("Game", "Gameplay"),
+                AegisLocalization.T("Đồ họa", "Graphics"),
+                AegisLocalization.T("Âm thanh", "Audio"),
+                AegisLocalization.T("Điều khiển", "Controls"),
+                AegisLocalization.T("Ngôn ngữ", "Language")
+            };
             string[] tabIconNames = { "icon_set_game.png", "icon_set_graphics.png", "icon_set_audio.png", "icon_set_controls.png", "icon_set_language.png" };
 
             Sprite activeTabSprite = ArcaneAssetLoader.LoadArcaneSprite("settings_tab_active.png");
@@ -1910,41 +2038,52 @@ namespace MechChess.UI
             float yStart = -15f;
             float step = 68f;
 
-            string[] diffOpts = { "Dễ", "Trung bình", "Khó", "Rất khó" };
-            string[] fxOpts = { "Thấp", "Trung bình", "Cao", "Siêu thực" };
+            string[] diffOpts = {
+                AegisLocalization.T("Dễ", "Easy"),
+                AegisLocalization.T("Trung bình", "Medium"),
+                AegisLocalization.T("Khó", "Hard"),
+                AegisLocalization.T("Rất khó", "Expert")
+            };
+            string[] fxOpts = {
+                AegisLocalization.T("Thấp", "Low"),
+                AegisLocalization.T("Trung bình", "Medium"),
+                AegisLocalization.T("Cao", "High"),
+                AegisLocalization.T("Siêu thực", "Ultra")
+            };
             string[] langOpts = { "Tiếng Việt", "English" };
 
-            CreateModernDropdownRow(panel.transform, "Độ khó AI", diffOpts, 1, yStart - 0 * step, font, val =>
+            CreateModernDropdownRow(panel.transform, AegisLocalization.T("Độ khó AI", "AI Difficulty"), diffOpts, 1, yStart - 0 * step, font, val =>
             {
-                if (val == "Dễ") _selectedAIDifficulty = 1;
-                else if (val == "Trung bình") _selectedAIDifficulty = 2;
-                else if (val == "Khó") _selectedAIDifficulty = 3;
-                else if (val == "Rất khó") _selectedAIDifficulty = 4;
+                if (val == "Dễ" || val == "Easy") _selectedAIDifficulty = 1;
+                else if (val == "Trung bình" || val == "Medium") _selectedAIDifficulty = 2;
+                else if (val == "Khó" || val == "Hard") _selectedAIDifficulty = 3;
+                else if (val == "Rất khó" || val == "Expert") _selectedAIDifficulty = 4;
             });
 
-            CreateModernDropdownRow(panel.transform, "Hiệu ứng hình ảnh*", fxOpts, 2, yStart - 1 * step, font, val =>
+            CreateModernDropdownRow(panel.transform, AegisLocalization.T("Hiệu ứng hình ảnh*", "Visual Effects*"), fxOpts, 2, yStart - 1 * step, font, val =>
             {
                 PlayerPrefs.SetString("aegis.fx", val);
             });
 
-            CreateModernToggleRow(panel.transform, "Nhạc nền", true, yStart - 2 * step, font, on =>
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Nhạc nền", "Music"), true, yStart - 2 * step, font, on =>
             {
                 PlayerPrefs.SetInt("aegis.music", on ? 1 : 0);
             });
 
-            CreateModernToggleRow(panel.transform, "Âm thanh", true, yStart - 3 * step, font, on =>
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh", "SFX"), true, yStart - 3 * step, font, on =>
             {
                 PlayerPrefs.SetInt("aegis.sfx", on ? 1 : 0);
             });
 
-            CreateModernToggleRow(panel.transform, "Rung", true, yStart - 4 * step, font, on =>
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Rung", "Vibration"), true, yStart - 4 * step, font, on =>
             {
                 PlayerPrefs.SetInt("aegis.vibrate", on ? 1 : 0);
             });
 
-            CreateModernDropdownRow(panel.transform, "Ngôn ngữ", langOpts, 0, yStart - 5 * step, font, val =>
+            CreateModernDropdownRow(panel.transform, AegisLocalization.T("Ngôn ngữ", "Language"), langOpts, AegisLocalization.GetCurrentLanguageIndex(), yStart - 5 * step, font, val =>
             {
-                PlayerPrefs.SetString("aegis.lang", val);
+                AppLanguage target = (val == "English") ? AppLanguage.English : AppLanguage.Vietnamese;
+                AegisLocalization.SetLanguage(target);
             });
 
             _settingsPanels[0] = panel;
@@ -1963,15 +2102,24 @@ namespace MechChess.UI
             float yStart = -15f;
             float step = 68f;
 
-            string[] fxOpts = { "Thấp", "Trung bình", "Cao", "Siêu thực" };
-            string[] shadowOpts = { "Tắt", "Thấp", "Cao" };
+            string[] fxOpts = {
+                AegisLocalization.T("Thấp", "Low"),
+                AegisLocalization.T("Trung bình", "Medium"),
+                AegisLocalization.T("Cao", "High"),
+                AegisLocalization.T("Siêu thực", "Ultra")
+            };
+            string[] shadowOpts = {
+                AegisLocalization.T("Tắt", "Off"),
+                AegisLocalization.T("Thấp", "Low"),
+                AegisLocalization.T("Cao", "High")
+            };
             string[] fpsOpts = { "30 FPS", "60 FPS", "120 FPS" };
 
-            CreateModernDropdownRow(panel.transform, "Hiệu ứng hình ảnh*", fxOpts, 2, yStart - 0 * step, font, null);
-            CreateModernDropdownRow(panel.transform, "Chất lượng bóng", shadowOpts, 2, yStart - 1 * step, font, null);
-            CreateModernDropdownRow(panel.transform, "Tốc độ khung hình", fpsOpts, 1, yStart - 2 * step, font, null);
-            CreateModernToggleRow(panel.transform, "Khử răng cưa (Anti-Aliasing)", true, yStart - 3 * step, font, null);
-            CreateModernToggleRow(panel.transform, "Hậu kỳ phát sáng (Bloom)", true, yStart - 4 * step, font, null);
+            CreateModernDropdownRow(panel.transform, AegisLocalization.T("Hiệu ứng hình ảnh*", "Visual Effects*"), fxOpts, 2, yStart - 0 * step, font, null);
+            CreateModernDropdownRow(panel.transform, AegisLocalization.T("Chất lượng bóng", "Shadow Quality"), shadowOpts, 2, yStart - 1 * step, font, null);
+            CreateModernDropdownRow(panel.transform, AegisLocalization.T("Tốc độ khung hình", "Framerate"), fpsOpts, 1, yStart - 2 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Khử răng cưa (Anti-Aliasing)", "Anti-Aliasing (FXAA)"), true, yStart - 3 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Hậu kỳ phát sáng (Bloom)", "Post-processing (Bloom)"), true, yStart - 4 * step, font, null);
 
             _settingsPanels[1] = panel;
         }
@@ -1989,10 +2137,10 @@ namespace MechChess.UI
             float yStart = -15f;
             float step = 68f;
 
-            CreateModernToggleRow(panel.transform, "Nhạc nền (BGM)", true, yStart - 0 * step, font, null);
-            CreateModernToggleRow(panel.transform, "Âm thanh hiệu ứng (SFX)", true, yStart - 1 * step, font, null);
-            CreateModernToggleRow(panel.transform, "Âm thanh nước cờ", true, yStart - 2 * step, font, null);
-            CreateModernToggleRow(panel.transform, "Âm thanh thông báo", true, yStart - 3 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Nhạc nền (BGM)", "Music (BGM)"), true, yStart - 0 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh hiệu ứng (SFX)", "Sound Effects (SFX)"), true, yStart - 1 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh nước cờ", "Move Sound Cues"), true, yStart - 2 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh thông báo", "Notification Sounds"), true, yStart - 3 * step, font, null);
 
             _settingsPanels[2] = panel;
         }
@@ -2010,12 +2158,16 @@ namespace MechChess.UI
             float yStart = -15f;
             float step = 68f;
 
-            string[] sensOpts = { "Chậm", "Bình thường", "Nhanh" };
+            string[] sensOpts = {
+                AegisLocalization.T("Chậm", "Slow"),
+                AegisLocalization.T("Bình thường", "Normal"),
+                AegisLocalization.T("Nhanh", "Fast")
+            };
 
-            CreateModernToggleRow(panel.transform, "Rung phản hồi (Haptic)", true, yStart - 0 * step, font, null);
-            CreateModernToggleRow(panel.transform, "Gợi ý nước đi hợp lệ", true, yStart - 1 * step, font, null);
-            CreateModernToggleRow(panel.transform, "Tự động xoay bàn cờ", false, yStart - 2 * step, font, null);
-            CreateModernDropdownRow(panel.transform, "Độ nhạy xoay camera 3D", sensOpts, 1, yStart - 3 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Rung phản hồi (Haptic)", "Haptic Feedback"), true, yStart - 0 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Gợi ý nước đi hợp lệ", "Highlight Valid Moves"), true, yStart - 1 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Tự động xoay bàn cờ", "Auto-rotate Board"), false, yStart - 2 * step, font, null);
+            CreateModernDropdownRow(panel.transform, AegisLocalization.T("Độ nhạy xoay camera 3D", "Camera Orbit Sensitivity"), sensOpts, 1, yStart - 3 * step, font, null);
 
             _settingsPanels[3] = panel;
         }
@@ -2033,10 +2185,17 @@ namespace MechChess.UI
             float yStart = -15f;
             float step = 68f;
 
-            string[] langOpts = { "Tiếng Việt", "English", "日本語", "한국어" };
+            // Chế độ 2 ngôn ngữ duy nhất: Tiếng Việt hoặc English theo yêu cầu
+            string[] langOpts = { "Tiếng Việt", "English" };
+            int currentIdx = AegisLocalization.GetCurrentLanguageIndex();
 
-            CreateModernDropdownRow(panel.transform, "Ngôn ngữ hiển thị", langOpts, 0, yStart - 0 * step, font, null);
-            CreateModernToggleRow(panel.transform, "Phụ đề hướng dẫn", true, yStart - 1 * step, font, null);
+            CreateModernDropdownRow(panel.transform, AegisLocalization.T("Ngôn ngữ hiển thị", "Display Language"), langOpts, currentIdx, yStart - 0 * step, font, val =>
+            {
+                AppLanguage target = (val == "English") ? AppLanguage.English : AppLanguage.Vietnamese;
+                AegisLocalization.SetLanguage(target);
+            });
+
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Phụ đề hướng dẫn", "Tutorial Subtitles"), true, yStart - 1 * step, font, null);
 
             _settingsPanels[4] = panel;
         }
@@ -2095,7 +2254,7 @@ namespace MechChess.UI
             drt.sizeDelta = new Vector2(190f, 44f);
 
             // Text value
-            int currentIdx = defaultIdx;
+            int currentIdx = Mathf.Clamp(defaultIdx, 0, options.Length - 1);
             GameObject valObj = new GameObject("ValueText");
             valObj.transform.SetParent(ddObj.transform, false);
             Text valTxt = valObj.AddComponent<Text>();
@@ -2131,9 +2290,10 @@ namespace MechChess.UI
             btn.onClick.AddListener(() =>
             {
                 currentIdx = (currentIdx + 1) % options.Length;
-                valTxt.text = options[currentIdx];
-                onSelected?.Invoke(options[currentIdx]);
-                ShowToast($"{label}: {options[currentIdx]}", ToastType.Info);
+                string chosen = options[currentIdx];
+                if (valTxt != null) valTxt.text = chosen;
+                onSelected?.Invoke(chosen);
+                ShowToast($"{label}: {chosen}", ToastType.Info);
             });
         }
 
@@ -2212,7 +2372,7 @@ namespace MechChess.UI
             cRt.anchoredPosition = Vector2.zero;
             cRt.sizeDelta = new Vector2(1180f, 680f);
 
-            CreateModalHeader(cardObj.transform, "<  HƯỚNG DẪN", () => _tutorialModal.SetActive(false), font);
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("<  HƯỚNG DẪN", "<  TUTORIAL"), () => _tutorialModal.SetActive(false), font);
 
             // Sub-Tabs Header
             GameObject tabsHeader = new GameObject("TutorialTabs");
@@ -2221,7 +2381,12 @@ namespace MechChess.UI
             thRt.anchoredPosition = new Vector2(0f, 230f);
             thRt.sizeDelta = new Vector2(800f, 44f);
 
-            string[] tutTabs = { "Cơ bản", "Luật chơi", "Các quân cờ", "AR" };
+            string[] tutTabs = {
+                AegisLocalization.T("Cơ bản", "Basics"),
+                AegisLocalization.T("Luật chơi", "Rules"),
+                AegisLocalization.T("Các quân cờ", "Pieces"),
+                "AR"
+            };
             float tabWidth = 180f;
             for (int i = 0; i < 4; i++)
             {
@@ -2236,7 +2401,7 @@ namespace MechChess.UI
 
                 Button btn = tabObj.AddComponent<Button>();
                 string tabName = tutTabs[i];
-                btn.onClick.AddListener(() => ShowToast($"Hướng dẫn: {tabName}", ToastType.Info));
+                btn.onClick.AddListener(() => ShowToast(AegisLocalization.T($"Hướng dẫn: {tabName}", $"Tutorial: {tabName}"), ToastType.Info));
                 tabObj.AddComponent<MenuButtonEffect>();
 
                 RectTransform rt = tabObj.GetComponent<RectTransform>();
@@ -2263,11 +2428,15 @@ namespace MechChess.UI
             sRt.sizeDelta = new Vector2(520f, 360f);
 
             string[] stepNums = { "1", "2", "3" };
-            string[] stepTitles = { "Chọn quân", "Xem ô hợp lệ", "Di chuyển" };
+            string[] stepTitles = {
+                AegisLocalization.T("Chọn quân", "Select Piece"),
+                AegisLocalization.T("Xem ô hợp lệ", "Valid Moves"),
+                AegisLocalization.T("Di chuyển", "Execute Move")
+            };
             string[] stepDescs = {
-                "Chạm vào quân cờ bất kỳ trên bàn cờ để chọn.",
-                "Các ô di chuyển và vị trí ăn quân sẽ được highlight sáng neon.",
-                "Chạm vào ô đích đã highlight để thực hiện nước đi chiến thuật."
+                AegisLocalization.T("Chạm vào quân cờ bất kỳ trên bàn cờ để chọn.", "Tap any chess piece on the board to select it."),
+                AegisLocalization.T("Các ô di chuyển và vị trí ăn quân sẽ được highlight sáng neon.", "Target tiles and capturable enemies light up in radiant neon."),
+                AegisLocalization.T("Chạm vào ô đích đã highlight để thực hiện nước đi chiến thuật.", "Tap the highlighted destination tile to execute tactical maneuver.")
             };
 
             for (int i = 0; i < 3; i++)
@@ -2310,13 +2479,13 @@ namespace MechChess.UI
             nb.sprite = ArcaneAssetLoader.GetGlassBoxSprite(160, 44, 22f, ColCyanBorder, Color.white, 1.5f);
             nb.type = Image.Type.Sliced;
             Button nBtn = nextBtnObj.AddComponent<Button>();
-            nBtn.onClick.AddListener(() => ShowToast("Đã xem xong trang 1!", ToastType.Success));
+            nBtn.onClick.AddListener(() => ShowToast(AegisLocalization.T("Đã xem xong trang 1!", "Completed page 1!"), ToastType.Success));
             nextBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform nRt = nextBtnObj.GetComponent<RectTransform>();
             nRt.anchoredPosition = new Vector2(360f, 0f);
             nRt.sizeDelta = new Vector2(160f, 44f);
 
-            CreateTextComp(nextBtnObj.transform, "Tiếp theo ❯", 14, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(150f, 30f));
+            CreateTextComp(nextBtnObj.transform, AegisLocalization.T("Tiếp theo ❯", "Next ❯"), 14, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(150f, 30f));
 
             _tutorialModal.SetActive(false);
         }
@@ -2396,7 +2565,7 @@ namespace MechChess.UI
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(headerObj.transform, false);
             Text titleTxt = titleObj.AddComponent<Text>();
-            titleTxt.text = "CỬA HÀNG";
+            titleTxt.text = AegisLocalization.T("CỬA HÀNG", "SHOP");
             titleTxt.font = font;
             titleTxt.fontSize = 24;
             titleTxt.fontStyle = FontStyle.Bold;
@@ -2478,7 +2647,11 @@ namespace MechChess.UI
             stRt.anchoredPosition = new Vector2(0f, -84f);
             stRt.sizeDelta = new Vector2(1440f, 48f);
 
-            string[] sTabs = { "Skin quân cờ", "Bàn cờ", "Hiệu ứng" };
+            string[] sTabs = {
+                AegisLocalization.T("Skin quân cờ", "Piece Skins"),
+                AegisLocalization.T("Bàn cờ", "Chessboards"),
+                AegisLocalization.T("Hiệu ứng", "Effects")
+            };
             Sprite tabActSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_active.png");
             Sprite tabInactSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_inactive.png");
 
@@ -2558,7 +2731,12 @@ namespace MechChess.UI
             bcRt.pivot = new Vector2(0.5f, 0.5f);
             bcRt.anchoredPosition = new Vector2(0f, -14f);
             bcRt.sizeDelta = new Vector2(1440f, 480f);
-            string[] boardNames = { "Bàn Cờ Cyber Neon", "Bàn Cờ Cổ Điển", "Bàn Cờ Dung Nham", "Bàn Cờ Pha Lê" };
+            string[] boardNames = {
+                AegisLocalization.T("Bàn Cờ Cyber Neon", "Cyber Neon Board"),
+                AegisLocalization.T("Bàn Cờ Cổ Điển", "Classic Board"),
+                AegisLocalization.T("Bàn Cờ Dung Nham", "Magma Board"),
+                AegisLocalization.T("Bàn Cờ Pha Lê", "Crystal Board")
+            };
             int[] boardPrices = { 800, 500, 1200, 1600 };
             for (int i = 0; i < 4; i++)
             {
@@ -2576,7 +2754,12 @@ namespace MechChess.UI
             ecRt.pivot = new Vector2(0.5f, 0.5f);
             ecRt.anchoredPosition = new Vector2(0f, -14f);
             ecRt.sizeDelta = new Vector2(1440f, 480f);
-            string[] effectNames = { "Sấm Sét Arcane", "Hào Quang Thánh", "Lửa Hỏa Ngục", "Bụi Sao Vũ Trụ" };
+            string[] effectNames = {
+                AegisLocalization.T("Sấm Sét Arcane", "Arcane Lightning"),
+                AegisLocalization.T("Hào Quang Thánh", "Divine Aura"),
+                AegisLocalization.T("Lửa Hỏa Ngục", "Hellfire Blaze"),
+                AegisLocalization.T("Bụi Sao Vũ Trụ", "Cosmic Stardust")
+            };
             int[] effectPrices = { 600, 900, 1100, 1400 };
             for (int i = 0; i < 4; i++)
             {
@@ -2618,9 +2801,9 @@ namespace MechChess.UI
             string[] dockIcons = { "dock_icon_play.png", "dock_icon_shop.png", "dock_icon_inventory.png", "dock_icon_rank.png" };
             Action[] dockActions = {
                 () => { _shopModal.SetActive(false); NavigateToChooseMode(); },
-                () => { ShowToast("Bạn đang ở Cửa hàng!", ToastType.Info); },
-                () => { ShowToast("Bộ sưu tập quân cờ đã mở!", ToastType.Info); },
-                () => { ShowToast("Bảng xếp hạng mùa giải mới!", ToastType.Info); }
+                () => { ShowToast(AegisLocalization.T("Bạn đang ở Cửa hàng!", "You are in the Shop!"), ToastType.Info); },
+                () => { ShowToast(AegisLocalization.T("Bộ sưu tập quân cờ đã mở!", "Piece collection opened!"), ToastType.Info); },
+                () => { ShowToast(AegisLocalization.T("Bảng xếp hạng mùa giải mới!", "New season leaderboard!"), ToastType.Info); }
             };
 
             float slotWidth = 360f;
@@ -2772,7 +2955,7 @@ namespace MechChess.UI
             Button bBtn = buyBtnObj.AddComponent<Button>();
             bBtn.onClick.AddListener(() =>
             {
-                ShowToast($"Đã trang bị skin '{name}'!", ToastType.Success);
+                ShowToast(AegisLocalization.T($"Đã trang bị skin '{name}'!", $"Equipped skin '{name}'!"), ToastType.Success);
             });
             buyBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform bbrt = buyBtnObj.GetComponent<RectTransform>();
@@ -2838,12 +3021,12 @@ namespace MechChess.UI
             cRt.anchoredPosition = Vector2.zero;
             cRt.sizeDelta = new Vector2(540f, 440f);
 
-            CreateModalHeader(cardObj.transform, "ĐÃ TẠM DỪNG", () => _pauseModal.SetActive(false), font);
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("ĐÃ TẠM DỪNG", "PAUSED"), () => _pauseModal.SetActive(false), font);
 
             // 3 Buttons: Tiếp tục, Thiết lập, Thoát về menu
-            CreateMenuActionButton(cardObj.transform, "BtnResume", "▶  Tiếp tục", new Vector2(0f, 50f), new Vector2(360f, 54f), ColCyanBorder, ColDarkBtnText, 16, () => _pauseModal.SetActive(false), font);
-            CreateMenuActionButton(cardObj.transform, "BtnPauseSettings", "⚙  Thiết lập", new Vector2(0f, -20f), new Vector2(360f, 54f), ColGlassFill, ColTextWhite, 15, OpenSettingsModal, font, ColCyanBorder, 1.2f);
-            CreateMenuActionButton(cardObj.transform, "BtnQuitToMenu", "🚪  Thoát về menu", new Vector2(0f, -90f), new Vector2(360f, 54f), new Color(0.25f, 0.08f, 0.08f, 0.9f), new Color(1f, 0.45f, 0.45f), 15, ReturnToMainMenuFromPause, font, new Color(0.85f, 0.25f, 0.25f), 1.2f);
+            CreateMenuActionButton(cardObj.transform, "BtnResume", AegisLocalization.T("▶  Tiếp tục", "▶  Resume"), new Vector2(0f, 50f), new Vector2(360f, 54f), ColCyanBorder, ColDarkBtnText, 16, () => _pauseModal.SetActive(false), font);
+            CreateMenuActionButton(cardObj.transform, "BtnPauseSettings", AegisLocalization.T("⚙  Thiết lập", "⚙  Settings"), new Vector2(0f, -20f), new Vector2(360f, 54f), ColGlassFill, ColTextWhite, 15, OpenSettingsModal, font, ColCyanBorder, 1.2f);
+            CreateMenuActionButton(cardObj.transform, "BtnQuitToMenu", AegisLocalization.T("🚪  Thoát về menu", "🚪  Quit to Menu"), new Vector2(0f, -90f), new Vector2(360f, 54f), new Color(0.25f, 0.08f, 0.08f, 0.9f), new Color(1f, 0.45f, 0.45f), 15, ReturnToMainMenuFromPause, font, new Color(0.85f, 0.25f, 0.25f), 1.2f);
 
             _pauseModal.SetActive(false);
         }
@@ -2881,7 +3064,7 @@ namespace MechChess.UI
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(cardObj.transform, false);
             _resultTitleTxt = titleObj.AddComponent<Text>();
-            _resultTitleTxt.text = "👑  CHIẾN THẮNG  👑";
+            _resultTitleTxt.text = AegisLocalization.T("👑  CHIẾN THẮNG  👑", "👑  VICTORY  👑");
             _resultTitleTxt.font = font;
             _resultTitleTxt.fontSize = 32;
             _resultTitleTxt.fontStyle = FontStyle.Bold;
@@ -2925,16 +3108,16 @@ namespace MechChess.UI
             scRt.anchoredPosition = new Vector2(220f, 30f);
             scRt.sizeDelta = new Vector2(480f, 220f);
 
-            CreateTextComp(statsCard.transform, "THỐNG KÊ VÁN ĐẤU", 16, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 75f), new Vector2(440f, 30f));
+            CreateTextComp(statsCard.transform, AegisLocalization.T("THỐNG KÊ VÁN ĐẤU", "MATCH SUMMARY"), 16, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 75f), new Vector2(440f, 30f));
 
-            _resultMovesTxt = CreateStatRow(statsCard.transform, "Nước đi", "42", 25f, font);
-            _resultDurationTxt = CreateStatRow(statsCard.transform, "Thời gian", "08:36", -20f, font);
-            _resultScoreTxt = CreateStatRow(statsCard.transform, "Mã trận", "1 - 0", -65f, font);
+            _resultMovesTxt = CreateStatRow(statsCard.transform, AegisLocalization.T("Nước đi", "Moves"), "42", 25f, font);
+            _resultDurationTxt = CreateStatRow(statsCard.transform, AegisLocalization.T("Thời gian", "Duration"), "08:36", -20f, font);
+            _resultScoreTxt = CreateStatRow(statsCard.transform, AegisLocalization.T("Mã trận", "Result"), "1 - 0", -65f, font);
 
             // 3 Bottom Buttons: Phát lại, Chia sẻ, Ván mới
-            CreateMenuActionButton(cardObj.transform, "BtnReplay", "↺  Phát lại", new Vector2(30f, -220f), new Vector2(160f, 50f), ColGlassFill, ColTextWhite, 14, () => ShowToast("Đang tải replay...", ToastType.Info), font, ColCyanBorder, 1.2f);
-            CreateMenuActionButton(cardObj.transform, "BtnShare", "🔗  Chia sẻ", new Vector2(210f, -220f), new Vector2(160f, 50f), ColGlassFill, ColTextWhite, 14, () => ShowToast("Đã sao chép link trận đấu!", ToastType.Success), font, ColCyanBorder, 1.2f);
-            CreateMenuActionButton(cardObj.transform, "BtnNewMatch", "⚔  Ván mới", new Vector2(390f, -220f), new Vector2(160f, 50f), ColGoldCta, ColDarkBtnText, 15, () =>
+            CreateMenuActionButton(cardObj.transform, "BtnReplay", AegisLocalization.T("↺  Phát lại", "↺  Replay"), new Vector2(30f, -220f), new Vector2(160f, 50f), ColGlassFill, ColTextWhite, 14, () => ShowToast(AegisLocalization.T("Đang tải replay...", "Loading replay..."), ToastType.Info), font, ColCyanBorder, 1.2f);
+            CreateMenuActionButton(cardObj.transform, "BtnShare", AegisLocalization.T("🔗  Chia sẻ", "🔗  Share"), new Vector2(210f, -220f), new Vector2(160f, 50f), ColGlassFill, ColTextWhite, 14, () => ShowToast(AegisLocalization.T("Đã sao chép link trận đấu!", "Match link copied!"), ToastType.Success), font, ColCyanBorder, 1.2f);
+            CreateMenuActionButton(cardObj.transform, "BtnNewMatch", AegisLocalization.T("⚔  Ván mới", "⚔  New Match"), new Vector2(390f, -220f), new Vector2(160f, 50f), ColGoldCta, ColDarkBtnText, 15, () =>
             {
                 _resultScreenModal.SetActive(false);
                 LaunchGame(_lastLaunchMode);
@@ -2974,7 +3157,7 @@ namespace MechChess.UI
 
             if (_resultTitleTxt != null)
             {
-                _resultTitleTxt.text = victory ? "👑  CHIẾN THẮNG  👑" : "⚔  THẤT BẠI  ⚔";
+                _resultTitleTxt.text = victory ? AegisLocalization.T("👑  CHIẾN THẮNG  👑", "👑  VICTORY  👑") : AegisLocalization.T("⚔  THẤT BẠI  ⚔", "⚔  DEFEAT  ⚔");
                 _resultTitleTxt.color = victory ? ColGoldBorder : new Color(0.95f, 0.35f, 0.35f);
             }
             if (_resultMovesTxt != null) _resultMovesTxt.text = moves.ToString();
@@ -3150,7 +3333,12 @@ namespace MechChess.UI
 
             // 4 Column Headers: Elo, Thắng, Thua, Hòa
             float[] colX = { -195f, -65f, 65f, 195f };
-            string[] statHeaders = { "Elo", "Thắng", "Thua", "Hòa" };
+            string[] statHeaders = {
+                AegisLocalization.T("Elo", "Elo"),
+                AegisLocalization.T("Thắng", "Wins"),
+                AegisLocalization.T("Thua", "Losses"),
+                AegisLocalization.T("Hòa", "Draws")
+            };
             for (int i = 0; i < 4; i++)
             {
                 CreateTextComp(statsCard.transform, statHeaders[i], 16, FontStyle.Normal, ColTextMuted, font, new Vector2(colX[i], 78f), new Vector2(100f, 26f), TextAnchor.MiddleCenter);
@@ -3211,7 +3399,11 @@ namespace MechChess.UI
             ptRt.anchoredPosition = new Vector2(0f, 185f);
             ptRt.sizeDelta = new Vector2(610f, 46f);
 
-            string[] pTabs = { "Lịch sử đấu", "Thành tích", "Skin" };
+            string[] pTabs = {
+                AegisLocalization.T("Lịch sử đấu", "Match History"),
+                AegisLocalization.T("Thành tích", "Achievements"),
+                AegisLocalization.T("Skin", "Skins")
+            };
             Sprite pTabActSp = ArcaneAssetLoader.LoadArcaneSprite("profile_tab_active.png");
             if (pTabActSp == null) pTabActSp = ArcaneAssetLoader.GetGlassBoxSprite(190, 44, 14f, new Color(0.04f, 0.16f, 0.32f, 0.95f), ColCyanGlow, 2f);
             Sprite pTabInactSp = ArcaneAssetLoader.LoadArcaneSprite("profile_tab_inactive.png");
@@ -3350,8 +3542,16 @@ namespace MechChess.UI
             achRt.anchoredPosition = new Vector2(0f, -40f);
             achRt.sizeDelta = new Vector2(610f, 360f);
 
-            string[] achTitles = { "Chiến Tướng Khởi Nguyên", "Đại Sư Đấu Máy", "Bậc Thầy AR" };
-            string[] achProgress = { "100 / 100 (Đạt)", "Hoàn thành", "38 / 50" };
+            string[] achTitles = {
+                AegisLocalization.T("Chiến Tướng Khởi Nguyên", "Genesis Knight"),
+                AegisLocalization.T("Đại Sư Đấu Máy", "AI Grandmaster"),
+                AegisLocalization.T("Bậc Thầy AR", "AR Pioneer")
+            };
+            string[] achProgress = {
+                AegisLocalization.T("100 / 100 (Đạt)", "100 / 100 (Done)"),
+                AegisLocalization.T("Hoàn thành", "Completed"),
+                "38 / 50"
+            };
             for (int i = 0; i < 3; i++)
             {
                 CreateTextComp(achContainer.transform, "🏆  " + achTitles[i], 16, FontStyle.Bold, ColTextWhite, font, new Vector2(-120f, 80f - i * 80f), new Vector2(320f, 30f), TextAnchor.MiddleLeft);
@@ -3370,7 +3570,11 @@ namespace MechChess.UI
             stkRt.anchoredPosition = new Vector2(0f, -40f);
             stkRt.sizeDelta = new Vector2(610f, 360f);
 
-            string[] ownedSkins = { "Knight of Light (Đang dùng)", "Dark Legion (Đã sở hữu)", "Cyber Future (Đã sở hữu)" };
+            string[] ownedSkins = {
+                AegisLocalization.T("Knight of Light (Đang dùng)", "Knight of Light (Equipped)"),
+                AegisLocalization.T("Dark Legion (Đã sở hữu)", "Dark Legion (Owned)"),
+                AegisLocalization.T("Cyber Future (Đã sở hữu)", "Cyber Future (Owned)")
+            };
             for (int i = 0; i < 3; i++)
             {
                 CreateTextComp(skinTabContainer.transform, "🛡  " + ownedSkins[i], 16, FontStyle.Bold, ColTextWhite, font, new Vector2(-120f, 80f - i * 80f), new Vector2(320f, 30f), TextAnchor.MiddleLeft);
@@ -3409,6 +3613,11 @@ namespace MechChess.UI
             if (_profileModal != null) _profileModal.SetActive(true);
         }
 
+        public void OpenProfileModal()
+        {
+            ShowProfileDetailsModal();
+        }
+
         // =========================================================================
         // SCREEN 13: MÀN HÌNH HỌC CỜ (Learn Chess with Sicilian defense diagram)
         // =========================================================================
@@ -3427,7 +3636,7 @@ namespace MechChess.UI
             cRt.anchoredPosition = Vector2.zero;
             cRt.sizeDelta = new Vector2(1280f, 720f);
 
-            CreateModalHeader(cardObj.transform, "<  KHAI CUỘC - Phòng thủ Sicilian", () => _learnScreenModal.SetActive(false), font);
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("<  KHAI CUỘC - Phòng thủ Sicilian", "<  OPENING - Sicilian Defense"), () => _learnScreenModal.SetActive(false), font);
 
             // Left: Lessons List
             GameObject lessonsCol = new GameObject("LessonsColumn");
@@ -3439,7 +3648,11 @@ namespace MechChess.UI
             lcRt.anchoredPosition = new Vector2(50f, -20f);
             lcRt.sizeDelta = new Vector2(300f, 480f);
 
-            string[] lessons = { "📘  Bài 1: Giới thiệu", "📘  Bài 2: Các biến thể chính", "📘  Bài 3: Luyện tập" };
+            string[] lessons = {
+                AegisLocalization.T("📘  Bài 1: Giới thiệu", "📘  Lesson 1: Intro"),
+                AegisLocalization.T("📘  Bài 2: Các biến thể chính", "📘  Lesson 2: Main Lines"),
+                AegisLocalization.T("📘  Bài 3: Luyện tập", "📘  Lesson 3: Practice")
+            };
             for (int i = 0; i < 3; i++)
             {
                 bool active = (i == 1);
@@ -3452,7 +3665,7 @@ namespace MechChess.UI
 
                 Button btn = lObj.AddComponent<Button>();
                 string lesName = lessons[i];
-                btn.onClick.AddListener(() => ShowToast($"Đang mở: {lesName}", ToastType.Info));
+                btn.onClick.AddListener(() => ShowToast(AegisLocalization.T($"Đang mở: {lesName}", $"Opening: {lesName}"), ToastType.Info));
                 lObj.AddComponent<MenuButtonEffect>();
 
                 RectTransform rt = lObj.GetComponent<RectTransform>();
@@ -3484,12 +3697,14 @@ namespace MechChess.UI
             dcRt.anchoredPosition = new Vector2(-50f, -20f);
             dcRt.sizeDelta = new Vector2(420f, 480f);
 
-            CreateTextComp(descCard.transform, "Biến thể Najdorf", 20, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 180f), new Vector2(360f, 36f));
+            CreateTextComp(descCard.transform, AegisLocalization.T("Biến thể Najdorf", "Najdorf Variation"), 20, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 180f), new Vector2(360f, 36f));
 
             GameObject bodyTxtObj = new GameObject("Body");
             bodyTxtObj.transform.SetParent(descCard.transform, false);
             Text bt = bodyTxtObj.AddComponent<Text>();
-            bt.text = "Đây là một trong những biến thể phổ biến và mạnh mẽ nhất của Phòng thủ Sicilian.\n\nĐặc trưng bởi nước đi 5...a6, ngăn chặn ô b5 của Trắng và chuẩn bị triển khai phản công cánh Hậu đầy uy lực.";
+            bt.text = AegisLocalization.T(
+                "Đây là một trong những biến thể phổ biến và mạnh mẽ nhất của Phòng thủ Sicilian.\n\nĐặc trưng bởi nước đi 5...a6, ngăn chặn ô b5 của Trắng và chuẩn bị triển khai phản công cánh Hậu đầy uy lực.",
+                "One of the most popular and sharp variations of the Sicilian Defense.\n\nCharacterized by 5...a6, denying the b5 square to White and preparing powerful queenside counter-play.");
             bt.font = font;
             bt.fontSize = 15;
             bt.lineSpacing = 1.35f;
@@ -3500,7 +3715,7 @@ namespace MechChess.UI
             btRt.sizeDelta = new Vector2(360f, 200f);
 
             // [Xem tiếp] Button
-            CreateMenuActionButton(descCard.transform, "BtnNextLesson", "Xem tiếp  ❯", new Vector2(0f, -170f), new Vector2(360f, 52f), ColGoldCta, ColDarkBtnText, 16, () => ShowToast("Đã hoàn thành bài học 2!", ToastType.Success), font, ColGoldBorder, 1.5f);
+            CreateMenuActionButton(descCard.transform, "BtnNextLesson", AegisLocalization.T("Xem tiếp  ❯", "Continue  ❯"), new Vector2(0f, -170f), new Vector2(360f, 52f), ColGoldCta, ColDarkBtnText, 16, () => ShowToast(AegisLocalization.T("Đã hoàn thành bài học 2!", "Lesson 2 completed!"), ToastType.Success), font, ColGoldBorder, 1.5f);
 
             _learnScreenModal.SetActive(false);
         }
@@ -3532,7 +3747,7 @@ namespace MechChess.UI
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(cardObj.transform, false);
             _confirmTitleTxt = titleObj.AddComponent<Text>();
-            _confirmTitleTxt.text = "Thông báo";
+            _confirmTitleTxt.text = AegisLocalization.T("Thông báo", "Notice");
             _confirmTitleTxt.font = font;
             _confirmTitleTxt.fontSize = 20;
             _confirmTitleTxt.fontStyle = FontStyle.Bold;
@@ -3546,7 +3761,7 @@ namespace MechChess.UI
             GameObject bodyObj = new GameObject("Body");
             bodyObj.transform.SetParent(cardObj.transform, false);
             _confirmBodyTxt = bodyObj.AddComponent<Text>();
-            _confirmBodyTxt.text = "Bạn có muốn thoát trò chơi?";
+            _confirmBodyTxt.text = AegisLocalization.T("Bạn có muốn thoát trò chơi?", "Are you sure you want to exit the game?");
             _confirmBodyTxt.font = font;
             _confirmBodyTxt.fontSize = 15;
             _confirmBodyTxt.alignment = TextAnchor.MiddleCenter;
@@ -3556,10 +3771,10 @@ namespace MechChess.UI
             bRt.sizeDelta = new Vector2(460f, 60f);
 
             // Cancel Button
-            CreateMenuActionButton(cardObj.transform, "BtnCancel", "Hủy", new Vector2(-110f, -70f), new Vector2(170f, 46f), ColGlassFill, ColTextMuted, 14, () => _confirmDialogModal.SetActive(false), font, ColMutedBorder, 1.2f);
+            CreateMenuActionButton(cardObj.transform, "BtnCancel", AegisLocalization.T("Hủy", "Cancel"), new Vector2(-110f, -70f), new Vector2(170f, 46f), ColGlassFill, ColTextMuted, 14, () => _confirmDialogModal.SetActive(false), font, ColMutedBorder, 1.2f);
 
             // Confirm Button
-            CreateMenuActionButton(cardObj.transform, "BtnConfirm", "Xác nhận", new Vector2(110f, -70f), new Vector2(170f, 46f), ColCyanBorder, ColDarkBtnText, 14, () =>
+            CreateMenuActionButton(cardObj.transform, "BtnConfirm", AegisLocalization.T("Xác nhận", "Confirm"), new Vector2(110f, -70f), new Vector2(170f, 46f), ColCyanBorder, ColDarkBtnText, 14, () =>
             {
                 _confirmDialogModal.SetActive(false);
                 _onConfirmAction?.Invoke();
@@ -3688,19 +3903,19 @@ namespace MechChess.UI
             cardRt.anchoredPosition = Vector2.zero;
             cardRt.sizeDelta = new Vector2(640f, 520f);
 
-            CreateModalHeader(cardObj.transform, "ĐĂNG NHẬP / TẠO TÀI KHOẢN", () => _loginModal.SetActive(false), font);
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("ĐĂNG NHẬP / TẠO TÀI KHOẢN", "SIGN IN / CREATE ACCOUNT"), () => _loginModal.SetActive(false), font);
 
-            CreateTextComp(cardObj.transform, "Đăng nhập bằng Gmail để tham gia đấu ngẫu nhiên & mời bạn bè", 13, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, 160f), new Vector2(560f, 26f));
+            CreateTextComp(cardObj.transform, AegisLocalization.T("Đăng nhập bằng Gmail để tham gia đấu ngẫu nhiên & mời bạn bè", "Sign in with Gmail for Ranked matchmaking & friend duels"), 13, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, 160f), new Vector2(560f, 26f));
 
             // Gmail Input
-            CreateTextComp(cardObj.transform, "ĐỊA CHỈ GMAIL (BẮT BUỘC):", 12, FontStyle.Bold, ColCyanBorder, font, new Vector2(0f, 115f), new Vector2(540f, 20f));
-            _loginGmailInput = CreateInputField(cardObj.transform, "GmailInput", "Ví dụ: nguyenvana@gmail.com", new Vector2(0f, 75f), new Vector2(540f, 48f), font);
+            CreateTextComp(cardObj.transform, AegisLocalization.T("ĐỊA CHỈ GMAIL (BẮT BUỘC):", "GMAIL ADDRESS (REQUIRED):"), 12, FontStyle.Bold, ColCyanBorder, font, new Vector2(0f, 115f), new Vector2(540f, 20f));
+            _loginGmailInput = CreateInputField(cardObj.transform, "GmailInput", AegisLocalization.T("Ví dụ: nguyenvana@gmail.com", "E.g.: player@gmail.com"), new Vector2(0f, 75f), new Vector2(540f, 48f), font);
 
             // Username Input
-            CreateTextComp(cardObj.transform, "TÊN NGƯỜI CHƠI (TÙY CHỌN - ĐỂ TRỐNG SẼ LẤY THEO GMAIL):", 12, FontStyle.Bold, ColCyanBorder, font, new Vector2(0f, 25f), new Vector2(540f, 20f));
-            _loginUsernameInput = CreateInputField(cardObj.transform, "UsernameInput", "Ví dụ: PhamVaA, DatIT, SiuVipPro...", new Vector2(0f, -15f), new Vector2(540f, 48f), font);
+            CreateTextComp(cardObj.transform, AegisLocalization.T("TÊN NGƯỜI CHƠI (TÙY CHỌN - ĐỂ TRỐNG SẼ LẤY THEO GMAIL):", "PLAYER USERNAME (OPTIONAL):"), 12, FontStyle.Bold, ColCyanBorder, font, new Vector2(0f, 25f), new Vector2(540f, 20f));
+            _loginUsernameInput = CreateInputField(cardObj.transform, "UsernameInput", AegisLocalization.T("Ví dụ: PhamVaA, DatIT, SiuVipPro...", "E.g.: Knight01, AegisPro..."), new Vector2(0f, -15f), new Vector2(540f, 48f), font);
 
-            CreateTextComp(cardObj.transform, "★ Quy tắc: Chữ cái, chữ số (0-9), không khoảng trắng, không ký tự đặc biệt, không dấu.", 11, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -55f), new Vector2(540f, 24f));
+            CreateTextComp(cardObj.transform, AegisLocalization.T("★ Quy tắc: Chữ cái, chữ số (0-9), không khoảng trắng, không ký tự đặc biệt, không dấu.", "★ Rules: Letters, numbers (0-9), no spaces, no special characters."), 11, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -55f), new Vector2(540f, 24f));
 
             // Error Text
             GameObject errObj = new GameObject("ErrorText");
@@ -3717,7 +3932,7 @@ namespace MechChess.UI
             errRt.sizeDelta = new Vector2(540f, 30f);
 
             // Submit Button
-            CreateMenuActionButton(cardObj.transform, "BtnSubmitLogin", "ĐĂNG NHẬP / XÁC NHẬN", new Vector2(0f, -150f), new Vector2(540f, 52f), ColGoldCta, ColDarkBtnText, 16, ExecuteLogin, font, ColGoldBorder, 1.5f);
+            CreateMenuActionButton(cardObj.transform, "BtnSubmitLogin", AegisLocalization.T("ĐĂNG NHẬP / XÁC NHẬN", "SIGN IN / CONFIRM"), new Vector2(0f, -150f), new Vector2(540f, 52f), ColGoldCta, ColDarkBtnText, 16, ExecuteLogin, font, ColGoldBorder, 1.5f);
 
             _loginModal.SetActive(false);
         }
@@ -3729,20 +3944,20 @@ namespace MechChess.UI
 
             if (string.IsNullOrEmpty(gmail) || !gmail.Contains("@"))
             {
-                if (_loginErrorTxt != null) _loginErrorTxt.text = "Vui lòng nhập địa chỉ Gmail hợp lệ!";
+                if (_loginErrorTxt != null) _loginErrorTxt.text = AegisLocalization.T("Vui lòng nhập địa chỉ Gmail hợp lệ!", "Please enter a valid Gmail address!");
                 return;
             }
 
             if (UserAccountManager.Instance != null)
             {
-                if (_loginErrorTxt != null) _loginErrorTxt.text = "Đang xác thực...";
+                if (_loginErrorTxt != null) _loginErrorTxt.text = AegisLocalization.T("Đang xác thực...", "Authenticating...");
                 UserAccountManager.Instance.Login(gmail, username, (success, msg) =>
                 {
                     if (success)
                     {
                         if (_loginModal != null) _loginModal.SetActive(false);
                         UpdateUserProfileUI();
-                        ShowToast($"Xin chào {UserAccountManager.Instance.CurrentUsername}!", ToastType.Success);
+                        ShowToast(AegisLocalization.T($"Xin chào {UserAccountManager.Instance.CurrentUsername}!", $"Welcome {UserAccountManager.Instance.CurrentUsername}!"), ToastType.Success);
                         _postLoginAction?.Invoke();
                         _postLoginAction = null;
                     }
@@ -3756,7 +3971,7 @@ namespace MechChess.UI
 
         private void OpenOnlineMatchChoiceModal()
         {
-            ShowConfirmDialog("CHẾ ĐỘ ĐẤU ONLINE", "Bạn muốn ghép trận ngẫu nhiên (Ranked) hay Thách đấu bạn bè?", () =>
+            ShowConfirmDialog(AegisLocalization.T("CHẾ ĐỘ ĐẤU ONLINE", "ONLINE MULTIPLAYER"), AegisLocalization.T("Bạn muốn ghép trận ngẫu nhiên (Ranked) hay Thách đấu bạn bè?", "Do you want Ranked Matchmaking or Friend Duel?"), () =>
             {
                 ShowMatchmakingModal();
             });
@@ -3784,7 +3999,7 @@ namespace MechChess.UI
                 int sec = Mathf.FloorToInt(elapsed % 60f);
                 if (_matchmakingTimerTxt != null)
                 {
-                    _matchmakingTimerTxt.text = $"Thời gian tìm trận: {min:00}:{sec:00}";
+                    _matchmakingTimerTxt.text = AegisLocalization.T($"Thời gian tìm trận: {min:00}:{sec:00}", $"Queue time: {min:00}:{sec:00}");
                 }
                 yield return null;
             }
@@ -3819,12 +4034,12 @@ namespace MechChess.UI
             _radarIconRt.anchoredPosition = new Vector2(0f, 110f);
             _radarIconRt.sizeDelta = new Vector2(80f, 80f);
 
-            CreateTextComp(cardObj.transform, "ĐANG TÌM ĐỐI THỦ ONLINE...", 22, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 45f), new Vector2(540f, 36f));
+            CreateTextComp(cardObj.transform, AegisLocalization.T("ĐANG TÌM ĐỐI THỦ ONLINE...", "SEARCHING FOR ONLINE OPPONENT..."), 22, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 45f), new Vector2(540f, 36f));
 
             GameObject sObj = new GameObject("Status");
             sObj.transform.SetParent(cardObj.transform, false);
             _matchmakingStatusTxt = sObj.AddComponent<Text>();
-            _matchmakingStatusTxt.text = "Ghép ngẫu nhiên người chơi trực tuyến có mức Rank tương đồng.";
+            _matchmakingStatusTxt.text = AegisLocalization.T("Ghép ngẫu nhiên người chơi trực tuyến có mức Rank tương đồng.", "Matching online players with similar Elo ratings.");
             _matchmakingStatusTxt.font = font;
             _matchmakingStatusTxt.fontSize = 14;
             _matchmakingStatusTxt.alignment = TextAnchor.MiddleCenter;
@@ -3836,7 +4051,7 @@ namespace MechChess.UI
             GameObject timerObj = new GameObject("Timer");
             timerObj.transform.SetParent(cardObj.transform, false);
             _matchmakingTimerTxt = timerObj.AddComponent<Text>();
-            _matchmakingTimerTxt.text = "Thời gian tìm trận: 00:00";
+            _matchmakingTimerTxt.text = AegisLocalization.T("Thời gian tìm trận: 00:00", "Queue time: 00:00");
             _matchmakingTimerTxt.font = font;
             _matchmakingTimerTxt.fontSize = 20;
             _matchmakingTimerTxt.fontStyle = FontStyle.Bold;
@@ -3846,7 +4061,7 @@ namespace MechChess.UI
             tRt.anchoredPosition = new Vector2(0f, -35f);
             tRt.sizeDelta = new Vector2(520f, 32f);
 
-            CreateMenuActionButton(cardObj.transform, "BtnCancelMatchmaking", "HỦY TÌM TRẬN", new Vector2(0f, -115f), new Vector2(260f, 52f), new Color(0.28f, 0.08f, 0.08f, 0.95f), new Color(1f, 0.45f, 0.45f), 15, () =>
+            CreateMenuActionButton(cardObj.transform, "BtnCancelMatchmaking", AegisLocalization.T("HỦY TÌM TRẬN", "CANCEL QUEUE"), new Vector2(0f, -115f), new Vector2(260f, 52f), new Color(0.28f, 0.08f, 0.08f, 0.95f), new Color(1f, 0.45f, 0.45f), 15, () =>
             {
                 if (OnlineMultiplayerManager.Instance != null) OnlineMultiplayerManager.Instance.CancelRandomMatchmaking();
                 if (_matchmakingTimerCoroutine != null) StopCoroutine(_matchmakingTimerCoroutine);
@@ -3861,7 +4076,10 @@ namespace MechChess.UI
             if (_friendModal == null) return;
             if (_friendMyNameTxt != null && UserAccountManager.Instance != null)
             {
-                _friendMyNameTxt.text = $"Tên của bạn: <color=#00D2FF><b>{UserAccountManager.Instance.CurrentUsername}</b></color> (Elo {UserAccountManager.Instance.CurrentElo})\n<i>Hãy chia sẻ tên này để bạn bè tìm và mời bạn!</i>";
+                _friendMyNameTxt.text = AegisLocalization.T(
+                    $"Tên của bạn: <color=#00D2FF><b>{UserAccountManager.Instance.CurrentUsername}</b></color> (Elo {UserAccountManager.Instance.CurrentElo})\n<i>Hãy chia sẻ tên này để bạn bè tìm và mời bạn!</i>",
+                    $"Your Name: <color=#00D2FF><b>{UserAccountManager.Instance.CurrentUsername}</b></color> (Elo {UserAccountManager.Instance.CurrentElo})\n<i>Share this name so friends can invite you!</i>"
+                );
             }
             if (_friendTargetInput != null) _friendTargetInput.text = "";
             if (_friendStatusTxt != null) _friendStatusTxt.text = "";
@@ -3889,12 +4107,12 @@ namespace MechChess.UI
             cardRt.anchoredPosition = Vector2.zero;
             cardRt.sizeDelta = new Vector2(680f, 580f);
 
-            CreateModalHeader(cardObj.transform, "THÁCH ĐẤU BẠN BÈ", () => _friendModal.SetActive(false), font);
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("THÁCH ĐẤU BẠN BÈ", "CHALLENGE FRIEND"), () => _friendModal.SetActive(false), font);
 
             GameObject mnObj = new GameObject("MyNameBanner");
             mnObj.transform.SetParent(cardObj.transform, false);
             _friendMyNameTxt = mnObj.AddComponent<Text>();
-            _friendMyNameTxt.text = "Tên của bạn: ...";
+            _friendMyNameTxt.text = AegisLocalization.T("Tên của bạn: ...", "Your name: ...");
             _friendMyNameTxt.font = font;
             _friendMyNameTxt.fontSize = 14;
             _friendMyNameTxt.alignment = TextAnchor.MiddleCenter;
@@ -3903,9 +4121,9 @@ namespace MechChess.UI
             mnRt.anchoredPosition = new Vector2(0f, 205f);
             mnRt.sizeDelta = new Vector2(600f, 36f);
 
-            _friendTargetInput = CreateInputField(cardObj.transform, "TargetInput", "Nhập tên bạn bè (vd: DatIT, PhamVaA)...", new Vector2(-75f, 145f), new Vector2(390f, 48f), font);
+            _friendTargetInput = CreateInputField(cardObj.transform, "TargetInput", AegisLocalization.T("Nhập tên bạn bè (vd: DatIT, PhamVaA)...", "Enter friend name (e.g. DatIT, PhamVaA)..."), new Vector2(-75f, 145f), new Vector2(390f, 48f), font);
 
-            CreateMenuActionButton(cardObj.transform, "BtnSendInvite", "MỜI ĐẤU", new Vector2(215f, 145f), new Vector2(130f, 48f), ColGoldCta, ColDarkBtnText, 14, () =>
+            CreateMenuActionButton(cardObj.transform, "BtnSendInvite", AegisLocalization.T("MỜI ĐẤU", "INVITE"), new Vector2(215f, 145f), new Vector2(130f, 48f), ColGoldCta, ColDarkBtnText, 14, () =>
             {
                 if (_friendTargetInput != null) SendFriendChallenge(_friendTargetInput.text);
             }, font, ColGoldBorder, 1.5f);
@@ -3922,7 +4140,7 @@ namespace MechChess.UI
             fsRt.anchoredPosition = new Vector2(0f, 100f);
             fsRt.sizeDelta = new Vector2(580f, 26f);
 
-            CreateTextComp(cardObj.transform, "NGƯỜI CHƠI ĐANG TRỰC TUYẾN (ONLINE)", 12, FontStyle.Bold, ColTextMuted, font, new Vector2(0f, 65f), new Vector2(580f, 22f));
+            CreateTextComp(cardObj.transform, AegisLocalization.T("NGƯỜI CHƠI ĐANG TRỰC TUYẾN (ONLINE)", "ONLINE PLAYERS"), 12, FontStyle.Bold, ColTextMuted, font, new Vector2(0f, 65f), new Vector2(580f, 22f));
 
             GameObject containerObj = new GameObject("OnlinePlayersContainer");
             containerObj.transform.SetParent(cardObj.transform, false);
@@ -3931,7 +4149,7 @@ namespace MechChess.UI
             cRt.anchoredPosition = new Vector2(0f, 45f);
             cRt.sizeDelta = new Vector2(580f, 240f);
 
-            CreateMenuActionButton(cardObj.transform, "BtnCloseFriendModal", "ĐÓNG", new Vector2(0f, -240f), new Vector2(180f, 42f), ColGlassFill, ColTextMuted, 13, () => _friendModal.SetActive(false), font, ColMutedBorder, 1.2f);
+            CreateMenuActionButton(cardObj.transform, "BtnCloseFriendModal", AegisLocalization.T("ĐÓNG", "CLOSE"), new Vector2(0f, -240f), new Vector2(180f, 42f), ColGlassFill, ColTextMuted, 13, () => _friendModal.SetActive(false), font, ColMutedBorder, 1.2f);
 
             _friendModal.SetActive(false);
         }
@@ -3940,18 +4158,18 @@ namespace MechChess.UI
         {
             if (string.IsNullOrEmpty(targetName))
             {
-                if (_friendStatusTxt != null) _friendStatusTxt.text = "<color=#EF4444>Vui lòng nhập tên người chơi muốn thách đấu!</color>";
+                if (_friendStatusTxt != null) _friendStatusTxt.text = AegisLocalization.T("<color=#EF4444>Vui lòng nhập tên người chơi muốn thách đấu!</color>", "<color=#EF4444>Please enter the name of the player to challenge!</color>");
                 return;
             }
             if (UserAccountManager.Instance != null && targetName.Trim().Equals(UserAccountManager.Instance.CurrentUsername, StringComparison.OrdinalIgnoreCase))
             {
-                if (_friendStatusTxt != null) _friendStatusTxt.text = "<color=#EF4444>Bạn không thể tự thách đấu chính mình!</color>";
+                if (_friendStatusTxt != null) _friendStatusTxt.text = AegisLocalization.T("<color=#EF4444>Bạn không thể tự thách đấu chính mình!</color>", "<color=#EF4444>You cannot challenge yourself!</color>");
                 return;
             }
             if (OnlineMultiplayerManager.Instance != null)
             {
                 OnlineMultiplayerManager.Instance.SendFriendInvite(targetName.Trim());
-                if (_friendStatusTxt != null) _friendStatusTxt.text = $"<color=#00D2FF>Đang gửi lời mời thách đấu tới '{targetName.Trim()}'...</color>";
+                if (_friendStatusTxt != null) _friendStatusTxt.text = AegisLocalization.T($"<color=#00D2FF>Đang gửi lời mời thách đấu tới '{targetName.Trim()}'...</color>", $"<color=#00D2FF>Sending challenge invite to '{targetName.Trim()}'...</color>");
             }
         }
 
@@ -3970,7 +4188,7 @@ namespace MechChess.UI
                 GameObject emptyObj = new GameObject("EmptyNotice");
                 emptyObj.transform.SetParent(_onlinePlayersContainer, false);
                 Text emptyTxt = emptyObj.AddComponent<Text>();
-                emptyTxt.text = "Chưa có người chơi khác trực tuyến.\nBạn có thể mở thêm thiết bị với Gmail khác để thử thách đấu!";
+                emptyTxt.text = AegisLocalization.T("Chưa có người chơi khác trực tuyến.\nBạn có thể mở thêm thiết bị với Gmail khác để thử thách đấu!", "No other players online.\nYou can open another device with a different Gmail to test friend matches!");
                 emptyTxt.font = font;
                 emptyTxt.fontSize = 13;
                 emptyTxt.fontStyle = FontStyle.Italic;
@@ -4000,7 +4218,7 @@ namespace MechChess.UI
 
                 CreateTextComp(rowObj.transform, $"●  {targetName} (Elo {targetElo})", 15, FontStyle.Bold, ColTextWhite, font, new Vector2(-100f, 0f), new Vector2(320f, 30f));
 
-                CreateMenuActionButton(rowObj.transform, "BtnInvite", "THÁCH ĐẤU", new Vector2(210f, 0f), new Vector2(120f, 34f), ColGoldCta, ColDarkBtnText, 12, () =>
+                CreateMenuActionButton(rowObj.transform, "BtnInvite", AegisLocalization.T("THÁCH ĐẤU", "CHALLENGE"), new Vector2(210f, 0f), new Vector2(120f, 34f), ColGoldCta, ColDarkBtnText, 12, () =>
                 {
                     if (_friendTargetInput != null) _friendTargetInput.text = targetName;
                     SendFriendChallenge(targetName);
@@ -4025,12 +4243,12 @@ namespace MechChess.UI
             cardRt.anchoredPosition = Vector2.zero;
             cardRt.sizeDelta = new Vector2(600f, 350f);
 
-            CreateTextComp(cardObj.transform, "⚔️  LỜI MỜI THÁCH ĐẤU  ⚔️", 20, FontStyle.Bold, ColGoldBorder, font, new Vector2(0f, 115f), new Vector2(540f, 36f));
+            CreateTextComp(cardObj.transform, AegisLocalization.T("⚔️  LỜI MỜI THÁCH ĐẤU  ⚔️", "⚔️  INCOMING CHALLENGE  ⚔️"), 20, FontStyle.Bold, ColGoldBorder, font, new Vector2(0f, 115f), new Vector2(540f, 36f));
 
             GameObject bodyObj = new GameObject("Body");
             bodyObj.transform.SetParent(cardObj.transform, false);
             _challengeBodyTxt = bodyObj.AddComponent<Text>();
-            _challengeBodyTxt.text = "Người chơi muốn thách đấu với bạn!";
+            _challengeBodyTxt.text = AegisLocalization.T("Người chơi muốn thách đấu với bạn!", "A player challenged you!");
             _challengeBodyTxt.font = font;
             _challengeBodyTxt.fontSize = 16;
             _challengeBodyTxt.alignment = TextAnchor.MiddleCenter;
@@ -4039,7 +4257,7 @@ namespace MechChess.UI
             bodyRt.anchoredPosition = new Vector2(0f, 25f);
             bodyRt.sizeDelta = new Vector2(520f, 90f);
 
-            CreateMenuActionButton(cardObj.transform, "BtnAcceptChallenge", "CHẤP NHẬN", new Vector2(-110f, -95f), new Vector2(180f, 48f), ColGoldCta, ColDarkBtnText, 14, () =>
+            CreateMenuActionButton(cardObj.transform, "BtnAcceptChallenge", AegisLocalization.T("CHẤP NHẬN", "ACCEPT"), new Vector2(-110f, -95f), new Vector2(180f, 48f), ColGoldCta, ColDarkBtnText, 14, () =>
             {
                 if (OnlineMultiplayerManager.Instance != null && !string.IsNullOrEmpty(_incomingInviteId))
                 {
@@ -4048,7 +4266,7 @@ namespace MechChess.UI
                 _challengeModal.SetActive(false);
             }, font, ColGoldBorder, 1.5f);
 
-            CreateMenuActionButton(cardObj.transform, "BtnDeclineChallenge", "TỪ CHỐI", new Vector2(110f, -95f), new Vector2(180f, 48f), ColGlassFill, ColTextMuted, 14, () =>
+            CreateMenuActionButton(cardObj.transform, "BtnDeclineChallenge", AegisLocalization.T("TỪ CHỐI", "DECLINE"), new Vector2(110f, -95f), new Vector2(180f, 48f), ColGlassFill, ColTextMuted, 14, () =>
             {
                 if (OnlineMultiplayerManager.Instance != null && !string.IsNullOrEmpty(_incomingInviteId))
                 {
@@ -4068,19 +4286,22 @@ namespace MechChess.UI
 
             if (_challengeBodyTxt != null)
             {
-                _challengeBodyTxt.text = $"Người chơi <b><color=#00D2FF>{fromUser}</color></b> (Elo {fromElo})\ngửi lời mời thách đấu cờ vua với bạn!\n\nBạn có muốn chấp nhận lời mời thi đấu không?";
+                _challengeBodyTxt.text = AegisLocalization.T(
+                    $"Người chơi <b><color=#00D2FF>{fromUser}</color></b> (Elo {fromElo})\ngửi lời mời thách đấu cờ vua với bạn!\n\nBạn có muốn chấp nhận lời mời thi đấu không?",
+                    $"Player <b><color=#00D2FF>{fromUser}</color></b> (Elo {fromElo})\nchallenged you to a chess match!\n\nDo you want to accept the challenge?"
+                );
             }
             if (_challengeModal != null) _challengeModal.SetActive(true);
         }
 
         private void HandleInviteDeclined(string reason)
         {
-            if (_friendStatusTxt != null) _friendStatusTxt.text = $"<color=#EF4444>Đối phương đã từ chối: {reason}</color>";
+            if (_friendStatusTxt != null) _friendStatusTxt.text = AegisLocalization.T($"<color=#EF4444>Đối phương đã từ chối: {reason}</color>", $"<color=#EF4444>Opponent declined: {reason}</color>");
         }
 
         private void HandleInviteError(string error)
         {
-            if (_friendStatusTxt != null) _friendStatusTxt.text = $"<color=#EF4444>Lỗi: {error}</color>";
+            if (_friendStatusTxt != null) _friendStatusTxt.text = AegisLocalization.T($"<color=#EF4444>Lỗi: {error}</color>", $"<color=#EF4444>Error: {error}</color>");
         }
 
         private void HandleMatchFound(string roomId, PieceColor role, string oppName, int oppElo)
@@ -4104,11 +4325,11 @@ namespace MechChess.UI
             {
                 UIManager2D.Instance.isRankedMode = true;
                 UIManager2D.Instance.ConfigureTimeControl("10 + 0");
-                string colorStr = (role == PieceColor.White) ? "TRẮNG (đi trước)" : "ĐEN (đi sau)";
-                UIManager2D.Instance.RecordMove($"[TRẬN ĐẤU ONLINE] Bạn cầm quân {colorStr} đấu với {oppName} (Elo {oppElo}) | Phòng: {roomId}");
+                string colorStr = (role == PieceColor.White) ? AegisLocalization.T("TRẮNG (đi trước)", "WHITE (plays first)") : AegisLocalization.T("ĐEN (đi sau)", "BLACK (plays second)");
+                UIManager2D.Instance.RecordMove(AegisLocalization.T($"[TRẬN ĐẤU ONLINE] Bạn cầm quân {colorStr} đấu với {oppName} (Elo {oppElo}) | Phòng: {roomId}", $"[ONLINE MATCH] You play {colorStr} vs {oppName} (Elo {oppElo}) | Room: {roomId}"));
             }
 
-            ShowToast($"Trận đấu bắt đầu! Đối thủ: {oppName}", ToastType.Success);
+            ShowToast(AegisLocalization.T($"Trận đấu bắt đầu! Đối thủ: {oppName}", $"Match started! Opponent: {oppName}"), ToastType.Success);
         }
 
         // =========================================================================
@@ -4137,9 +4358,9 @@ namespace MechChess.UI
                     {
                         UIManager2D.Instance.isRankedMode = false;
                         UIManager2D.Instance.ConfigureTimeControl("10 + 0");
-                        UIManager2D.Instance.RecordMove("[BẮT ĐẦU] Chế độ: Hai người chơi luân phiên (Pass & Play)");
+                        UIManager2D.Instance.RecordMove(AegisLocalization.T("[BẮT ĐẦU] Chế độ: Hai người chơi luân phiên (Pass & Play)", "[START] Mode: Local Pass & Play"));
                     }
-                    ShowToast("Bắt đầu chế độ Hai người!", ToastType.Success);
+                    ShowToast(AegisLocalization.T("Bắt đầu chế độ Hai người!", "Starting Pass & Play mode!"), ToastType.Success);
                     break;
 
                 case GameLaunchMode.AugmentedReality:
@@ -4147,14 +4368,14 @@ namespace MechChess.UI
                     {
                         UIManager2D.Instance.SetHUDVisible(true);
                         UIManager2D.Instance.SetARHUDVisible(true);
-                        UIManager2D.Instance.RecordMove("[BẮT ĐẦU] Chế độ AR Thực Tế Tăng Cường kích hoạt.");
+                        UIManager2D.Instance.RecordMove(AegisLocalization.T("[BẮT ĐẦU] Chế độ AR Thực Tế Tăng Cường kích hoạt.", "[START] AR Augmented Reality mode activated."));
                     }
                     if (MechChess.AR.HybridARController.Instance != null)
                     {
                         MechChess.AR.HybridARController.Instance.ApplyDisplayMode(0);
                         MechChess.AR.HybridARController.Instance.SetARActive(true);
                     }
-                    ShowToast("Chế độ AR Camera sẵn sàng!", ToastType.Success);
+                    ShowToast(AegisLocalization.T("Chế độ AR Camera sẵn sàng!", "AR Camera mode ready!"), ToastType.Success);
                     break;
 
                 case GameLaunchMode.OnlineMultiplayer:
