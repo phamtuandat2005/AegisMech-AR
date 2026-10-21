@@ -50,6 +50,7 @@ namespace MechChess.Combat2D
             CanvasScaler scaler = _canvasRoot.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = ((float)Screen.width / Mathf.Max(1, Screen.height) < 1.7777f) ? 0f : 1f;
             _canvasRoot.AddComponent<GraphicRaycaster>();
 
             // Dark Glassmorphism Backdrop
@@ -63,11 +64,13 @@ namespace MechChess.Combat2D
             bgRt.offsetMin = Vector2.zero;
             bgRt.offsetMax = Vector2.zero;
 
+            Font font = GetDefaultFont();
+
             // Header Banner
             GameObject header = new GameObject("HeaderTitle");
             header.transform.SetParent(backdrop.transform, false);
             Text titleTxt = header.AddComponent<Text>();
-            titleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleTxt.font = font;
             titleTxt.fontSize = 36;
             titleTxt.alignment = TextAnchor.MiddleCenter;
             titleTxt.color = new Color(0.0f, 0.95f, 1.0f);
@@ -80,7 +83,7 @@ namespace MechChess.Combat2D
             GameObject timerObj = new GameObject("TimerText");
             timerObj.transform.SetParent(backdrop.transform, false);
             _timerText = timerObj.AddComponent<Text>();
-            _timerText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _timerText.font = font;
             _timerText.fontSize = 28;
             _timerText.alignment = TextAnchor.MiddleCenter;
             _timerText.color = new Color(1.0f, 0.85f, 0.1f);
@@ -93,7 +96,7 @@ namespace MechChess.Combat2D
             GameObject statusObj = new GameObject("StatusText");
             statusObj.transform.SetParent(backdrop.transform, false);
             _statusText = statusObj.AddComponent<Text>();
-            _statusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _statusText.font = font;
             _statusText.fontSize = 22;
             _statusText.alignment = TextAnchor.MiddleCenter;
             _statusText.color = Color.white;
@@ -102,12 +105,23 @@ namespace MechChess.Combat2D
             statusRt.anchoredPosition = new Vector2(0, -420);
             statusRt.sizeDelta = new Vector2(950, 50);
 
-            // Physics 2D Arena Frame
-            _arenaBounds = new GameObject("Arena2D_PhysicsRoot");
+            // Physics 2D Arena Frame (Explicitly with RectTransform)
+            _arenaBounds = new GameObject("Arena2D_PhysicsRoot", typeof(RectTransform));
             _arenaBounds.transform.SetParent(_canvasRoot.transform, false);
+            RectTransform arenaRt = _arenaBounds.GetComponent<RectTransform>();
+            arenaRt.sizeDelta = new Vector2(600f, 400f);
+            arenaRt.anchoredPosition = Vector2.zero;
 
             CreatePhysicsArena();
             _canvasRoot.SetActive(false);
+        }
+
+        private static Font GetDefaultFont()
+        {
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            if (font == null) font = Font.CreateDynamicFontFromOSFont(new[] { "Arial", "Segoe UI", "Tahoma" }, 16);
+            return font;
         }
 
         private void CreatePhysicsArena()

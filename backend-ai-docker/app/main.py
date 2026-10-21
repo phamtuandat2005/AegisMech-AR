@@ -10,10 +10,15 @@ import io
 import time
 import base64
 import logging
+import json
+import re
+import uuid
+import random
+import asyncio
 from typing import Optional, List, Dict, Any, Tuple
 
 # pyrefly: ignore[missing-import]
-from fastapi import FastAPI, UploadFile, File, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, WebSocket, WebSocketDisconnect
 # pyrefly: ignore[missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore[missing-import]
@@ -455,7 +460,951 @@ def calculate_ai_move(payload: AIMoveRequest):
         thinking_time_ms=round(elapsed_ms, 2)
     )
 
+# ---------------------------------------------------------------------------
+# Real-time Online 2-Player Chess Room Hub (WebSockets)
+# ---------------------------------------------------------------------------
+class PlayerConnection:
+    def __init__(self, websocket: WebSocket, role: str, name: str):
+        self.websocket = websocket
+        self.role = role  # "white" or "black"
+        self.name = name
+
+class ChessRoom:
+    def __init__(self, room_id: str):
+        self.room_id = room_id
+        self.players: Dict[str, PlayerConnection] = {}
+        self.created_at = time.time()
+        self.moves_history: List[str] = []
+
+    def is_full(self) -> bool:
+        return len(self.players) >= 2
+
+    def get_available_role(self) -> Optional[str]:
+        if "white" not in self.players:
+            return "white"
+        if "black" not in self.players:
+            return "black"
+        return None
+
+class RoomManager:
+    def __init__(self):
+        self.rooms: Dict[str, ChessRoom] = {}
+
+    def get_or_create_room(self, room_id: str) -> ChessRoom:
+        if room_id not in self.rooms:
+            self.rooms[room_id] = ChessRoom(room_id)
+        return self.rooms[room_id]
+
+    def remove_player(self, room_id: str, role: str):
+        if room_id in self.rooms:
+            room = self.rooms[room_id]
+            if role in room.players:
+                del room.players[role]
+            if len(room.players) == 0:
+                del self.rooms[room_id]
+
+room_manager = RoomManager()
+
+# ---------------------------------------------------------------------------
+# Account & Authentication Manager (Gmail Login & Unique Alphanumeric Usernames)
+# ---------------------------------------------------------------------------
+DB_FILE = os.path.join(os.path.dirname(__file__), "users_db.json")
+
+class AccountManager:
+    def __init__(self, filepath: str = DB_FILE):
+        self.filepath = filepath
+        self.users: Dict[str, Dict[str, Any]] = {}       # gmail -> user_info
+        self.usernames: Dict[str, str] = {}              # lower_username -> gmail
+        self.load()
+
+    def load(self):
+        if os.path.exists(self.filepath):
+            try:
+                with open(self.filepath, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.users = data.get("users", {})
+                    self.usernames = data.get("usernames", {})
+                    logger.info(f"[AccountManager] Loaded {len(self.users)} registered accounts.")
+            except Exception as e:
+                logger.error(f"[AccountManager] Error loading users db: {e}")
+                self.users = {}
+                self.usernames = {}
+
+    def save(self):
+        try:
+            with open(self.filepath, "w", encoding="utf-8") as f:
+                json.dump({"users": self.users, "usernames": self.usernames}, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"[AccountManager] Error saving users db: {e}")
+
+    @staticmethod
+    def is_valid_username(username: str) -> bool:
+        if not username:
+            return False
+        # Regex: Alphanumeric only, no spaces, no special characters, no accents (length 3-20)
+        return bool(re.match(r"^[a-zA-Z0-9]{3,20}$", username))
+
+    @staticmethod
+    def derive_default_username(gmail: str) -> str:
+        prefix = gmail.split("@")[0]
+        # Remove any non-alphanumeric character
+        clean = re.sub(r"[^a-zA-Z0-9]", "", prefix)
+        if len(clean) < 3:
+            clean = f"Player{clean}"
+        return clean[:20]
+
+    def register_or_login(self, gmail: str, requested_username: Optional[str] = None) -> Tuple[bool, str, Dict[str, Any]]:
+        clean_gmail = gmail.strip().lower()
+        if not clean_gmail.endswith("@gmail.com") or len(clean_gmail) < 11:
+            return False, "Địa chỉ email không hợp lệ! Yêu cầu đăng nhập bằng Gmail (ví dụ: nguyenvana@gmail.com).", {}
+
+        target_name = requested_username.strip() if requested_username and requested_username.strip() else None
+
+        if not target_name:
+            if clean_gmail in self.users:
+                target_name = self.users[clean_gmail]["username"]
+            else:
+                target_name = self.derive_default_username(clean_gmail)
+
+        if not self.is_valid_username(target_name):
+            return False, f"Tên '{target_name}' không hợp lệ! Tên chỉ có thể là chữ cái, chữ số 0-9, viết liền không dấu, không khoảng trắng hay ký tự đặc biệt (3-20 ký tự, ví dụ: PhamVaA, DatIT, SiuVipPro, nhavua01).", {}
+
+        lower_target = target_name.lower()
+
+        # Check uniqueness across different accounts
+        if lower_target in self.usernames and self.usernames[lower_target] != clean_gmail:
+            return False, f"Tên người chơi '{target_name}' đã được người khác sử dụng! Vui lòng chọn tên khác.", {}
+
+        # If user is changing their own username, free up the old one
+        if clean_gmail in self.users:
+            old_name = self.users[clean_gmail]["username"].lower()
+            if old_name != lower_target and old_name in self.usernames:
+                del self.usernames[old_name]
+
+        user_info = self.users.get(clean_gmail, {
+            "gmail": clean_gmail,
+            "username": target_name,
+            "elo": 1200,
+            "created_at": time.time()
+        })
+        user_info["username"] = target_name
+        self.users[clean_gmail] = user_info
+        self.usernames[lower_target] = clean_gmail
+        self.save()
+
+        return True, "Đăng nhập thành công!", user_info
+
+account_manager = AccountManager()
+
+# ---------------------------------------------------------------------------
+# Real-time Online Lobby & Matchmaking Manager
+# ---------------------------------------------------------------------------
+class LobbyClient:
+    def __init__(self, websocket: WebSocket, username: str, gmail: str, elo: int = 1200):
+        self.websocket = websocket
+        self.username = username
+        self.gmail = gmail
+        self.elo = elo
+        self.status = "idle"  # "idle", "queue", "in_match"
+        self.time_control = "10 + 0"
+        self.queue_time = 0.0
+
+class LobbyManager:
+    def __init__(self):
+        self.clients: Dict[str, LobbyClient] = {}       # lower_username -> LobbyClient
+        self.matchmaking_queue: List[str] = []          # list of lower_usernames in queue
+
+    def add_client(self, websocket: WebSocket, username: str, gmail: str, elo: int):
+        lower = username.lower()
+        self.clients[lower] = LobbyClient(websocket, username, gmail, elo)
+
+    def remove_client(self, username: str):
+        lower = username.lower()
+        if lower in self.matchmaking_queue:
+            self.matchmaking_queue.remove(lower)
+        if lower in self.clients:
+            del self.clients[lower]
+
+    def add_to_queue(self, username: str, time_control: str = "10 + 0"):
+        lower = username.lower()
+        if lower not in self.clients:
+            return
+        client = self.clients[lower]
+        client.status = "queue"
+        client.time_control = time_control
+        client.queue_time = time.time()
+        if lower not in self.matchmaking_queue:
+            self.matchmaking_queue.append(lower)
+
+    def remove_from_queue(self, username: str):
+        lower = username.lower()
+        if lower in self.matchmaking_queue:
+            self.matchmaking_queue.remove(lower)
+        if lower in self.clients:
+            self.clients[lower].status = "idle"
+
+    def try_match_players(self) -> Optional[Tuple[LobbyClient, LobbyClient, str]]:
+        if len(self.matchmaking_queue) >= 2:
+            p1_key = self.matchmaking_queue.pop(0)
+            p2_key = self.matchmaking_queue.pop(0)
+            p1 = self.clients.get(p1_key)
+            p2 = self.clients.get(p2_key)
+            if p1 and p2:
+                room_id = f"MATCH_{uuid.uuid4().hex[:8].upper()}"
+                p1.status = "in_match"
+                p2.status = "in_match"
+                return p1, p2, room_id
+            if p1 and p1_key in self.clients:
+                self.matchmaking_queue.insert(0, p1_key)
+            elif p2 and p2_key in self.clients:
+                self.matchmaking_queue.insert(0, p2_key)
+        return None
+
+lobby_manager = LobbyManager()
+
+async def broadcast_online_players():
+    online_list = [
+        {"username": c.username, "elo": c.elo, "status": c.status}
+        for c in lobby_manager.clients.values()
+    ]
+    for c in list(lobby_manager.clients.values()):
+        try:
+            await c.websocket.send_json({
+                "type": "online_players_list",
+                "players": online_list
+            })
+        except Exception:
+            pass
+
+class LoginRequest(BaseModel):
+    gmail: str
+    username: Optional[str] = None
+
+@app.post("/api/auth/login")
+def auth_login(req: LoginRequest):
+    success, msg, user = account_manager.register_or_login(req.gmail, req.username)
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
+    return {
+        "success": True,
+        "message": msg,
+        "user": user
+    }
+
+@app.get("/api/players/online")
+def get_online_players():
+    return {
+        "count": len(lobby_manager.clients),
+        "players": [
+            {"username": c.username, "elo": c.elo, "status": c.status}
+            for c in lobby_manager.clients.values()
+        ]
+    }
+
+@app.get("/api/players/search")
+def search_players(query: str):
+    q = query.strip().lower()
+    matches = []
+    for lower_u, g in account_manager.usernames.items():
+        if q in lower_u:
+            user = account_manager.users.get(g, {})
+            is_online = lower_u in lobby_manager.clients
+            matches.append({
+                "username": user.get("username", lower_u),
+                "elo": user.get("elo", 1200),
+                "is_online": is_online
+            })
+    return {"matches": matches[:10]}
+
+@app.get("/api/rooms")
+def get_active_rooms():
+    """
+    Returns active multiplayer rooms and player counts.
+    """
+    return {
+        "active_rooms": [
+            {
+                "room_id": r_id,
+                "player_count": len(r.players),
+                "roles": list(r.players.keys())
+            }
+            for r_id, r in room_manager.rooms.items()
+        ]
+    }
+
+@app.websocket("/ws/lobby/{username}")
+async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = ""):
+    await websocket.accept()
+    lower_name = username.lower()
+
+    user_info = None
+    if lower_name in account_manager.usernames:
+        user_gmail = account_manager.usernames[lower_name]
+        user_info = account_manager.users.get(user_gmail)
+
+    elo = user_info.get("elo", 1200) if user_info else 1200
+    display_name = user_info.get("username", username) if user_info else username
+
+    lobby_manager.add_client(websocket, display_name, gmail or "", elo)
+    logger.info(f"[Lobby] Player '{display_name}' connected to online lobby.")
+
+    await broadcast_online_players()
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
+
+            if msg_type == "find_match":
+                tc = data.get("time_control", "10 + 0")
+                lobby_manager.add_to_queue(display_name, tc)
+                logger.info(f"[Matchmaking] '{display_name}' searching random match... (Queue size: {len(lobby_manager.matchmaking_queue)})")
+
+                match = lobby_manager.try_match_players()
+                if match:
+                    p1, p2, room_id = match
+                    if random.random() > 0.5:
+                        w, b = p1, p2
+                    else:
+                        w, b = p2, p1
+
+                    await w.websocket.send_json({
+                        "type": "match_found",
+                        "room_id": room_id,
+                        "role": "white",
+                        "opponent": b.username,
+                        "opponent_elo": b.elo,
+                        "time_control": w.time_control
+                    })
+                    await b.websocket.send_json({
+                        "type": "match_found",
+                        "room_id": room_id,
+                        "role": "black",
+                        "opponent": w.username,
+                        "opponent_elo": w.elo,
+                        "time_control": w.time_control
+                    })
+                    logger.info(f"[Matchmaking] Matched: {w.username} (White) vs {b.username} (Black) in room {room_id}")
+
+            elif msg_type == "cancel_match":
+                lobby_manager.remove_from_queue(display_name)
+                await websocket.send_json({"type": "match_cancelled"})
+
+            elif msg_type == "invite_friend":
+                target_raw = data.get("target_username", "").strip()
+                target_name = target_raw.lower()
+                target_client = lobby_manager.clients.get(target_name)
+                if not target_client:
+                    await websocket.send_json({
+                        "type": "invite_error",
+                        "message": f"Người chơi '{target_raw}' hiện không online hoặc chưa vào sảnh!"
+                    })
+                elif target_name == lower_name:
+                    await websocket.send_json({
+                        "type": "invite_error",
+                        "message": "Bạn không thể tự mời chính mình thi đấu!"
+                    })
+                elif target_client.status == "in_match":
+                    await websocket.send_json({
+                        "type": "invite_error",
+                        "message": f"Người chơi '{target_client.username}' hiện đang trong trận đấu khác!"
+                    })
+                else:
+                    invite_id = uuid.uuid4().hex[:6].upper()
+                    duel_room = f"DUEL_{invite_id}"
+                    await target_client.websocket.send_json({
+                        "type": "friend_invite_received",
+                        "invite_id": invite_id,
+                        "from_username": display_name,
+                        "from_elo": elo,
+                        "room_id": duel_room
+                    })
+                    await websocket.send_json({
+                        "type": "invite_sent",
+                        "target_username": target_client.username,
+                        "room_id": duel_room
+                    })
+                    logger.info(f"[FriendDuel] '{display_name}' sent duel challenge to '{target_client.username}' ({duel_room})")
+
+            elif msg_type == "respond_invite":
+                invite_id = data.get("invite_id")
+                accepted = data.get("accepted", False)
+                from_user = data.get("from_username", "").strip().lower()
+                duel_room = data.get("room_id")
+                from_client = lobby_manager.clients.get(from_user)
+
+                if accepted:
+                    if from_client:
+                        if random.random() > 0.5:
+                            w, b = from_client, lobby_manager.clients[lower_name]
+                        else:
+                            w, b = lobby_manager.clients[lower_name], from_client
+
+                        await w.websocket.send_json({
+                            "type": "duel_start",
+                            "room_id": duel_room,
+                            "role": "white",
+                            "opponent": b.username,
+                            "opponent_elo": b.elo
+                        })
+                        await b.websocket.send_json({
+                            "type": "duel_start",
+                            "room_id": duel_room,
+                            "role": "black",
+                            "opponent": w.username,
+                            "opponent_elo": w.elo
+                        })
+                        logger.info(f"[FriendDuel] Challenge accepted: {w.username} (White) vs {b.username} (Black) in {duel_room}")
+                else:
+                    if from_client:
+                        await from_client.websocket.send_json({
+                            "type": "invite_declined",
+                            "message": f"'{display_name}' đã từ chối lời mời thách đấu."
+                        })
+
+    except WebSocketDisconnect:
+        logger.info(f"[Lobby] Player '{display_name}' disconnected.")
+        lobby_manager.remove_client(display_name)
+        await broadcast_online_players()
+
+@app.websocket("/ws/chess/{room_id}")
+async def chess_multiplayer_ws(websocket: WebSocket, room_id: str, name: Optional[str] = "Player"):
+    await websocket.accept()
+    room = room_manager.get_or_create_room(room_id)
+
+    role = room.get_available_role()
+    if not role:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Phòng đã đủ 2 người chơi (Full Room)!"
+        })
+        await websocket.close()
+        return
+
+    player_name = name if name and name.strip() else f"Player_{role.upper()}"
+    player_conn = PlayerConnection(websocket, role, player_name)
+    room.players[role] = player_conn
+
+    logger.info(f"Multiplayer: Player '{player_name}' joined room '{room_id}' as '{role.upper()}'")
+
+    # 1. Send confirmation to the joining player
+    await websocket.send_json({
+        "type": "room_joined",
+        "room_id": room_id,
+        "role": role,
+        "name": player_name,
+        "player_count": len(room.players)
+    })
+
+    # 2. If both White and Black are present, launch the match for both!
+    if len(room.players) == 2:
+        white_player = room.players.get("white")
+        black_player = room.players.get("black")
+        start_payload = {
+            "type": "match_start",
+            "room_id": room_id,
+            "white": white_player.name if white_player else "Cyber Alliance (White)",
+            "black": black_player.name if black_player else "Dark Syndicate (Black)",
+            "active_turn": "white"
+        }
+        for p in list(room.players.values()):
+            try:
+                await p.websocket.send_json(start_payload)
+            except Exception:
+                pass
+        logger.info(f"Multiplayer: Room '{room_id}' match ready: White vs Black")
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
+
+            if msg_type == "move":
+                # Forward move to opponent
+                opponent_role = "black" if role == "white" else "white"
+                opponent = room.players.get(opponent_role)
+                if opponent:
+                    await opponent.websocket.send_json({
+                        "type": "opponent_move",
+                        "from": data.get("from"),
+                        "to": data.get("to"),
+                        "notation": data.get("notation"),
+                        "active_turn": data.get("active_turn", opponent_role)
+                    })
+                room.moves_history.append(data.get("notation", ""))
+
+            elif msg_type == "reset":
+                # Broadcast match reset
+                for p in list(room.players.values()):
+                    try:
+                        await p.websocket.send_json({
+                            "type": "match_reset",
+                            "by_role": role
+                        })
+                    except Exception:
+                        pass
+                room.moves_history.clear()
+
+            elif msg_type == "chat":
+                for p in list(room.players.values()):
+                    try:
+                        await p.websocket.send_json({
+                            "type": "chat",
+                            "sender": role,
+                            "name": player_name,
+                            "message": data.get("message")
+                        })
+                    except Exception:
+                        pass
+
+    except WebSocketDisconnect:
+        logger.info(f"Multiplayer: Player '{player_name}' ({role.upper()}) disconnected from room '{room_id}'")
+        room_manager.remove_player(room_id, role)
+        # Notify remaining opponent
+        opponent_role = "black" if role == "white" else "white"
+        if room_id in room_manager.rooms:
+            opponent = room_manager.rooms[room_id].players.get(opponent_role)
+            if opponent:
+                try:
+                    await opponent.websocket.send_json({
+                        "type": "opponent_disconnected",
+                        "role": role,
+                        "message": f"Đối thủ ({role.upper()}) đã ngắt kết nối."
+                    })
+                except Exception:
+                    pass
+
+# ---------------------------------------------------------------------------
+# Account & Gmail Authentication Manager
+# ---------------------------------------------------------------------------
+class UserAccount(BaseModel):
+    gmail: str
+    username: str
+    elo: int = 1200
+    created_at: float = Field(default_factory=time.time)
+
+class LoginRequest(BaseModel):
+    gmail: str
+    username: Optional[str] = ""
+
+class LoginResponse(BaseModel):
+    success: bool
+    message: str
+    user: Optional[Dict[str, Any]] = None
+
+class AccountManager:
+    """
+    Manages Gmail-based user authentication, username uniqueness,
+    and profile persistence.
+    """
+    def __init__(self, storage_path: Optional[str] = None):
+        self.storage_path = storage_path or os.path.join(os.path.dirname(__file__), "users_db.json")
+        self.users: Dict[str, Dict[str, Any]] = {} # keyed by lower username
+        self.gmail_map: Dict[str, str] = {}        # gmail_lower -> username_lower
+        self._load()
+
+    def _load(self):
+        if os.path.exists(self.storage_path):
+            try:
+                with open(self.storage_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.users = data.get("users", {})
+                    self.gmail_map = data.get("gmail_map", {})
+            except Exception as e:
+                logger.warning(f"Could not load users_db.json: {e}")
+
+    def _save(self):
+        try:
+            with open(self.storage_path, "w", encoding="utf-8") as f:
+                json.dump({"users": self.users, "gmail_map": self.gmail_map}, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"Failed to persist users_db.json: {e}")
+
+    @staticmethod
+    def validate_gmail(gmail: str) -> Tuple[bool, str]:
+        if not gmail:
+            return False, "Địa chỉ Gmail không được để trống!"
+        clean = gmail.strip().lower()
+        if not clean.endswith("@gmail.com") or len(clean) < 11:
+            return False, "Vui lòng nhập địa chỉ Gmail hợp lệ (@gmail.com, ví dụ: nguyenvana@gmail.com)!"
+        prefix = clean[:-10]
+        if not prefix:
+            return False, "Địa chỉ Gmail không hợp lệ!"
+        return True, ""
+
+    @staticmethod
+    def derive_default_username(gmail: str) -> str:
+        clean = gmail.strip().lower()
+        prefix = clean.split("@")[0]
+        clean_prefix = re.sub(r"[^a-zA-Z0-9]", "", prefix)
+        if len(clean_prefix) < 3:
+            clean_prefix += "01"
+        return clean_prefix[:20]
+
+    @staticmethod
+    def validate_username(username: str) -> Tuple[bool, str]:
+        if not username:
+            return False, "Tên người chơi không được để trống!"
+        clean = username.strip()
+        if len(clean) < 3 or len(clean) > 20:
+            return False, "Độ dài tên người chơi phải từ 3 đến 20 ký tự!"
+        if " " in clean:
+            return False, "Tên người chơi phải viết liền, không được chứa khoảng cách (space)!"
+        if not re.match(r"^[a-zA-Z0-9]+$", clean):
+            return False, "Tên chỉ gồm chữ cái (A-Z, a-z) và chữ số (0-9), không có dấu tiếng Việt hay ký tự đặc biệt (Ví dụ: PhamVaA, DatIT, SiuVipPro, nhavua01)!"
+        return True, ""
+
+    def authenticate_or_register(self, gmail: str, custom_username: Optional[str] = None) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        is_valid_g, g_err = self.validate_gmail(gmail)
+        if not is_valid_g:
+            return False, g_err, None
+
+        clean_gmail = gmail.strip().lower()
+
+        # Check if Gmail is already registered
+        if clean_gmail in self.gmail_map:
+            existing_uname_key = self.gmail_map[clean_gmail]
+            user = self.users.get(existing_uname_key)
+            if user:
+                return True, "Đăng nhập thành công!", user
+
+        # New registration: choose username
+        chosen_name = (custom_username or "").strip()
+        if not chosen_name:
+            chosen_name = self.derive_default_username(clean_gmail)
+
+        is_valid_u, u_err = self.validate_username(chosen_name)
+        if not is_valid_u:
+            return False, u_err, None
+
+        uname_key = chosen_name.lower()
+        if uname_key in self.users:
+            return False, f"Tên '{chosen_name}' đã được người chơi khác sử dụng. Vui lòng chọn tên khác!", None
+
+        new_user = {
+            "gmail": clean_gmail,
+            "username": chosen_name,
+            "elo": 1200,
+            "created_at": time.time()
+        }
+        self.users[uname_key] = new_user
+        self.gmail_map[clean_gmail] = uname_key
+        self._save()
+        logger.info(f"Registered new player account: {chosen_name} ({clean_gmail})")
+        return True, "Đăng ký tài khoản thành công!", new_user
+
+    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        return self.users.get(username.strip().lower())
+
+account_manager = AccountManager()
+
+# ---------------------------------------------------------------------------
+# Real-Time Lobby & Matchmaking Manager
+# ---------------------------------------------------------------------------
+class LobbyManager:
+    """
+    Manages:
+    1. Online player status tracking.
+    2. Random matchmaking queue with automatic pairing.
+    3. Friend invite and challenge handshakes.
+    """
+    def __init__(self):
+        self.online_players: Dict[str, Dict[str, Any]] = {} # username -> {ws, elo, status}
+        self.matchmaking_queue: List[Dict[str, Any]] = []    # list of {username, time_control, elo, queued_at}
+        self.pending_invites: Dict[str, Dict[str, Any]] = {} # invite_id -> {from, target, room_id, timestamp}
+
+    async def connect(self, websocket: WebSocket, username: str, elo: int = 1200):
+        self.online_players[username] = {
+            "websocket": websocket,
+            "elo": elo,
+            "status": "online"
+        }
+        logger.info(f"Lobby: Player '{username}' connected. Total online: {len(self.online_players)}")
+        await self.broadcast_online_players()
+
+    async def disconnect(self, username: str):
+        if username in self.online_players:
+            del self.online_players[username]
+        # Remove from matchmaking queue if present
+        self.matchmaking_queue = [q for q in self.matchmaking_queue if q["username"] != username]
+        logger.info(f"Lobby: Player '{username}' disconnected. Total online: {len(self.online_players)}")
+        await self.broadcast_online_players()
+
+    async def broadcast_online_players(self):
+        player_list = [
+            {"username": u, "elo": data["elo"], "status": data["status"]}
+            for u, data in self.online_players.items()
+        ]
+        msg = json.dumps({
+            "type": "online_players_list",
+            "players": player_list
+        })
+        for u, data in list(self.online_players.items()):
+            try:
+                await data["websocket"].send_text(msg)
+            except Exception:
+                pass
+
+    async def add_to_queue(self, username: str, time_control: str = "10 + 0", elo: int = 1200) -> Optional[str]:
+        # Clean any existing entry for this user
+        self.matchmaking_queue = [q for q in self.matchmaking_queue if q["username"] != username]
+
+        # Check if there is an opponent currently waiting
+        opponent_entry = None
+        for q in self.matchmaking_queue:
+            if q["username"] != username:
+                opponent_entry = q
+                break
+
+        if opponent_entry:
+            self.matchmaking_queue.remove(opponent_entry)
+            opp_name = opponent_entry["username"]
+            opp_elo = opponent_entry["elo"]
+
+            # Create random match room
+            room_id = f"MATCH_{uuid.uuid4().hex[:8]}"
+
+            # Random roles
+            roles = ["white", "black"]
+            random.shuffle(roles)
+            role_user = roles[0]
+            role_opp = roles[1]
+
+            # Update statuses
+            if username in self.online_players:
+                self.online_players[username]["status"] = "in_game"
+            if opp_name in self.online_players:
+                self.online_players[opp_name]["status"] = "in_game"
+
+            # Notify user
+            if username in self.online_players:
+                try:
+                    await self.online_players[username]["websocket"].send_text(json.dumps({
+                        "type": "match_found",
+                        "room_id": room_id,
+                        "role": role_user,
+                        "opponent": opp_name,
+                        "opponent_elo": opp_elo,
+                        "time_control": time_control
+                    }))
+                except Exception:
+                    pass
+
+            # Notify opponent
+            if opp_name in self.online_players:
+                try:
+                    await self.online_players[opp_name]["websocket"].send_text(json.dumps({
+                        "type": "match_found",
+                        "room_id": room_id,
+                        "role": role_opp,
+                        "opponent": username,
+                        "opponent_elo": elo,
+                        "time_control": time_control
+                    }))
+                except Exception:
+                    pass
+
+            logger.info(f"Matchmaking: Paired '{username}' ({role_user}) vs '{opp_name}' ({role_opp}) in '{room_id}'")
+            await self.broadcast_online_players()
+            return room_id
+
+        # Else add to queue
+        self.matchmaking_queue.append({
+            "username": username,
+            "time_control": time_control,
+            "elo": elo,
+            "queued_at": time.time()
+        })
+        if username in self.online_players:
+            self.online_players[username]["status"] = "searching"
+        await self.broadcast_online_players()
+        return None
+
+    async def cancel_queue(self, username: str):
+        self.matchmaking_queue = [q for q in self.matchmaking_queue if q["username"] != username]
+        if username in self.online_players:
+            self.online_players[username]["status"] = "online"
+        await self.broadcast_online_players()
+
+    async def send_friend_invite(self, from_username: str, target_username: str) -> Tuple[Optional[str], Optional[str]]:
+        if target_username not in self.online_players:
+            return None, f"Người chơi '{target_username}' hiện không trực tuyến (offline)!"
+
+        target_data = self.online_players[target_username]
+        if target_data["status"] == "in_game":
+            return None, f"Người chơi '{target_username}' hiện đang trong trận đấu khác!"
+
+        invite_id = f"INV_{uuid.uuid4().hex[:8]}"
+        from_elo = self.online_players.get(from_username, {}).get("elo", 1200)
+
+        self.pending_invites[invite_id] = {
+            "from_username": from_username,
+            "target_username": target_username,
+            "timestamp": time.time()
+        }
+
+        # Send invite packet to target player
+        try:
+            await target_data["websocket"].send_text(json.dumps({
+                "type": "friend_invite_received",
+                "invite_id": invite_id,
+                "from_username": from_username,
+                "from_elo": from_elo,
+                "room_id": f"DUEL_{uuid.uuid4().hex[:8]}"
+            }))
+            logger.info(f"Lobby: Friend challenge sent from '{from_username}' to '{target_username}' ({invite_id})")
+            return invite_id, None
+        except Exception as e:
+            return None, f"Không thể gửi lời mời: {e}"
+
+    async def accept_friend_invite(self, invite_id: str, target_username: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        invite = self.pending_invites.pop(invite_id, None)
+        if not invite:
+            return None, None, None
+
+        from_username = invite["from_username"]
+        room_id = f"DUEL_{uuid.uuid4().hex[:8]}"
+
+        roles = ["white", "black"]
+        random.shuffle(roles)
+        role_from = roles[0]
+        role_target = roles[1]
+
+        from_elo = self.online_players.get(from_username, {}).get("elo", 1200)
+        target_elo = self.online_players.get(target_username, {}).get("elo", 1200)
+
+        if from_username in self.online_players:
+            self.online_players[from_username]["status"] = "in_game"
+            try:
+                await self.online_players[from_username]["websocket"].send_text(json.dumps({
+                    "type": "duel_start",
+                    "room_id": room_id,
+                    "role": role_from,
+                    "opponent": target_username,
+                    "opponent_elo": target_elo
+                }))
+            except Exception:
+                pass
+
+        if target_username in self.online_players:
+            self.online_players[target_username]["status"] = "in_game"
+            try:
+                await self.online_players[target_username]["websocket"].send_text(json.dumps({
+                    "type": "duel_start",
+                    "room_id": room_id,
+                    "role": role_target,
+                    "opponent": from_username,
+                    "opponent_elo": from_elo
+                }))
+            except Exception:
+                pass
+
+        logger.info(f"Lobby: Duel accepted! '{from_username}' ({role_from}) vs '{target_username}' ({role_target}) in '{room_id}'")
+        await self.broadcast_online_players()
+        return room_id, from_username, target_username
+
+    async def decline_friend_invite(self, invite_id: str, target_username: str):
+        invite = self.pending_invites.pop(invite_id, None)
+        if not invite:
+            return
+
+        from_username = invite["from_username"]
+        if from_username in self.online_players:
+            try:
+                await self.online_players[from_username]["websocket"].send_text(json.dumps({
+                    "type": "friend_invite_declined",
+                    "message": f"Người chơi '{target_username}' đã từ chối lời mời thách đấu."
+                }))
+            except Exception:
+                pass
+
+lobby_manager = LobbyManager()
+
+# ---------------------------------------------------------------------------
+# Account & Lobby REST Endpoints
+# ---------------------------------------------------------------------------
+@app.post("/api/auth/login", response_model=LoginResponse)
+async def api_login(req: LoginRequest):
+    success, msg, user = account_manager.authenticate_or_register(req.gmail, req.username)
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
+    return LoginResponse(success=True, message=msg, user=user)
+
+@app.get("/api/players/online")
+async def api_get_online_players():
+    players = [
+        {"username": u, "elo": data["elo"], "status": data["status"]}
+        for u, data in lobby_manager.online_players.items()
+    ]
+    return {"total": len(players), "players": players}
+
+@app.get("/api/players/search")
+async def api_search_players(query: str):
+    q = query.strip().lower()
+    matches = []
+    for uname_key, udata in account_manager.users.items():
+        if q in uname_key:
+            status = lobby_manager.online_players.get(udata["username"], {}).get("status", "offline")
+            matches.append({
+                "username": udata["username"],
+                "elo": udata.get("elo", 1200),
+                "status": status
+            })
+    return {"total": len(matches), "results": matches[:20]}
+
+# ---------------------------------------------------------------------------
+# WebSocket Endpoint: Real-time Lobby & Matchmaking
+# ---------------------------------------------------------------------------
+@app.websocket("/ws/lobby/{username}")
+async def websocket_lobby_endpoint(websocket: WebSocket, username: str):
+    await websocket.accept()
+    user = account_manager.get_user_by_username(username)
+    elo = user.get("elo", 1200) if user else 1200
+
+    await lobby_manager.connect(websocket, username, elo)
+
+    try:
+        while True:
+            text = await websocket.receive_text()
+            try:
+                data = json.loads(text)
+            except Exception:
+                continue
+
+            msg_type = data.get("type")
+
+            if msg_type == "find_match":
+                tc = data.get("time_control", "10 + 0")
+                await lobby_manager.add_to_queue(username, tc, elo)
+
+            elif msg_type == "cancel_match":
+                await lobby_manager.cancel_queue(username)
+
+            elif msg_type == "invite_friend":
+                target = data.get("target_username")
+                inv_id, err = await lobby_manager.send_friend_invite(username, target)
+                if err:
+                    await websocket.send_text(json.dumps({
+                        "type": "invite_error",
+                        "message": err
+                    }))
+
+            elif msg_type == "respond_invite":
+                inv_id = data.get("invite_id")
+                accepted = data.get("accepted", False)
+                if accepted:
+                    await lobby_manager.accept_friend_invite(inv_id, username)
+                else:
+                    await lobby_manager.decline_friend_invite(inv_id, username)
+
+    except WebSocketDisconnect:
+        await lobby_manager.disconnect(username)
+    except Exception as e:
+        logger.warning(f"Lobby WebSocket error for '{username}': {e}")
+        await lobby_manager.disconnect(username)
+
 if __name__ == "__main__":
     # pyrefly: ignore[missing-import]
     import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+

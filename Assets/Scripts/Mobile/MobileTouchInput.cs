@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 using MechChess.Chess3D;
 
 namespace MechChess.Mobile
@@ -166,6 +167,9 @@ namespace MechChess.Mobile
             // Left-click tap on PC
             if (mouse.leftButton.wasPressedThisFrame)
             {
+                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                    return;
+
                 Vector2 mousePos = mouse.position.ReadValue();
                 ProcessTapRaycast(mousePos);
             }
@@ -174,6 +178,7 @@ namespace MechChess.Mobile
         private void ProcessTapRaycast(Vector2 screenPoint)
         {
             if (_mainCamera == null) return;
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
             Ray ray = _mainCamera.ScreenPointToRay(screenPoint);
             if (Physics.Raycast(ray, out RaycastHit hit, 100f))
@@ -193,6 +198,36 @@ namespace MechChess.Mobile
                     tileReceiver.OnTileClicked?.Invoke(tileReceiver.file, tileReceiver.rank);
                 }
             }
+        }
+
+        private bool _is2DMode = false;
+        private float _savedPitch = 45f;
+        private float _savedYaw = 0f;
+
+        public bool Toggle2DView()
+        {
+            _is2DMode = !_is2DMode;
+            if (_is2DMode)
+            {
+                _savedPitch = _pitch;
+                _savedYaw = _yaw;
+                _pitch = 89.9f; // Top-down 2D view
+                _yaw = 0f;
+            }
+            else
+            {
+                _pitch = _savedPitch;
+                _yaw = _savedYaw;
+            }
+            UpdateCameraTransform();
+            return _is2DMode;
+        }
+
+        public void SetOrientation(float yaw, float pitch)
+        {
+            _yaw = yaw;
+            _pitch = pitch;
+            UpdateCameraTransform();
         }
 
         private void UpdateCameraTransform()

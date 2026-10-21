@@ -42,11 +42,14 @@ namespace MechChess
             Object.DontDestroyOnLoad(controller);
 
             // 2. Attach Central Managers
+            controller.AddComponent<MainMenu2D>();
             controller.AddComponent<ChessBoard3DManager>();
             controller.AddComponent<UIManager2D>();
             controller.AddComponent<CombatMinigame2D>();
             controller.AddComponent<HybridARController>();
             controller.AddComponent<AdafruitIOCloudConnector>();
+            controller.AddComponent<MechChess.Multiplayer.UserAccountManager>();
+            controller.AddComponent<MechChess.Multiplayer.OnlineMultiplayerManager>();
 
             // 3. Configure Main Camera and attach Mobile Touch Orbit
             Camera mainCam = Camera.main;

@@ -146,19 +146,19 @@ namespace MechChess.ProceduralMech
 
             // Add Master Capsule Collider for selection and raycasting
             CapsuleCollider col = root.AddComponent<CapsuleCollider>();
-            if (type == PieceType.King)
+            float colHeight = type switch
             {
-                // King stands directly on its mech boots with crown + cross crest + cape
-                col.center = new Vector3(0, 0.90f, 0);
-                col.radius = 0.45f;
-                col.height = 1.85f;
-            }
-            else
-            {
-                col.center = new Vector3(0, 0.65f, 0);
-                col.radius = 0.35f;
-                col.height = 1.35f;
-            }
+                PieceType.Pawn => 1.20f,
+                PieceType.Rook => 1.40f,
+                PieceType.Knight => 1.45f,
+                PieceType.Bishop => 1.50f,
+                PieceType.Queen => 1.70f,
+                PieceType.King => 1.85f,
+                _ => 1.40f
+            };
+            col.center = new Vector3(0, colHeight * 0.5f, 0);
+            col.radius = (type == PieceType.King || type == PieceType.Queen) ? 0.45f : 0.38f;
+            col.height = colHeight;
 
             // Attach dynamic animator for idle hovering, move trails, and destruction
             MechPieceAnimator animator = root.AddComponent<MechPieceAnimator>();
@@ -719,24 +719,33 @@ namespace MechChess.ProceduralMech
         }
 
         /// <summary>
-        /// Checks if a custom 3D model (.fbx, .obj, .prefab) exists in Assets/Resources/Models/
-        /// and instantiates it with normalized scale and grounded positioning.
+        /// Checks if a custom 3D model (.glb, .fbx, .obj, .prefab) exists in Assets/Resources/Models/
+        /// organized by team color folders (Red/ for Black, Blue/ for White).
+        /// Instantiates with normalized scale, proportional height, and grounded positioning.
         /// </summary>
         private static bool TryInstantiateCustomModel(PieceType type, PieceColor color, Transform root, Material armorMat, Material glowMat)
         {
-            string[] possibleNames = {
-                $"{color}_{type}",
-                $"{color}_{type}_Model",
-                $"{type}_{color}",
-                $"{type}",
-                $"{type}_Model",
-                $"{color}_{type}_Mech"
+            string colorFolder = (color == PieceColor.White) ? "Blue" : "Red";
+            string altColorFolder = (color == PieceColor.White) ? "White" : "Black";
+
+            string[] possiblePaths = {
+                $"Models/{colorFolder}/{type}",
+                $"Models/{colorFolder}/{color}_{type}",
+                $"Models/{colorFolder}/{type}_{color}",
+                $"Models/{altColorFolder}/{type}",
+                $"Models/{altColorFolder}/{color}_{type}",
+                $"Models/{color}_{type}",
+                $"Models/{color}_{type}_Model",
+                $"Models/{type}_{color}",
+                $"Models/{type}",
+                $"Models/{type}_Model",
+                $"Models/{color}_{type}_Mech"
             };
 
             GameObject prefab = null;
-            foreach (var name in possibleNames)
+            foreach (var path in possiblePaths)
             {
-                prefab = Resources.Load<GameObject>($"Models/{name}");
+                prefab = Resources.Load<GameObject>(path);
                 if (prefab != null) break;
             }
 
@@ -749,7 +758,7 @@ namespace MechChess.ProceduralMech
             Collider[] colliders = modelInstance.GetComponentsInChildren<Collider>();
             foreach (var c in colliders) UnityEngine.Object.Destroy(c);
 
-            // Auto-scale model if needed so it fits nicely on a chess tile (ideal height ~1.6m - 1.8m)
+            // Auto-scale model if needed so it fits nicely on a chess tile with proper proportional hierarchy
             Renderer[] renderers = modelInstance.GetComponentsInChildren<Renderer>();
             if (renderers.Length > 0)
             {
@@ -759,8 +768,18 @@ namespace MechChess.ProceduralMech
                 float currentHeight = bounds.size.y;
                 if (currentHeight > 0.05f)
                 {
-                    float targetHeight = (type == PieceType.King) ? 1.75f : 1.35f;
-                    if (Mathf.Abs(currentHeight - targetHeight) > 0.25f)
+                    float targetHeight = type switch
+                    {
+                        PieceType.Pawn => 1.15f,
+                        PieceType.Rook => 1.35f,
+                        PieceType.Knight => 1.40f,
+                        PieceType.Bishop => 1.45f,
+                        PieceType.Queen => 1.65f,
+                        PieceType.King => 1.75f,
+                        _ => 1.35f
+                    };
+
+                    if (Mathf.Abs(currentHeight - targetHeight) > 0.05f)
                     {
                         float scaleFactor = targetHeight / currentHeight;
                         modelInstance.transform.localScale *= scaleFactor;

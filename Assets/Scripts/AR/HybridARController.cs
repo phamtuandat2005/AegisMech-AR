@@ -59,6 +59,9 @@ namespace MechChess.AR
         [Header("References")]
         public Transform chessboardRoot;
 
+        [Header("Board Scale Configuration (F10)")]
+        public float currentScaleMeters = 0.40f; // 40cm default (20cm to 80cm range)
+
         // Webcam Video Feed
         private WebCamTexture _webcamTexture;
         private RawImage _backgroundRawImage;
@@ -68,6 +71,12 @@ namespace MechChess.AR
         private GameObject _backgroundQuad;
         private Material _webcamQuadMat;
         private int _arDisplayMode = 0; // 0 = Fullscreen AR Reality, 1 = PIP Scanner, 2 = Cyber Studio
+
+        // F10 & F12 UI references
+        private GameObject _pipContainer;
+        private GameObject _guidanceOverlay;
+        private Text _scaleIndicatorText;
+        private bool _isGuidanceMinimized = false;
 
 #if UNITY_XR_ARFOUNDATION
         private ARRaycastManager _raycastManager;
@@ -92,7 +101,9 @@ namespace MechChess.AR
         {
             if (chessboardRoot == null && ChessBoard3DManager.Instance != null)
             {
-                chessboardRoot = ChessBoard3DManager.Instance.transform;
+                chessboardRoot = ChessBoard3DManager.Instance.BoardRootContainer != null 
+                    ? ChessBoard3DManager.Instance.BoardRootContainer 
+                    : ChessBoard3DManager.Instance.transform;
             }
 
             if (UIManager2D.Instance != null)
@@ -101,11 +112,42 @@ namespace MechChess.AR
                 UIManager2D.Instance.OnToggleARClicked += ToggleARMode;
             }
 
-            StartWebcam();
+            // Do NOT start webcam on startup! Keep camera hardware completely off until a match/AR mode is started
             SetupARBackgroundQuad();
 
-            // Default: Start in Fullscreen AR Reality mode
-            ApplyDisplayMode(0);
+            // Default display mode: Pure Cyber Studio Arena (Mode 2)
+            // Clean 3D studio chessboard at scale 1.0, with zero webcam background intrusion
+            currentScaleMeters = 0.40f;
+            ApplyDisplayMode(2);
+
+            // Initially hide AR overlays and ensure camera is stopped if MainMenu is active
+            SetARActive(false);
+        }
+
+        public void SetARActive(bool active)
+        {
+            if (!active)
+            {
+                if (_arCanvas != null) _arCanvas.gameObject.SetActive(false);
+                if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
+                StopWebcam();
+            }
+            else
+            {
+                if (_arDisplayMode == 0 || _arDisplayMode == 1)
+                {
+                    StartWebcam();
+                    if (_arCanvas != null) _arCanvas.gameObject.SetActive(true);
+                    if (_backgroundQuad != null) _backgroundQuad.SetActive(_arDisplayMode == 0);
+                }
+                else
+                {
+                    // Pure Studio 3D Arena: No camera hardware needed!
+                    StopWebcam();
+                    if (_arCanvas != null) _arCanvas.gameObject.SetActive(false);
+                    if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
+                }
+            }
         }
 
         private void SetupWebcamBackgroundUI()
@@ -120,10 +162,16 @@ namespace MechChess.AR
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = ((float)Screen.width / Mathf.Max(1, Screen.height) < 1.7777f) ? 0f : 1f;
 
-            // Picture-in-Picture Frame in Top-Right Corner
+            Font defaultFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
+                            ?? Resources.GetBuiltinResource<Font>("Arial.ttf")
+                            ?? Font.CreateDynamicFontFromOSFont(new[] { "Arial", "Segoe UI", "Tahoma" }, 14);
+
+            // 1. Picture-in-Picture Frame in Top-Right Corner
             GameObject pipContainer = new GameObject("AR_PIP_Frame");
             pipContainer.transform.SetParent(canvasObj.transform, false);
+            _pipContainer = pipContainer;
             Image pipBg = pipContainer.AddComponent<Image>();
             pipBg.color = new Color(0.05f, 0.08f, 0.12f, 0.85f);
             pipBg.raycastTarget = false;
@@ -139,7 +187,7 @@ namespace MechChess.AR
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(pipContainer.transform, false);
             Text titleTxt = titleObj.AddComponent<Text>();
-            titleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleTxt.font = defaultFont;
             titleTxt.fontSize = 14;
             titleTxt.alignment = TextAnchor.MiddleCenter;
             titleTxt.color = new Color(0.0f, 0.95f, 1.0f);
@@ -158,6 +206,94 @@ namespace MechChess.AR
             RectTransform rt = rawImgObj.GetComponent<RectTransform>();
             rt.anchoredPosition = new Vector2(0, -12);
             rt.sizeDelta = new Vector2(340, 185);
+
+            // 2. F12 AR Onboarding & Guidance Banner with F10 Scale Controls
+            _guidanceOverlay = new GameObject("AR_GuidanceOverlay");
+            _guidanceOverlay.transform.SetParent(canvasObj.transform, false);
+            Image guideBg = _guidanceOverlay.AddComponent<Image>();
+            guideBg.color = new Color(0.04f, 0.08f, 0.12f, 0.92f);
+            RectTransform guideRt = _guidanceOverlay.GetComponent<RectTransform>();
+            guideRt.anchorMin = new Vector2(0.5f, 1f);
+            guideRt.anchorMax = new Vector2(0.5f, 1f);
+            guideRt.pivot = new Vector2(0.5f, 1f);
+            guideRt.anchoredPosition = new Vector2(0, -95);
+            guideRt.sizeDelta = new Vector2(1250, 52);
+
+            // Guidance step instruction text
+            GameObject guideTxtObj = new GameObject("InstructionText");
+            guideTxtObj.transform.SetParent(_guidanceOverlay.transform, false);
+            Text guideTxt = guideTxtObj.AddComponent<Text>();
+            guideTxt.text = "💡 HƯỚNG DẪN AR: 1. Quét camera quanh mặt bàn/sàn | 2. Chạm màn hình để cố định bàn cờ | 3. Chạm quân cờ để di chuyển";
+            guideTxt.font = defaultFont;
+            guideTxt.fontSize = 13;
+            guideTxt.alignment = TextAnchor.MiddleLeft;
+            guideTxt.color = new Color(0.3f, 0.95f, 1.0f);
+            RectTransform guideTxtRt = guideTxtObj.GetComponent<RectTransform>();
+            guideTxtRt.anchoredPosition = new Vector2(-155, 0);
+            guideTxtRt.sizeDelta = new Vector2(760, 40);
+
+            // Scale Indicator Text
+            GameObject scaleLblObj = new GameObject("ScaleIndicator");
+            scaleLblObj.transform.SetParent(_guidanceOverlay.transform, false);
+            _scaleIndicatorText = scaleLblObj.AddComponent<Text>();
+            _scaleIndicatorText.text = "SIZE: 40 CM";
+            _scaleIndicatorText.font = defaultFont;
+            _scaleIndicatorText.fontSize = 12;
+            _scaleIndicatorText.fontStyle = FontStyle.Bold;
+            _scaleIndicatorText.alignment = TextAnchor.MiddleCenter;
+            _scaleIndicatorText.color = new Color(1.0f, 0.75f, 0.1f);
+            RectTransform scaleLblRt = scaleLblObj.GetComponent<RectTransform>();
+            scaleLblRt.anchoredPosition = new Vector2(250, 0);
+            scaleLblRt.sizeDelta = new Vector2(100, 36);
+
+            // Scale Button: 20cm (Min)
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale20", "20cm", new Vector2(325, 0), new Vector2(60, 32), () => SetBoardScale(0.20f), defaultFont);
+
+            // Scale Button: 40cm (Standard)
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale40", "40cm", new Vector2(395, 0), new Vector2(60, 32), () => SetBoardScale(0.40f), defaultFont);
+
+            // Scale Button: 80cm (Max)
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale80", "80cm", new Vector2(465, 0), new Vector2(60, 32), () => SetBoardScale(0.80f), defaultFont);
+
+            // Close / Minimize guidance button
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnCloseGuide", "✕", new Vector2(535, 0), new Vector2(36, 32), () =>
+            {
+                _isGuidanceMinimized = true;
+                _guidanceOverlay.SetActive(false);
+            }, defaultFont);
+        }
+
+        private void CreateARQuickButton(Transform parent, string name, string label, Vector2 pos, Vector2 size, Action onClick, Font font)
+        {
+            GameObject btnObj = new GameObject(name);
+            btnObj.transform.SetParent(parent, false);
+
+            Image img = btnObj.AddComponent<Image>();
+            img.color = new Color(0.12f, 0.22f, 0.32f, 0.9f);
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.onClick.AddListener(() => onClick?.Invoke());
+
+            RectTransform rt = btnObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+
+            GameObject txtObj = new GameObject("Txt");
+            txtObj.transform.SetParent(btnObj.transform, false);
+            Text txt = txtObj.AddComponent<Text>();
+            txt.text = label;
+            txt.font = font;
+            txt.fontSize = 11;
+            txt.fontStyle = FontStyle.Bold;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = Color.white;
+            txt.raycastTarget = false;
+
+            RectTransform tRt = txtObj.GetComponent<RectTransform>();
+            tRt.anchorMin = Vector2.zero;
+            tRt.anchorMax = Vector2.one;
+            tRt.offsetMin = Vector2.zero;
+            tRt.offsetMax = Vector2.zero;
         }
 
         private void SetupARBackgroundQuad()
@@ -194,6 +330,20 @@ namespace MechChess.AR
 
         public void StartWebcam()
         {
+            if (_webcamTexture != null && _webcamTexture.isPlaying) return;
+
+            if (_webcamTexture != null)
+            {
+                _webcamTexture.Play();
+                if (_backgroundRawImage != null) _backgroundRawImage.texture = _webcamTexture;
+                if (_webcamQuadMat != null)
+                {
+                    if (_webcamQuadMat.HasProperty("_BaseMap")) _webcamQuadMat.SetTexture("_BaseMap", _webcamTexture);
+                    if (_webcamQuadMat.HasProperty("_MainTex")) _webcamQuadMat.SetTexture("_MainTex", _webcamTexture);
+                }
+                return;
+            }
+
             if (WebCamTexture.devices.Length > 0)
             {
                 string cameraName = WebCamTexture.devices[0].name;
@@ -208,7 +358,7 @@ namespace MechChess.AR
                 }
 
                 _webcamTexture = new WebCamTexture(cameraName, 1280, 720, 30);
-                _backgroundRawImage.texture = _webcamTexture;
+                if (_backgroundRawImage != null) _backgroundRawImage.texture = _webcamTexture;
                 _webcamTexture.Play();
 
                 if (_webcamQuadMat != null)
@@ -232,7 +382,16 @@ namespace MechChess.AR
                     }
                 }
                 virtualBackdrop.Apply();
-                _backgroundRawImage.texture = virtualBackdrop;
+                if (_backgroundRawImage != null) _backgroundRawImage.texture = virtualBackdrop;
+            }
+        }
+
+        public void StopWebcam()
+        {
+            if (_webcamTexture != null && _webcamTexture.isPlaying)
+            {
+                _webcamTexture.Stop();
+                Debug.Log("[HybridAR] Webcam stream stopped.");
             }
         }
 
@@ -247,22 +406,79 @@ namespace MechChess.AR
             _arDisplayMode = mode;
             if (_arDisplayMode == 0) // Fullscreen AR Reality (Real room background behind board)
             {
+                StartWebcam();
                 if (_backgroundQuad != null) _backgroundQuad.SetActive(true);
-                if (_arCanvas != null) _arCanvas.gameObject.SetActive(false);
+                if (_pipContainer != null) _pipContainer.SetActive(false);
+                if (_guidanceOverlay != null) _guidanceOverlay.SetActive(!_isGuidanceMinimized);
+                if (_arCanvas != null) _arCanvas.gameObject.SetActive(true);
+                if (chessboardRoot != null)
+                {
+                    float scaleFactor = currentScaleMeters / 8.0f;
+                    chessboardRoot.localScale = Vector3.one * scaleFactor;
+                }
                 if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Fullscreen Reality (Room Background) ON");
             }
             else if (_arDisplayMode == 1) // Corner PIP Tactical Scanner
             {
+                StartWebcam();
                 if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
+                if (_pipContainer != null) _pipContainer.SetActive(true);
+                if (_guidanceOverlay != null) _guidanceOverlay.SetActive(!_isGuidanceMinimized);
                 if (_arCanvas != null) _arCanvas.gameObject.SetActive(true);
+                if (chessboardRoot != null)
+                {
+                    chessboardRoot.localScale = Vector3.one;
+                }
                 if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Corner PIP Scanner Viewport ON");
             }
-            else // Pure Cyber Studio Arena
+            else // Pure Cyber Studio Arena (Mode 2) - Camera turned off
             {
+                StopWebcam();
                 if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
+                if (_pipContainer != null) _pipContainer.SetActive(false);
+                if (_guidanceOverlay != null) _guidanceOverlay.SetActive(false);
                 if (_arCanvas != null) _arCanvas.gameObject.SetActive(false);
+                if (chessboardRoot != null)
+                {
+                    chessboardRoot.localScale = Vector3.one;
+                    chessboardRoot.localPosition = Vector3.zero;
+                    chessboardRoot.localRotation = Quaternion.identity;
+                }
                 if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Pure Cyber Studio Arena ON");
             }
+        }
+
+        public void SetBoardScale(float meters)
+        {
+            currentScaleMeters = Mathf.Clamp(meters, 0.20f, 0.80f);
+            if (chessboardRoot != null)
+            {
+                if (_arDisplayMode == 0)
+                {
+                    // Procedural board is 8.0 units wide - only scale in Fullscreen AR mode
+                    float scaleFactor = currentScaleMeters / 8.0f;
+                    chessboardRoot.localScale = Vector3.one * scaleFactor;
+                }
+                else
+                {
+                    chessboardRoot.localScale = Vector3.one;
+                }
+            }
+
+            if (_scaleIndicatorText != null)
+            {
+                _scaleIndicatorText.text = $"SIZE: {Mathf.RoundToInt(currentScaleMeters * 100f)} CM";
+            }
+
+            if (UIManager2D.Instance != null)
+            {
+                UIManager2D.Instance.RecordMove($"[AR SCALE] Kích thước bàn cờ: {Mathf.RoundToInt(currentScaleMeters * 100f)} cm (20cm - 80cm)");
+            }
+        }
+
+        public void ScaleBoardDelta(float deltaMeters)
+        {
+            SetBoardScale(currentScaleMeters + deltaMeters);
         }
 
         private void LateUpdate()
@@ -283,6 +499,25 @@ namespace MechChess.AR
 
         private void Update()
         {
+            // F10: 2-Finger Pinch Gesture on touchscreen to adjust board scale
+            if (Input.touchCount == 2)
+            {
+                Touch t0 = Input.GetTouch(0);
+                Touch t1 = Input.GetTouch(1);
+
+                Vector2 prevPos0 = t0.position - t0.deltaPosition;
+                Vector2 prevPos1 = t1.position - t1.deltaPosition;
+
+                float prevDist = (prevPos0 - prevPos1).magnitude;
+                float curDist = (t0.position - t1.position).magnitude;
+                float diff = curDist - prevDist;
+
+                if (Mathf.Abs(diff) > 0.5f)
+                {
+                    ScaleBoardDelta(diff * 0.0008f);
+                }
+            }
+
             // AR Foundation Raycasting in Mobile/Simulation mode
 #if UNITY_XR_ARFOUNDATION
             if (activeMode == ARMode.ARFoundationSimulation && _raycastManager != null)
@@ -330,6 +565,14 @@ namespace MechChess.AR
         private IEnumerator CaptureAndPostFrameRoutine()
         {
             byte[] jpgBytes = null;
+            bool temporaryWebcamStarted = false;
+
+            if (_webcamTexture == null || !_webcamTexture.isPlaying)
+            {
+                StartWebcam();
+                temporaryWebcamStarted = true;
+                yield return new WaitForSeconds(0.25f);
+            }
 
             if (_webcamTexture != null && _webcamTexture.isPlaying)
             {
@@ -353,6 +596,11 @@ namespace MechChess.AR
                 fallbackSnap.Apply();
                 jpgBytes = fallbackSnap.EncodeToJPG(85);
                 Destroy(fallbackSnap);
+            }
+
+            if (temporaryWebcamStarted && _arDisplayMode == 2)
+            {
+                StopWebcam();
             }
 
             string base64String = Convert.ToBase64String(jpgBytes);
