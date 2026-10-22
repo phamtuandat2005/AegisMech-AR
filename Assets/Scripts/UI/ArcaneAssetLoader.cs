@@ -213,6 +213,84 @@ namespace MechChess.UI
         }
 
         /// <summary>
+        /// Highly detailed procedural Dark Fantasy chess piece token medallion for 2D boards and UI markers.
+        /// Features double metal filigree rim (Gold for White, Crimson for Black), subtle radial shading, and crisp contrast.
+        /// </summary>
+        public static Sprite GetPieceTokenSprite(bool isWhite, int diameter = 64)
+        {
+            string key = $"PieceToken_{isWhite}_{diameter}";
+            if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            int size = Mathf.Max(32, diameter);
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Color[] colors = new Color[size * size];
+            float center = (size - 1) * 0.5f;
+            float radius = center;
+
+            // White: Ivory marble body + Antique gold rim
+            // Black: Obsidian slate body + Crimson ruby rim
+            Color outerRim = isWhite 
+                ? new Color(0.85f, 0.72f, 0.42f, 1f)  // Radiant Antique Gold
+                : new Color(0.72f, 0.18f, 0.22f, 1f); // Blood Red Ruby
+            Color innerRim = isWhite 
+                ? new Color(0.98f, 0.90f, 0.65f, 1f)  // Bright Gold Highlight
+                : new Color(0.95f, 0.35f, 0.40f, 1f); // Bright Crimson Highlight
+            Color fillCenter = isWhite 
+                ? new Color(0.98f, 0.96f, 0.92f, 1.0f) // Pure Ivory Pearl
+                : new Color(0.12f, 0.15f, 0.20f, 1.0f); // Deep Obsidian Slate
+            Color fillEdge = isWhite 
+                ? new Color(0.88f, 0.83f, 0.74f, 1.0f) // Aged Parchment Marble
+                : new Color(0.06f, 0.08f, 0.11f, 1.0f); // Pitch Black Void
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - center;
+                    float dy = y - center;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    float normDist = dist / radius;
+
+                    if (normDist > 1.0f)
+                    {
+                        colors[y * size + x] = Color.clear;
+                    }
+                    else if (normDist > 0.92f)
+                    {
+                        float alpha = Mathf.Clamp01((1.0f - normDist) / 0.08f);
+                        Color c = outerRim;
+                        c.a *= alpha;
+                        colors[y * size + x] = c;
+                    }
+                    else if (normDist > 0.80f)
+                    {
+                        colors[y * size + x] = outerRim;
+                    }
+                    else if (normDist > 0.72f)
+                    {
+                        colors[y * size + x] = innerRim;
+                    }
+                    else
+                    {
+                        float bodyNorm = normDist / 0.72f;
+                        Color body = Color.Lerp(fillCenter, fillEdge, bodyNorm * bodyNorm);
+                        colors[y * size + x] = body;
+                    }
+                }
+            }
+
+            tex.SetPixels(colors);
+            tex.Apply();
+
+            Sprite s = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            _proceduralCache[key] = s;
+            return s;
+        }
+
+        /// <summary>
         /// Procedural 2D Chessboard diagram texture with highlighted squares for Tutorial & Learn screens.
         /// </summary>
         public static Sprite GetMiniChessboardDiagram(int size = 256)
@@ -234,17 +312,24 @@ namespace MechChess.UI
             Vector2Int selected,
             IList<Vector2Int> moveSquares,
             IList<Vector2Int> captureSquares,
-            IList<Vector2Int> specialSquares)
+            IList<Vector2Int> specialSquares,
+            IList<TutorialPieceMarker> pieces = null)
         {
-            int moveCount = moveSquares != null ? moveSquares.Count : 0;
-            int capCount = captureSquares != null ? captureSquares.Count : 0;
-            int specCount = specialSquares != null ? specialSquares.Count : 0;
-
             int hash = 17;
             if (hasSelected) hash = hash * 31 + selected.GetHashCode();
             if (moveSquares != null) foreach (var v in moveSquares) hash = hash * 31 + v.GetHashCode();
             if (captureSquares != null) foreach (var v in captureSquares) hash = hash * 31 + v.GetHashCode();
             if (specialSquares != null) foreach (var v in specialSquares) hash = hash * 31 + v.GetHashCode();
+            if (pieces != null)
+            {
+                foreach (var p in pieces)
+                {
+                    hash = hash * 31 + p.file;
+                    hash = hash * 31 + p.rank;
+                    hash = hash * 31 + (p.isWhite ? 1 : 2);
+                    if (p.symbol != null) hash = hash * 31 + p.symbol.GetHashCode();
+                }
+            }
 
             string key = $"CustomBoard_{size}_{hasSelected}_{hash}";
             if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
@@ -310,6 +395,40 @@ namespace MechChess.UI
                         float distCenter = Vector2.Distance(new Vector2(normX, normY), new Vector2(0.5f, 0.5f));
                         bool isDot = distCenter < 0.16f;
                         sqColor = Color.Lerp(sqColor, colMove, isDot ? 0.95f : 0.55f);
+                    }
+
+                    // Render chess piece medallion token directly on the board square
+                    if (pieces != null)
+                    {
+                        for (int pIdx = 0; pIdx < pieces.Count; pIdx++)
+                        {
+                            var p = pieces[pIdx];
+                            if (p.file == file && p.rank == rank)
+                            {
+                                float distCenter = Vector2.Distance(new Vector2(normX, normY), new Vector2(0.5f, 0.5f));
+                                if (distCenter <= 0.36f)
+                                {
+                                    if (distCenter >= 0.31f)
+                                    {
+                                        // Outer metallic rim (Antique Gold for White, Blood Red for Black)
+                                        sqColor = p.isWhite ? colSelected : colCapture;
+                                    }
+                                    else if (distCenter <= 0.11f)
+                                    {
+                                        // Central heraldic jewel
+                                        sqColor = p.isWhite ? colSpecial : new Color(0.95f, 0.30f, 0.35f, 1f);
+                                    }
+                                    else
+                                    {
+                                        // Piece body fill
+                                        sqColor = p.isWhite 
+                                            ? new Color(0.96f, 0.94f, 0.88f, 1f) 
+                                            : new Color(0.10f, 0.14f, 0.19f, 1f);
+                                    }
+                                }
+                                break;
+                            }
+                        }
                     }
 
                     // Grid border lines - carved antique bronze filigree

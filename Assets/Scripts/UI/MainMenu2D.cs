@@ -2615,11 +2615,11 @@ namespace MechChess.UI
             GameObject leftContainer = new GameObject("Left_DiagramContainer");
             leftContainer.transform.SetParent(cardObj.transform, false);
             Image lcBg = leftContainer.AddComponent<Image>();
-            lcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(410, 440, 16f, new Color(0.04f, 0.08f, 0.14f, 0.85f), ColMutedBorder, 1.2f);
+            lcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(420, 460, 16f, new Color(0.04f, 0.08f, 0.14f, 0.88f), ColMutedBorder, 1.2f);
             lcBg.type = Image.Type.Sliced;
             RectTransform lcRt = leftContainer.GetComponent<RectTransform>();
-            lcRt.anchoredPosition = new Vector2(-285f, -10f);
-            lcRt.sizeDelta = new Vector2(410f, 440f);
+            lcRt.anchoredPosition = new Vector2(-330f, -8f);
+            lcRt.sizeDelta = new Vector2(420f, 460f);
 
             // Diagram Image (360x360)
             GameObject boardObj = new GameObject("BoardDiagram");
@@ -2627,7 +2627,7 @@ namespace MechChess.UI
             _tutorialDiagramImg = boardObj.AddComponent<Image>();
             _tutorialDiagramImg.preserveAspect = true;
             RectTransform bRt = boardObj.GetComponent<RectTransform>();
-            bRt.anchoredPosition = new Vector2(0f, 22f);
+            bRt.anchoredPosition = new Vector2(0f, 28f);
             bRt.sizeDelta = new Vector2(360f, 360f);
 
             // Piece / Overlay Container
@@ -2645,122 +2645,126 @@ namespace MechChess.UI
             capObj.transform.SetParent(leftContainer.transform, false);
             _tutorialCaptionTxt = capObj.AddComponent<Text>();
             _tutorialCaptionTxt.font = font;
-            _tutorialCaptionTxt.fontSize = 14;
+            _tutorialCaptionTxt.fontSize = 16;
             _tutorialCaptionTxt.fontStyle = FontStyle.Italic;
             _tutorialCaptionTxt.alignment = TextAnchor.MiddleCenter;
-            _tutorialCaptionTxt.color = ColCyanGlow;
+            _tutorialCaptionTxt.color = new Color(1.0f, 0.88f, 0.58f);
             _tutorialCaptionTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _tutorialCaptionTxt.verticalOverflow = VerticalWrapMode.Truncate;
+            _tutorialCaptionTxt.lineSpacing = 1.15f;
             RectTransform capRt = capObj.GetComponent<RectTransform>();
-            capRt.anchoredPosition = new Vector2(0f, -185f);
-            capRt.sizeDelta = new Vector2(390f, 40f);
+            capRt.anchoredPosition = new Vector2(0f, -182f);
+            capRt.sizeDelta = new Vector2(400f, 50f);
 
-            // Right: Guide Information & Steps
+            // Right: Guide Information & Steps (Expanded width and balanced spacing)
             GameObject rightContainer = new GameObject("Right_GuideContainer");
             rightContainer.transform.SetParent(cardObj.transform, false);
             RectTransform rcRt = rightContainer.AddComponent<RectTransform>();
-            rcRt.anchoredPosition = new Vector2(275f, -10f);
-            rcRt.sizeDelta = new Vector2(590f, 440f);
+            rcRt.anchoredPosition = new Vector2(230f, -8f);
+            rcRt.sizeDelta = new Vector2(660f, 460f);
 
             // Badge / Category Indicator
             GameObject badgeObj = new GameObject("CategoryBadge");
             badgeObj.transform.SetParent(rightContainer.transform, false);
             _tutorialBadgeTxt = badgeObj.AddComponent<Text>();
             _tutorialBadgeTxt.font = font;
-            _tutorialBadgeTxt.fontSize = 15;
+            _tutorialBadgeTxt.fontSize = 17;
             _tutorialBadgeTxt.fontStyle = FontStyle.Bold;
             _tutorialBadgeTxt.alignment = TextAnchor.MiddleLeft;
-            _tutorialBadgeTxt.color = ColGoldBorder;
+            _tutorialBadgeTxt.color = new Color(0.96f, 0.78f, 0.36f);
             RectTransform bdRt = badgeObj.GetComponent<RectTransform>();
-            bdRt.anchoredPosition = new Vector2(0f, 195f);
-            bdRt.sizeDelta = new Vector2(580f, 24f);
+            bdRt.anchoredPosition = new Vector2(0f, 205f);
+            bdRt.sizeDelta = new Vector2(650f, 26f);
 
             // Main Title
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(rightContainer.transform, false);
             _tutorialTitleTxt = titleObj.AddComponent<Text>();
             _tutorialTitleTxt.font = font;
-            _tutorialTitleTxt.fontSize = 25;
+            _tutorialTitleTxt.fontSize = 29;
             _tutorialTitleTxt.fontStyle = FontStyle.Bold;
             _tutorialTitleTxt.alignment = TextAnchor.MiddleLeft;
             _tutorialTitleTxt.color = ColTextWhite;
             RectTransform ttRt = titleObj.GetComponent<RectTransform>();
-            ttRt.anchoredPosition = new Vector2(0f, 165f);
-            ttRt.sizeDelta = new Vector2(580f, 32f);
+            ttRt.anchoredPosition = new Vector2(0f, 170f);
+            ttRt.sizeDelta = new Vector2(650f, 40f);
 
             // Overview Paragraph
             GameObject overviewObj = new GameObject("Overview");
             overviewObj.transform.SetParent(rightContainer.transform, false);
             _tutorialOverviewTxt = overviewObj.AddComponent<Text>();
             _tutorialOverviewTxt.font = font;
-            _tutorialOverviewTxt.fontSize = 15;
+            _tutorialOverviewTxt.fontSize = 17;
             _tutorialOverviewTxt.fontStyle = FontStyle.Normal;
             _tutorialOverviewTxt.alignment = TextAnchor.UpperLeft;
-            _tutorialOverviewTxt.color = new Color(0.85f, 0.92f, 1.0f);
+            _tutorialOverviewTxt.color = new Color(0.88f, 0.94f, 1.0f);
             _tutorialOverviewTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _tutorialOverviewTxt.verticalOverflow = VerticalWrapMode.Truncate;
+            _tutorialOverviewTxt.lineSpacing = 1.25f;
             RectTransform ovRt = overviewObj.GetComponent<RectTransform>();
-            ovRt.anchoredPosition = new Vector2(0f, 120f);
-            ovRt.sizeDelta = new Vector2(580f, 48f);
+            ovRt.anchoredPosition = new Vector2(0f, 118f);
+            ovRt.sizeDelta = new Vector2(650f, 56f);
 
             // Steps Guide Container
             GameObject stepsGroup = new GameObject("StepsGroup");
             stepsGroup.transform.SetParent(rightContainer.transform, false);
             RectTransform sgRt = stepsGroup.AddComponent<RectTransform>();
-            sgRt.anchoredPosition = new Vector2(0f, 5f);
-            sgRt.sizeDelta = new Vector2(580f, 180f);
+            sgRt.anchoredPosition = new Vector2(0f, -10f);
+            sgRt.sizeDelta = new Vector2(650f, 226f);
 
             for (int i = 0; i < 3; i++)
             {
-                float y = 55f - i * 58f;
+                float y = 74f - i * 74f;
                 GameObject row = new GameObject($"Step_{i + 1}");
                 row.transform.SetParent(stepsGroup.transform, false);
                 _tutorialStepRows[i] = row;
                 RectTransform rRt = row.AddComponent<RectTransform>();
                 rRt.anchoredPosition = new Vector2(0f, y);
-                rRt.sizeDelta = new Vector2(580f, 54f);
+                rRt.sizeDelta = new Vector2(650f, 70f);
 
                 // Number badge
                 GameObject numObj = new GameObject("Badge");
                 numObj.transform.SetParent(row.transform, false);
                 Image nbImg = numObj.AddComponent<Image>();
-                nbImg.sprite = ArcaneAssetLoader.GetCircleSprite(32, ColCyanBorder, Color.white, 1.5f);
+                nbImg.sprite = ArcaneAssetLoader.GetCircleSprite(38, ColCyanBorder, Color.white, 1.5f);
                 RectTransform nbRt = numObj.GetComponent<RectTransform>();
-                nbRt.anchoredPosition = new Vector2(-265f, 8f);
-                nbRt.sizeDelta = new Vector2(32f, 32f);
+                nbRt.anchoredPosition = new Vector2(-295f, 0f);
+                nbRt.sizeDelta = new Vector2(38f, 38f);
 
-                _tutorialStepBadges[i] = CreateTextComp(numObj.transform, (i + 1).ToString(), 18, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(32f, 32f));
+                _tutorialStepBadges[i] = CreateTextComp(numObj.transform, (i + 1).ToString(), 20, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(38f, 38f));
 
                 // Step Title & Description
-                _tutorialStepTitles[i] = CreateTextComp(row.transform, "", 18, FontStyle.Bold, ColTextWhite, font, new Vector2(30f, 12f), new Vector2(520f, 26f), TextAnchor.MiddleLeft);
-                _tutorialStepDescs[i] = CreateTextComp(row.transform, "", 14, FontStyle.Normal, new Color(0.82f, 0.90f, 0.98f), font, new Vector2(30f, -14f), new Vector2(520f, 28f), TextAnchor.MiddleLeft);
+                _tutorialStepTitles[i] = CreateTextComp(row.transform, "", 20, FontStyle.Bold, new Color(1.0f, 0.96f, 0.88f), font, new Vector2(25f, 16f), new Vector2(580f, 28f), TextAnchor.MiddleLeft);
+                _tutorialStepDescs[i] = CreateTextComp(row.transform, "", 16, FontStyle.Normal, new Color(0.82f, 0.90f, 0.98f), font, new Vector2(25f, -14f), new Vector2(580f, 36f), TextAnchor.MiddleLeft);
                 _tutorialStepDescs[i].horizontalOverflow = HorizontalWrapMode.Wrap;
+                _tutorialStepDescs[i].lineSpacing = 1.2f;
             }
 
             // Tactical Tip Box
             _tutorialTipContainer = new GameObject("TipContainer");
             _tutorialTipContainer.transform.SetParent(rightContainer.transform, false);
             Image tipBg = _tutorialTipContainer.AddComponent<Image>();
-            tipBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(580, 52, 10f, new Color(0.06f, 0.12f, 0.20f, 0.9f), ColGoldBorder, 1.2f);
+            tipBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(650, 60, 10f, new Color(0.06f, 0.12f, 0.20f, 0.92f), ColGoldBorder, 1.4f);
             tipBg.type = Image.Type.Sliced;
             RectTransform tipRt = _tutorialTipContainer.GetComponent<RectTransform>();
-            tipRt.anchoredPosition = new Vector2(0f, -175f);
-            tipRt.sizeDelta = new Vector2(580f, 52f);
+            tipRt.anchoredPosition = new Vector2(0f, -172f);
+            tipRt.sizeDelta = new Vector2(650f, 60f);
 
             GameObject tipTxtObj = new GameObject("TipText");
             tipTxtObj.transform.SetParent(_tutorialTipContainer.transform, false);
             _tutorialTipTxt = tipTxtObj.AddComponent<Text>();
             _tutorialTipTxt.font = font;
-            _tutorialTipTxt.fontSize = 14;
+            _tutorialTipTxt.fontSize = 16;
             _tutorialTipTxt.alignment = TextAnchor.MiddleLeft;
-            _tutorialTipTxt.color = new Color(1.0f, 0.90f, 0.60f);
+            _tutorialTipTxt.color = new Color(1.0f, 0.92f, 0.65f);
             _tutorialTipTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _tutorialTipTxt.verticalOverflow = VerticalWrapMode.Truncate;
+            _tutorialTipTxt.lineSpacing = 1.22f;
             RectTransform ttRt2 = tipTxtObj.GetComponent<RectTransform>();
             ttRt2.anchorMin = Vector2.zero;
             ttRt2.anchorMax = Vector2.one;
-            ttRt2.offsetMin = new Vector2(16f, 4f);
-            ttRt2.offsetMax = new Vector2(-16f, -4f);
+            ttRt2.offsetMin = new Vector2(18f, 6f);
+            ttRt2.offsetMax = new Vector2(-18f, -6f);
 
             // Bottom Navigation Footer
             GameObject footer = new GameObject("TutorialFooter");
@@ -2773,22 +2777,22 @@ namespace MechChess.UI
             GameObject prevBtnObj = new GameObject("BtnPrev");
             prevBtnObj.transform.SetParent(footer.transform, false);
             _tutorialBtnPrevBg = prevBtnObj.AddComponent<Image>();
-            _tutorialBtnPrevBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(160, 46, 22f, ColGlassFill, ColCyanBorder, 1.5f);
+            _tutorialBtnPrevBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(170, 48, 22f, ColGlassFill, ColCyanBorder, 1.5f);
             _tutorialBtnPrevBg.type = Image.Type.Sliced;
             _tutorialBtnPrev = prevBtnObj.AddComponent<Button>();
             _tutorialBtnPrev.onClick.AddListener(PreviousTutorialPage);
             prevBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform pRt = prevBtnObj.GetComponent<RectTransform>();
-            pRt.anchoredPosition = new Vector2(-320f, 0f);
-            pRt.sizeDelta = new Vector2(160f, 46f);
-            _tutorialBtnPrevTxt = CreateTextComp(prevBtnObj.transform, AegisLocalization.T("❮ Trước", "❮ Prev"), 18, FontStyle.Bold, ColCyanGlow, font, Vector2.zero, new Vector2(150f, 36f));
+            pRt.anchoredPosition = new Vector2(-330f, 0f);
+            pRt.sizeDelta = new Vector2(170f, 48f);
+            _tutorialBtnPrevTxt = CreateTextComp(prevBtnObj.transform, AegisLocalization.T("❮ Trước", "❮ Prev"), 19, FontStyle.Bold, ColCyanGlow, font, Vector2.zero, new Vector2(160f, 38f));
 
             // Page Indicator
             GameObject indObj = new GameObject("PageIndicator");
             indObj.transform.SetParent(footer.transform, false);
             _tutorialPageIndicatorTxt = indObj.AddComponent<Text>();
             _tutorialPageIndicatorTxt.font = font;
-            _tutorialPageIndicatorTxt.fontSize = 20;
+            _tutorialPageIndicatorTxt.fontSize = 22;
             _tutorialPageIndicatorTxt.fontStyle = FontStyle.Bold;
             _tutorialPageIndicatorTxt.alignment = TextAnchor.MiddleCenter;
             _tutorialPageIndicatorTxt.color = ColTextWhite;
@@ -2800,15 +2804,15 @@ namespace MechChess.UI
             GameObject nextBtnObj = new GameObject("BtnNext");
             nextBtnObj.transform.SetParent(footer.transform, false);
             _tutorialBtnNextBg = nextBtnObj.AddComponent<Image>();
-            _tutorialBtnNextBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(160, 46, 22f, ColCyanBorder, Color.white, 1.5f);
+            _tutorialBtnNextBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(170, 48, 22f, ColCyanBorder, Color.white, 1.5f);
             _tutorialBtnNextBg.type = Image.Type.Sliced;
             _tutorialBtnNext = nextBtnObj.AddComponent<Button>();
             _tutorialBtnNext.onClick.AddListener(NextTutorialPage);
             nextBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform nRt = nextBtnObj.GetComponent<RectTransform>();
-            nRt.anchoredPosition = new Vector2(320f, 0f);
-            nRt.sizeDelta = new Vector2(160f, 46f);
-            _tutorialBtnNextTxt = CreateTextComp(nextBtnObj.transform, AegisLocalization.T("Tiếp theo ❯", "Next ❯"), 18, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(150f, 36f));
+            nRt.anchoredPosition = new Vector2(330f, 0f);
+            nRt.sizeDelta = new Vector2(170f, 48f);
+            _tutorialBtnNextTxt = CreateTextComp(nextBtnObj.transform, AegisLocalization.T("Tiếp theo ❯", "Next ❯"), 19, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(160f, 38f));
 
             // Initial view update
             UpdateTutorialUI(font);
@@ -2927,7 +2931,8 @@ namespace MechChess.UI
                 {
                     _tutorialDiagramImg.sprite = ArcaneAssetLoader.GetCustomBoardDiagram(360, 
                         page.hasSelectedSquare, page.selectedSquare, 
-                        page.moveSquares, page.captureSquares, page.specialSquares);
+                        page.moveSquares, page.captureSquares, page.specialSquares,
+                        page.pieces);
                 }
             }
 
@@ -2948,24 +2953,44 @@ namespace MechChess.UI
                     {
                         GameObject pObj = new GameObject($"Piece_{p.file}_{p.rank}");
                         pObj.transform.SetParent(_tutorialPieceOverlay, false);
-                        Text pt = pObj.AddComponent<Text>();
-                        pt.text = p.symbol;
-                        pt.font = pieceFont;
-                        pt.fontSize = 28;
-                        pt.fontStyle = FontStyle.Bold;
-                        pt.alignment = TextAnchor.MiddleCenter;
-                        pt.color = p.isWhite ? Color.white : new Color(0.98f, 0.42f, 0.42f, 1f);
 
-                        // Add outline for sharp visual definition against any square color
-                        Outline outline = pObj.AddComponent<Outline>();
-                        outline.effectColor = new Color(0.02f, 0.05f, 0.10f, 0.95f);
-                        outline.effectDistance = new Vector2(1.5f, -1.5f);
-
-                        RectTransform prt = pObj.GetComponent<RectTransform>();
+                        RectTransform prt = pObj.AddComponent<RectTransform>();
                         float px = (p.file - 3.5f) * squarePx;
                         float py = (p.rank - 3.5f) * squarePx;
                         prt.anchoredPosition = new Vector2(px, py);
                         prt.sizeDelta = new Vector2(squarePx, squarePx);
+
+                        // 1. Piece Medallion Token Background
+                        GameObject tokenBgObj = new GameObject("TokenBg");
+                        tokenBgObj.transform.SetParent(pObj.transform, false);
+                        Image tokenImg = tokenBgObj.AddComponent<Image>();
+                        tokenImg.sprite = ArcaneAssetLoader.GetPieceTokenSprite(p.isWhite, 56);
+                        RectTransform tRt = tokenBgObj.GetComponent<RectTransform>();
+                        tRt.anchoredPosition = Vector2.zero;
+                        tRt.sizeDelta = new Vector2(36f, 36f);
+
+                        // 2. Clear Standard Roman Chess Letter (P, N, B, R, Q, K)
+                        GameObject letterObj = new GameObject("PieceLetter");
+                        letterObj.transform.SetParent(tokenBgObj.transform, false);
+                        Text pt = letterObj.AddComponent<Text>();
+                        pt.text = GetPieceLetter(p.symbol);
+                        pt.font = pieceFont;
+                        pt.fontSize = 22;
+                        pt.fontStyle = FontStyle.Bold;
+                        pt.alignment = TextAnchor.MiddleCenter;
+                        pt.color = p.isWhite ? new Color(0.12f, 0.10f, 0.08f, 1f) : new Color(1.0f, 0.96f, 0.88f, 1f);
+
+                        Outline outline = letterObj.AddComponent<Outline>();
+                        outline.effectColor = p.isWhite 
+                            ? new Color(1f, 0.92f, 0.70f, 0.85f) 
+                            : new Color(0.55f, 0.08f, 0.12f, 0.95f);
+                        outline.effectDistance = new Vector2(1f, -1f);
+
+                        RectTransform lRt = letterObj.GetComponent<RectTransform>();
+                        lRt.anchorMin = Vector2.zero;
+                        lRt.anchorMax = Vector2.one;
+                        lRt.offsetMin = Vector2.zero;
+                        lRt.offsetMax = Vector2.zero;
                     }
                 }
             }
@@ -3015,6 +3040,24 @@ namespace MechChess.UI
                     _tutorialBtnNextTxt.color = ColDarkBtnText;
                     if (_tutorialBtnNextBg != null) _tutorialBtnNextBg.color = Color.white;
                 }
+            }
+        }
+
+        private string GetPieceLetter(string symbol)
+        {
+            if (string.IsNullOrEmpty(symbol)) return "P";
+            switch (symbol)
+            {
+                case "♔": case "♚": return "K";
+                case "♕": case "♛": return "Q";
+                case "♖": case "♜": return "R";
+                case "♗": case "♝": return "B";
+                case "♘": case "♞": return "N";
+                case "♙": case "♟": return "P";
+                default:
+                    char c = symbol[0];
+                    if (char.IsLetter(c)) return char.ToUpperInvariant(c).ToString();
+                    return symbol;
             }
         }
 
