@@ -261,6 +261,8 @@ namespace MechChess.UI
             AegisLocalization.OnLanguageChanged -= OnLanguageChanged;
         }
 
+        private Coroutine _refreshLanguageCoroutine;
+
         private void OnLanguageChanged()
         {
             RefreshLanguageUI();
@@ -268,9 +270,37 @@ namespace MechChess.UI
 
         public void RefreshLanguageUI()
         {
+            if (_refreshLanguageCoroutine != null)
+            {
+                StopCoroutine(_refreshLanguageCoroutine);
+                _refreshLanguageCoroutine = null;
+            }
+
+            if (gameObject.activeInHierarchy)
+            {
+                _refreshLanguageCoroutine = StartCoroutine(DoRefreshLanguageUI());
+            }
+            else
+            {
+                ExecuteRefreshLanguageUI();
+            }
+        }
+
+        private IEnumerator DoRefreshLanguageUI()
+        {
+            // Wait 1 frame so the current UI click event (dropdown selection) finishes processing
+            // cleanly in Unity's EventSystem without destroying components mid-invocation.
+            yield return null;
+            ExecuteRefreshLanguageUI();
+            _refreshLanguageCoroutine = null;
+        }
+
+        private void ExecuteRefreshLanguageUI()
+        {
+            bool wasMenuVisible = _menuCanvasObj != null && _menuCanvasObj.activeSelf;
+            bool isModeSelectOpen = _screenModeSelect != null && _screenModeSelect.activeSelf;
             bool isSettingsOpen = _settingsModal != null && _settingsModal.activeSelf;
             int savedSettingsTab = _selectedSettingsTab;
-            bool isModeSelectOpen = _screenModeSelect != null && _screenModeSelect.activeSelf;
             bool isTutorialOpen = _tutorialModal != null && _tutorialModal.activeSelf;
             bool isShopOpen = _shopModal != null && _shopModal.activeSelf;
             int savedShopTab = _selectedShopTab;
@@ -280,6 +310,7 @@ namespace MechChess.UI
             bool isPauseOpen = _pauseModal != null && _pauseModal.activeSelf;
             bool isResultOpen = _resultScreenModal != null && _resultScreenModal.activeSelf;
             bool isLearnOpen = _learnScreenModal != null && _learnScreenModal.activeSelf;
+            int savedNavIndex = _selectedMenuNavIndex;
 
             if (_menuCanvasObj != null)
             {
@@ -289,36 +320,46 @@ namespace MechChess.UI
 
             BuildAllScreens(true);
 
+            // 1. ALWAYS activate the proper base screen so there is NEVER a black void behind modals
+            if (isModeSelectOpen)
+            {
+                if (_screenMainMenu != null) _screenMainMenu.SetActive(false);
+                if (_screenModeSelect != null) _screenModeSelect.SetActive(true);
+            }
+            else
+            {
+                if (_screenMainMenu != null) _screenMainMenu.SetActive(true);
+                if (_screenModeSelect != null) _screenModeSelect.SetActive(false);
+                UpdateNavSelection(savedNavIndex);
+            }
+
+            // 2. Re-open any modal overlay that was open prior to language switch
             if (isSettingsOpen)
             {
-                OpenSettingsModal();
+                if (_settingsModal != null) _settingsModal.SetActive(true);
                 SwitchSettingsTab(savedSettingsTab);
-            }
-            else if (isModeSelectOpen)
-            {
-                NavigateToChooseMode();
             }
             else if (isTutorialOpen)
             {
-                OpenTutorialModal();
+                if (_tutorialModal != null) _tutorialModal.SetActive(true);
             }
             else if (isShopOpen)
             {
-                OpenShopModal();
+                if (_shopModal != null) _shopModal.SetActive(true);
                 SwitchShopTab(savedShopTab);
             }
             else if (isProfileOpen)
             {
-                OpenProfileModal();
+                if (_profileModal != null) _profileModal.SetActive(true);
                 SwitchProfileTab(savedProfileTab);
             }
             else if (isAIDiffOpen)
             {
-                OpenAIDifficultyModal();
+                if (_aiDifficultyModal != null) _aiDifficultyModal.SetActive(true);
             }
             else if (isPauseOpen)
             {
-                ShowPauseModal();
+                if (_pauseModal != null) _pauseModal.SetActive(true);
             }
             else if (isResultOpen)
             {
@@ -326,11 +367,12 @@ namespace MechChess.UI
             }
             else if (isLearnOpen)
             {
-                OpenLearnScreen();
+                if (_learnScreenModal != null) _learnScreenModal.SetActive(true);
             }
-            else
+
+            if (!wasMenuVisible && _menuCanvasObj != null)
             {
-                NavigateToHome();
+                _menuCanvasObj.SetActive(false);
             }
 
             UpdateUserProfileUI();
@@ -498,13 +540,19 @@ namespace MechChess.UI
             BuildFriendModal(_menuCanvasObj.transform, font);
             BuildIncomingChallengeModal(_menuCanvasObj.transform, font);
 
-            // Initially show Splash only if not refresh
+            // Initially show Splash only if not refresh; on refresh ensure Main Menu base is active
             CloseAllModals();
             if (!isRefresh)
             {
                 if (_screenMainMenu != null) _screenMainMenu.SetActive(false);
                 if (_screenModeSelect != null) _screenModeSelect.SetActive(false);
                 if (_screenSplash != null) _screenSplash.SetActive(true);
+            }
+            else
+            {
+                if (_screenSplash != null) _screenSplash.SetActive(false);
+                if (_screenMainMenu != null) _screenMainMenu.SetActive(true);
+                if (_screenModeSelect != null) _screenModeSelect.SetActive(false);
             }
         }
 
@@ -1869,7 +1917,11 @@ namespace MechChess.UI
             cbRt.sizeDelta = new Vector2(44f, 44f);
 
             Button closeBtn = closeBtnObj.AddComponent<Button>();
-            closeBtn.onClick.AddListener(() => _settingsModal.SetActive(false));
+            closeBtn.onClick.AddListener(() =>
+            {
+                _settingsModal.SetActive(false);
+                EnsureBaseScreenActive();
+            });
             closeBtnObj.AddComponent<MenuButtonEffect>();
 
             Text cbText = closeBtnObj.AddComponent<Text>();
@@ -2549,7 +2601,11 @@ namespace MechChess.UI
             Image bbImg = backBtnObj.AddComponent<Image>();
             bbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(48, 48, 10f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
             Button bbBtn = backBtnObj.AddComponent<Button>();
-            bbBtn.onClick.AddListener(() => _shopModal.SetActive(false));
+            bbBtn.onClick.AddListener(() =>
+            {
+                _shopModal.SetActive(false);
+                EnsureBaseScreenActive();
+            });
             backBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform bbRt = backBtnObj.GetComponent<RectTransform>();
             bbRt.anchorMin = new Vector2(0f, 0.5f);
@@ -3204,7 +3260,11 @@ namespace MechChess.UI
             // Tapping backdrop closes modal
             Button overlayBtn = _profileModal.GetComponent<Button>();
             if (overlayBtn == null) overlayBtn = _profileModal.AddComponent<Button>();
-            overlayBtn.onClick.AddListener(() => _profileModal.SetActive(false));
+            overlayBtn.onClick.AddListener(() =>
+            {
+                _profileModal.SetActive(false);
+                EnsureBaseScreenActive();
+            });
 
             // Centered Main Cyber Profile Card (1280 x 510) - Prominent, Big, Crisp
             GameObject cardObj = new GameObject("ProfileCard");
@@ -3227,7 +3287,11 @@ namespace MechChess.UI
             Image cbImg = closeBtnObj.AddComponent<Image>();
             cbImg.sprite = ArcaneAssetLoader.GetCircleSprite(36, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
             Button cbBtn = closeBtnObj.AddComponent<Button>();
-            cbBtn.onClick.AddListener(() => _profileModal.SetActive(false));
+            cbBtn.onClick.AddListener(() =>
+            {
+                _profileModal.SetActive(false);
+                EnsureBaseScreenActive();
+            });
             closeBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform cbRt = closeBtnObj.GetComponent<RectTransform>();
             cbRt.anchorMin = new Vector2(1f, 1f);
@@ -4412,15 +4476,27 @@ namespace MechChess.UI
             OpenAIDifficultyModal();
         }
 
+        public void EnsureBaseScreenActive()
+        {
+            if ((_screenMainMenu == null || !_screenMainMenu.activeSelf) &&
+                (_screenModeSelect == null || !_screenModeSelect.activeSelf) &&
+                (_screenSplash == null || !_screenSplash.activeSelf))
+            {
+                if (_screenMainMenu != null) _screenMainMenu.SetActive(true);
+            }
+        }
+
         public void OpenAIDifficultyModal()
         {
             CloseAllModals();
+            EnsureBaseScreenActive();
             if (_aiDifficultyModal != null) _aiDifficultyModal.SetActive(true);
         }
 
         public void OpenSettingsModal()
         {
             CloseAllModals();
+            EnsureBaseScreenActive();
             if (_settingsModal != null)
             {
                 _settingsModal.SetActive(true);
@@ -4431,12 +4507,14 @@ namespace MechChess.UI
         public void OpenTutorialModal()
         {
             CloseAllModals();
+            EnsureBaseScreenActive();
             if (_tutorialModal != null) _tutorialModal.SetActive(true);
         }
 
         public void OpenShopModal()
         {
             CloseAllModals();
+            EnsureBaseScreenActive();
             if (_shopModal != null) _shopModal.SetActive(true);
         }
 
@@ -4524,7 +4602,11 @@ namespace MechChess.UI
             Image cbImg = closeBtn.AddComponent<Image>();
             cbImg.sprite = ArcaneAssetLoader.GetCircleSprite(36, ColGlassFill, ColCyanBorder, 1.2f);
             Button cb = closeBtn.AddComponent<Button>();
-            cb.onClick.AddListener(() => onClose?.Invoke());
+            cb.onClick.AddListener(() =>
+            {
+                onClose?.Invoke();
+                EnsureBaseScreenActive();
+            });
             closeBtn.AddComponent<MenuButtonEffect>();
             RectTransform cbrt = closeBtn.GetComponent<RectTransform>();
             cbrt.anchorMin = new Vector2(1f, 0.5f);
