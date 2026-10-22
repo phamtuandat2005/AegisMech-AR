@@ -13,7 +13,8 @@ namespace MechChess.UI
     {
         Success, // Emerald Green checkmark
         Error,   // Crimson Red cross
-        Info     // Cyan Info icon
+        Info,    // Cyan Info icon
+        Warning  // Fiery Amber Warning icon
     }
 
     /// <summary>
@@ -101,18 +102,26 @@ namespace MechChess.UI
         private CanvasScaler _menuScaler;
         private float _lastMenuAspect = -1f;
 
-        // Visual Theme Palette (High-Fantasy Arcane Blue)
-        private readonly Color ColBg = new Color(0.027f, 0.051f, 0.094f, 1f);        // #070D18 Deep obsidian navy
-        private readonly Color ColGlassFill = new Color(0.04f, 0.08f, 0.16f, 0.88f);  // Glass card fill
-        private readonly Color ColGlassActive = new Color(0.06f, 0.16f, 0.32f, 0.95f); // Active tab fill
-        private readonly Color ColCyanBorder = new Color(0.0f, 0.82f, 1.0f, 0.85f);  // Radiant cyan border
-        private readonly Color ColCyanGlow = new Color(0.0f, 0.88f, 1.0f, 1f);       // Electric cyan glow
-        private readonly Color ColMutedBorder = new Color(0.12f, 0.22f, 0.36f, 0.8f); // Inactive border
-        private readonly Color ColGoldCta = new Color(0.96f, 0.62f, 0.04f, 1f);      // Imperial golden amber
-        private readonly Color ColGoldBorder = new Color(1.0f, 0.85f, 0.35f, 1f);    // Golden border
-        private readonly Color ColTextWhite = new Color(0.96f, 0.98f, 1.0f, 1f);     // Crisp white text
-        private readonly Color ColTextMuted = new Color(0.58f, 0.64f, 0.72f, 1f);    // Slate text
-        private readonly Color ColDarkBtnText = new Color(0.08f, 0.04f, 0.01f, 1f);  // Dark text on gold
+        // Visual Theme Palette (Dark Fantasy Medieval Chess)
+        private readonly Color ColBg = new Color(0.090f, 0.137f, 0.176f, 1f);        // #17232D Midnight
+        private readonly Color ColGlassFill = new Color(0.12f, 0.16f, 0.20f, 0.94f);  // Carved stone slate fill
+        private readonly Color ColGlassActive = new Color(0.278f, 0.208f, 0.169f, 0.95f); // #47352B Antique Brown / Bronze
+        private readonly Color ColCyanBorder = new Color(0.725f, 0.604f, 0.380f, 0.95f);  // #B99A61 Antique Gold Border
+        private readonly Color ColCyanGlow = new Color(0.92f, 0.80f, 0.45f, 1f);       // Radiant Antique Gold
+        private readonly Color ColMutedBorder = new Color(0.35f, 0.28f, 0.22f, 0.85f); // Weathered Bronze Border
+        private readonly Color ColGoldCta = new Color(0.725f, 0.604f, 0.380f, 1f);      // Imperial Antique Gold CTA
+        private readonly Color ColGoldBorder = new Color(0.92f, 0.80f, 0.45f, 1f);    // Radiant Gold Rim
+        private readonly Color ColTextWhite = new Color(0.96f, 0.94f, 0.88f, 1f);     // #F5EEDB Warm Ivory Text
+        private readonly Color ColTextMuted = new Color(0.851f, 0.784f, 0.635f, 1f);    // #D9C8A2 Aged Parchment Text
+        private readonly Color ColDarkBtnText = new Color(0.12f, 0.08f, 0.05f, 1f);  // Dark Antique Ebony Text
+
+        // Distinct Fantasy Accents
+        private readonly Color ColMidnight = new Color(0.090f, 0.137f, 0.176f, 1f);   // #17232D
+        private readonly Color ColAntiqueBrown = new Color(0.278f, 0.208f, 0.169f, 1f); // #47352B
+        private readonly Color ColAntiqueGold = new Color(0.725f, 0.604f, 0.380f, 1f);  // #B99A61
+        private readonly Color ColParchment = new Color(0.851f, 0.784f, 0.635f, 1f);    // #D9C8A2
+        private readonly Color ColMagicGreen = new Color(0.322f, 0.427f, 0.341f, 1f);   // #526D57
+        private readonly Color ColBloodRed = new Color(0.490f, 0.224f, 0.259f, 1f);     // #7D3942
 
         // Screens
         private GameObject _screenSplash;
@@ -178,6 +187,31 @@ namespace MechChess.UI
         private readonly Image[] _profileTabBgs = new Image[3];
         private readonly Text[] _profileTabTexts = new Text[3];
         private readonly GameObject[] _profileTabContainers = new GameObject[3];
+
+        // Tutorial Modal State (4 tabs: Cơ bản, Luật chơi, Các quân cờ, AR; 20 pages total)
+        private TutorialTabType _selectedTutorialTab = TutorialTabType.Basics;
+        private int _currentTutorialPage = 0;
+        private readonly Image[] _tutorialTabBgs = new Image[4];
+        private readonly Text[] _tutorialTabTexts = new Text[4];
+        private Image _tutorialDiagramImg;
+        private Transform _tutorialPieceOverlay;
+        private Text _tutorialCaptionTxt;
+        private Text _tutorialBadgeTxt;
+        private Text _tutorialTitleTxt;
+        private Text _tutorialOverviewTxt;
+        private readonly GameObject[] _tutorialStepRows = new GameObject[3];
+        private readonly Text[] _tutorialStepBadges = new Text[3];
+        private readonly Text[] _tutorialStepTitles = new Text[3];
+        private readonly Text[] _tutorialStepDescs = new Text[3];
+        private GameObject _tutorialTipContainer;
+        private Text _tutorialTipTxt;
+        private Text _tutorialPageIndicatorTxt;
+        private Button _tutorialBtnPrev;
+        private Image _tutorialBtnPrevBg;
+        private Text _tutorialBtnPrevTxt;
+        private Button _tutorialBtnNext;
+        private Image _tutorialBtnNextBg;
+        private Text _tutorialBtnNextTxt;
 
         // AI Selector elements
         private int _selectedAIDifficulty = 2; // 1: Dễ, 2: Trung bình, 3: Khó, 4: Rất khó
@@ -306,6 +340,8 @@ namespace MechChess.UI
             bool isSettingsOpen = _settingsModal != null && _settingsModal.activeSelf;
             int savedSettingsTab = _selectedSettingsTab;
             bool isTutorialOpen = _tutorialModal != null && _tutorialModal.activeSelf;
+            TutorialTabType savedTutorialTab = _selectedTutorialTab;
+            int savedTutorialPage = _currentTutorialPage;
             bool isShopOpen = _shopModal != null && _shopModal.activeSelf;
             int savedShopTab = _selectedShopTab;
             bool isProfileOpen = _profileModal != null && _profileModal.activeSelf;
@@ -381,7 +417,13 @@ namespace MechChess.UI
                 }
                 else if (isTutorialOpen)
                 {
-                    if (_tutorialModal != null) _tutorialModal.SetActive(true);
+                    if (_tutorialModal != null)
+                    {
+                        _tutorialModal.SetActive(true);
+                        _selectedTutorialTab = savedTutorialTab;
+                        _currentTutorialPage = savedTutorialPage;
+                        UpdateTutorialUI();
+                    }
                 }
                 else if (isShopOpen)
                 {
@@ -654,7 +696,7 @@ namespace MechChess.UI
             GameObject barContainer = new GameObject("LoadingBarContainer");
             barContainer.transform.SetParent(_screenSplash.transform, false);
             Image barBg = barContainer.AddComponent<Image>();
-            barBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)barWidth, (int)barHeight, 6f, new Color(0.04f, 0.10f, 0.18f, 0.92f), new Color(0.0f, 0.55f, 0.85f, 0.6f), 1f);
+            barBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)barWidth, (int)barHeight, 6f, ColMidnight, ColAntiqueGold, 1f);
             barBg.type = Image.Type.Sliced;
             RectTransform bcRt = barContainer.GetComponent<RectTransform>();
             bcRt.anchorMin = new Vector2(0.5f, 0.135f);
@@ -667,7 +709,7 @@ namespace MechChess.UI
             GameObject barFill = new GameObject("LoadingBarFill");
             barFill.transform.SetParent(barContainer.transform, false);
             Image fillImg = barFill.AddComponent<Image>();
-            fillImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)barWidth, (int)barHeight, 5f, new Color(0.0f, 0.82f, 1.0f, 1f), Color.white, 0f);
+            fillImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)barWidth, (int)barHeight, 5f, ColAntiqueGold, Color.white, 0f);
             fillImg.type = Image.Type.Sliced;
             _splashBarFillRt = barFill.GetComponent<RectTransform>();
             _splashBarFillRt.anchorMin = new Vector2(0f, 0f);
@@ -685,7 +727,7 @@ namespace MechChess.UI
             _splashPercentTxt.fontSize = 20;
             _splashPercentTxt.fontStyle = FontStyle.Bold;
             _splashPercentTxt.alignment = TextAnchor.MiddleLeft;
-            _splashPercentTxt.color = new Color(0.0f, 0.95f, 1.0f);
+            _splashPercentTxt.color = ColCyanGlow;
             RectTransform pctRt = pctObj.GetComponent<RectTransform>();
             pctRt.anchorMin = new Vector2(0.5f, 0.135f);
             pctRt.anchorMax = new Vector2(0.5f, 0.135f);
@@ -702,7 +744,7 @@ namespace MechChess.UI
             loadingTxt.fontSize = 18;
             loadingTxt.fontStyle = FontStyle.Normal;
             loadingTxt.alignment = TextAnchor.MiddleCenter;
-            loadingTxt.color = new Color(0.75f, 0.88f, 1.0f, 0.9f);
+            loadingTxt.color = ColParchment;
             RectTransform txtRt = txtObj.GetComponent<RectTransform>();
             txtRt.anchorMin = new Vector2(0.5f, 0.135f);
             txtRt.anchorMax = new Vector2(0.5f, 0.135f);
@@ -864,7 +906,7 @@ namespace MechChess.UI
             _profileLevelTxt.fontSize = 19;
             _profileLevelTxt.fontStyle = FontStyle.Bold;
             _profileLevelTxt.alignment = TextAnchor.MiddleLeft;
-            _profileLevelTxt.color = new Color(0.0f, 0.82f, 1.0f, 0.95f);
+            _profileLevelTxt.color = ColAntiqueGold;
             RectTransform lvlRt = lvlObj.GetComponent<RectTransform>();
             lvlRt.anchorMin = new Vector2(0f, 0.5f);
             lvlRt.anchorMax = new Vector2(0f, 0.5f);
@@ -880,7 +922,7 @@ namespace MechChess.UI
             dTxt.font = font;
             dTxt.fontSize = 20;
             dTxt.alignment = TextAnchor.MiddleCenter;
-            dTxt.color = new Color(0.0f, 0.82f, 1.0f, 0.9f);
+            dTxt.color = ColAntiqueGold;
             RectTransform dRt = diamondObj.GetComponent<RectTransform>();
             dRt.anchorMin = new Vector2(0f, 0.5f);
             dRt.anchorMax = new Vector2(0f, 0.5f);
@@ -981,7 +1023,7 @@ namespace MechChess.UI
             dbRt.sizeDelta = new Vector2(420f, 495f);
 
             Image dbImg = dockBacking.AddComponent<Image>();
-            dbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(420, 495, 24f, new Color(0.015f, 0.04f, 0.09f, 0.82f), new Color(0.0f, 0.65f, 0.95f, 0.30f), 1.5f);
+            dbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(420, 495, 24f, ColMidnight, new Color(0.725f, 0.604f, 0.380f, 0.35f), 1.5f);
             dbImg.type = Image.Type.Sliced;
             dbImg.raycastTarget = false;
 
@@ -1035,7 +1077,7 @@ namespace MechChess.UI
                 btn.onClick.AddListener(() => OnNavMenuItemClicked(index));
                 itemObj.AddComponent<MenuButtonEffect>();
 
-                // Left Icon (Crisp white asset tinted dynamically to white if active, or electric cyan if inactive)
+                // Left Icon (Crisp white asset tinted dynamically to white if active, or warm ivory / gold if inactive)
                 GameObject iconObj = new GameObject("Icon");
                 iconObj.transform.SetParent(itemObj.transform, false);
                 Image icImg = iconObj.AddComponent<Image>();
@@ -1043,7 +1085,7 @@ namespace MechChess.UI
                 if (s != null) icImg.sprite = s;
                 icImg.preserveAspect = true;
                 icImg.raycastTarget = false;
-                icImg.color = (i == 0) ? Color.white : new Color(0.0f, 0.85f, 1.0f, 1.0f);
+                icImg.color = (i == 0) ? Color.white : ColParchment;
                 RectTransform icRt = iconObj.GetComponent<RectTransform>();
                 icRt.anchorMin = new Vector2(0f, 0.5f);
                 icRt.anchorMax = new Vector2(0f, 0.5f);
@@ -1060,7 +1102,7 @@ namespace MechChess.UI
                 t.fontSize = 28;
                 t.fontStyle = FontStyle.Bold;
                 t.alignment = TextAnchor.MiddleLeft;
-                t.color = (i == 0) ? Color.white : new Color(0.95f, 0.98f, 1.0f, 0.95f);
+                t.color = (i == 0) ? Color.white : ColTextWhite;
                 t.raycastTarget = false;
 
                 Outline outline = txtObj.AddComponent<Outline>();
@@ -1087,7 +1129,7 @@ namespace MechChess.UI
                 cText.fontSize = 32;
                 cText.fontStyle = FontStyle.Bold;
                 cText.alignment = TextAnchor.MiddleCenter;
-                cText.color = new Color(0.15f, 0.85f, 1.0f, 0.95f);
+                cText.color = ColCyanGlow;
                 cText.raycastTarget = false;
                 RectTransform crt = chevObj.GetComponent<RectTransform>();
                 crt.anchorMin = new Vector2(1f, 0.5f);
@@ -1130,14 +1172,14 @@ namespace MechChess.UI
                         }
                         else
                         {
-                            _navItemBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(440, 105, 18f, new Color(0.06f, 0.22f, 0.48f, 0.95f), ColCyanBorder, 2f);
+                            _navItemBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(440, 105, 18f, ColGlassActive, ColCyanBorder, 2f);
                             _navItemBgs[i].type = Image.Type.Sliced;
                         }
                         _navItemBgs[i].color = Color.white;
                     }
                     else
                     {
-                        _navItemBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 68, 14f, new Color(0.02f, 0.05f, 0.12f, 0.90f), new Color(0.0f, 0.75f, 1.0f, 0.40f), 1.2f);
+                        _navItemBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 68, 14f, ColMidnight, ColMutedBorder, 1.2f);
                         _navItemBgs[i].type = Image.Type.Sliced;
                         _navItemBgs[i].color = Color.white;
                     }
@@ -1145,7 +1187,7 @@ namespace MechChess.UI
 
                 if (_navItemIconImgs[i] != null)
                 {
-                    _navItemIconImgs[i].color = isActive ? Color.white : new Color(0.0f, 0.85f, 1.0f, 1.0f);
+                    _navItemIconImgs[i].color = isActive ? Color.white : ColParchment;
                 }
 
                 if (_navItemRts[i] != null)
@@ -1405,7 +1447,7 @@ namespace MechChess.UI
             GameObject leftLineObj = new GameObject("AccentLineLeft");
             leftLineObj.transform.SetParent(headerObj.transform, false);
             Image llImg = leftLineObj.AddComponent<Image>();
-            llImg.color = new Color(0.0f, 0.75f, 1.0f, 0.70f);
+            llImg.color = ColAntiqueGold;
             RectTransform llRt = leftLineObj.GetComponent<RectTransform>();
             llRt.anchorMin = new Vector2(0.5f, 0.5f);
             llRt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1416,7 +1458,7 @@ namespace MechChess.UI
             GameObject rightLineObj = new GameObject("AccentLineRight");
             rightLineObj.transform.SetParent(headerObj.transform, false);
             Image rlImg = rightLineObj.AddComponent<Image>();
-            rlImg.color = new Color(0.0f, 0.75f, 1.0f, 0.70f);
+            rlImg.color = ColAntiqueGold;
             RectTransform rlRt = rightLineObj.GetComponent<RectTransform>();
             rlRt.anchorMin = new Vector2(0.5f, 0.5f);
             rlRt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1428,7 +1470,7 @@ namespace MechChess.UI
             GameObject sepObj = new GameObject("HeaderSeparator");
             sepObj.transform.SetParent(windowObj.transform, false);
             Image sepImg = sepObj.AddComponent<Image>();
-            sepImg.color = new Color(0.12f, 0.35f, 0.58f, 0.50f);
+            sepImg.color = ColMutedBorder;
             RectTransform sepRt = sepObj.GetComponent<RectTransform>();
             sepRt.anchorMin = new Vector2(0.5f, 1f);
             sepRt.anchorMax = new Vector2(0.5f, 1f);
@@ -1625,8 +1667,8 @@ namespace MechChess.UI
             txtObj.transform.SetParent(bannerObj.transform, false);
             Text t = txtObj.AddComponent<Text>();
             t.text = AegisLocalization.T(
-                "🌐  <color=#00D2FF><b>ĐẤU ONLINE:</b></color> Ghép Trận Ngẫu Nhiên & Thách Đấu Bạn Bè  ➜  <color=#F59E0B><b>THAM GIA NGAY</b></color>",
-                "🌐  <color=#00D2FF><b>ONLINE MULTIPLAYER:</b></color> Auto Matchmaking & Friend Duel  ➜  <color=#F59E0B><b>JOIN NOW</b></color>");
+                "🌐  <color=#B99A61><b>ĐẤU TRƯỜNG ONLINE:</b></color> Ghép Đấu Trực Tuyến & Thách Đấu Bạn Bè  ➜  <color=#B99A61><b>THAM GIA NGAY</b></color>",
+                "🌐  <color=#B99A61><b>ONLINE MULTIPLAYER:</b></color> Auto Matchmaking & Friend Duel  ➜  <color=#B99A61><b>JOIN NOW</b></color>");
             t.font = font;
             t.fontSize = 19;
             t.fontStyle = FontStyle.Bold;
@@ -1984,7 +2026,7 @@ namespace MechChess.UI
             hlRt.anchoredPosition = new Vector2(28f, -16f);
             hlRt.sizeDelta = new Vector2(300f, 44f);
             Text hlText = headerLeftObj.AddComponent<Text>();
-            hlText.text = AegisLocalization.T("<b><color=#00D2FF>‹</color>  CÀI ĐẶT</b>", "<b><color=#00D2FF>‹</color>  SETTINGS</b>");
+            hlText.text = AegisLocalization.T("<b><color=#B99A61>‹</color>  CÀI ĐẶT</b>", "<b><color=#B99A61>‹</color>  SETTINGS</b>");
             hlText.font = font;
             hlText.fontSize = 24;
             hlText.alignment = TextAnchor.MiddleLeft;
@@ -2512,7 +2554,7 @@ namespace MechChess.UI
         }
 
         // =========================================================================
-        // SCREEN 6: HƯỚNG DẪN (Tutorial Modal with 2D Board Diagram & Steps)
+        // SCREEN 6: HƯỚNG DẪN (Interactive Tutorial Modal with Dynamic 2D Board & AR Visuals)
         // =========================================================================
         private void BuildScreen6Tutorial(Transform parent, Font font)
         {
@@ -2522,129 +2564,458 @@ namespace MechChess.UI
             cardObj.transform.SetParent(_tutorialModal.transform, false);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1180, 680, 28f, ColGlassFill, ColCyanBorder, 2f);
+            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1200, 720, 24f, ColGlassFill, ColCyanBorder, 2f);
             cardBg.type = Image.Type.Sliced;
 
             RectTransform cRt = cardObj.GetComponent<RectTransform>();
             cRt.anchoredPosition = Vector2.zero;
-            cRt.sizeDelta = new Vector2(1180f, 680f);
+            cRt.sizeDelta = new Vector2(1200f, 720f);
 
             CreateModalHeader(cardObj.transform, AegisLocalization.T("<  HƯỚNG DẪN", "<  TUTORIAL"), () => _tutorialModal.SetActive(false), font);
 
-            // Sub-Tabs Header
+            // Sub-Tabs Header (4 tabs: Cơ bản, Luật chơi, Các quân cờ, AR)
             GameObject tabsHeader = new GameObject("TutorialTabs");
             tabsHeader.transform.SetParent(cardObj.transform, false);
             RectTransform thRt = tabsHeader.AddComponent<RectTransform>();
-            thRt.anchoredPosition = new Vector2(0f, 230f);
-            thRt.sizeDelta = new Vector2(800f, 44f);
+            thRt.anchoredPosition = new Vector2(0f, 252f);
+            thRt.sizeDelta = new Vector2(900f, 44f);
 
-            string[] tutTabs = {
+            string[] tabLabels = {
                 AegisLocalization.T("Cơ bản", "Basics"),
                 AegisLocalization.T("Luật chơi", "Rules"),
                 AegisLocalization.T("Các quân cờ", "Pieces"),
                 "AR"
             };
-            float tabWidth = 180f;
+
+            float tabWidth = 210f;
             for (int i = 0; i < 4; i++)
             {
-                bool active = (i == 0);
+                int tabIdx = i;
                 float x = (i - 1.5f) * tabWidth;
-                GameObject tabObj = new GameObject("Tab_" + tutTabs[i]);
+                GameObject tabObj = new GameObject("Tab_" + i);
                 tabObj.transform.SetParent(tabsHeader.transform, false);
 
                 Image bg = tabObj.AddComponent<Image>();
-                bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(160, 40, 14f, active ? ColGlassActive : ColGlassFill, active ? ColCyanBorder : ColMutedBorder, 1.2f);
                 bg.type = Image.Type.Sliced;
+                _tutorialTabBgs[i] = bg;
 
                 Button btn = tabObj.AddComponent<Button>();
-                string tabName = tutTabs[i];
-                btn.onClick.AddListener(() => ShowToast(AegisLocalization.T($"Hướng dẫn: {tabName}", $"Tutorial: {tabName}"), ToastType.Info));
+                btn.onClick.AddListener(() => SwitchTutorialTab((TutorialTabType)tabIdx));
                 tabObj.AddComponent<MenuButtonEffect>();
 
                 RectTransform rt = tabObj.GetComponent<RectTransform>();
                 rt.anchoredPosition = new Vector2(x, 0f);
-                rt.sizeDelta = new Vector2(170f, 44f);
+                rt.sizeDelta = new Vector2(195f, 44f);
 
-                CreateTextComp(tabObj.transform, tutTabs[i], 20, active ? FontStyle.Bold : FontStyle.Normal, active ? new Color(0.0f, 0.95f, 1.0f) : ColTextWhite, font, Vector2.zero, new Vector2(160f, 34f));
+                Text tabTxt = CreateTextComp(tabObj.transform, tabLabels[i], 19, FontStyle.Bold, ColTextWhite, font, Vector2.zero, new Vector2(190f, 34f));
+                _tutorialTabTexts[i] = tabTxt;
             }
 
-            // Left: 2D Chessboard Diagram
+            // Left: 2D Tactical Diagram Container
+            GameObject leftContainer = new GameObject("Left_DiagramContainer");
+            leftContainer.transform.SetParent(cardObj.transform, false);
+            Image lcBg = leftContainer.AddComponent<Image>();
+            lcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(410, 440, 16f, new Color(0.04f, 0.08f, 0.14f, 0.85f), ColMutedBorder, 1.2f);
+            lcBg.type = Image.Type.Sliced;
+            RectTransform lcRt = leftContainer.GetComponent<RectTransform>();
+            lcRt.anchoredPosition = new Vector2(-285f, -10f);
+            lcRt.sizeDelta = new Vector2(410f, 440f);
+
+            // Diagram Image (360x360)
             GameObject boardObj = new GameObject("BoardDiagram");
-            boardObj.transform.SetParent(cardObj.transform, false);
-            Image bImg = boardObj.AddComponent<Image>();
-            bImg.sprite = ArcaneAssetLoader.GetMiniChessboardDiagram(360);
+            boardObj.transform.SetParent(leftContainer.transform, false);
+            _tutorialDiagramImg = boardObj.AddComponent<Image>();
+            _tutorialDiagramImg.preserveAspect = true;
             RectTransform bRt = boardObj.GetComponent<RectTransform>();
-            bRt.anchoredPosition = new Vector2(-260f, -30f);
+            bRt.anchoredPosition = new Vector2(0f, 22f);
             bRt.sizeDelta = new Vector2(360f, 360f);
 
-            // Right: 3-Step Guide List
-            GameObject stepsObj = new GameObject("StepsGuide");
-            stepsObj.transform.SetParent(cardObj.transform, false);
-            RectTransform sRt = stepsObj.AddComponent<RectTransform>();
-            sRt.anchoredPosition = new Vector2(240f, -30f);
-            sRt.sizeDelta = new Vector2(520f, 360f);
+            // Piece / Overlay Container
+            GameObject overlayObj = new GameObject("PieceOverlay");
+            overlayObj.transform.SetParent(boardObj.transform, false);
+            _tutorialPieceOverlay = overlayObj.transform;
+            RectTransform oRt = overlayObj.AddComponent<RectTransform>();
+            oRt.anchorMin = Vector2.zero;
+            oRt.anchorMax = Vector2.one;
+            oRt.offsetMin = Vector2.zero;
+            oRt.offsetMax = Vector2.zero;
 
-            string[] stepNums = { "1", "2", "3" };
-            string[] stepTitles = {
-                AegisLocalization.T("Chọn quân", "Select Piece"),
-                AegisLocalization.T("Xem ô hợp lệ", "Valid Moves"),
-                AegisLocalization.T("Di chuyển", "Execute Move")
-            };
-            string[] stepDescs = {
-                AegisLocalization.T("Chạm vào quân cờ bất kỳ trên bàn cờ để chọn.", "Tap any chess piece on the board to select it."),
-                AegisLocalization.T("Các ô di chuyển và vị trí ăn quân sẽ được highlight sáng neon.", "Target tiles and capturable enemies light up in radiant neon."),
-                AegisLocalization.T("Chạm vào ô đích đã highlight để thực hiện nước đi chiến thuật.", "Tap the highlighted destination tile to execute tactical maneuver.")
-            };
+            // Caption Text
+            GameObject capObj = new GameObject("DiagramCaption");
+            capObj.transform.SetParent(leftContainer.transform, false);
+            _tutorialCaptionTxt = capObj.AddComponent<Text>();
+            _tutorialCaptionTxt.font = font;
+            _tutorialCaptionTxt.fontSize = 14;
+            _tutorialCaptionTxt.fontStyle = FontStyle.Italic;
+            _tutorialCaptionTxt.alignment = TextAnchor.MiddleCenter;
+            _tutorialCaptionTxt.color = ColCyanGlow;
+            _tutorialCaptionTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _tutorialCaptionTxt.verticalOverflow = VerticalWrapMode.Truncate;
+            RectTransform capRt = capObj.GetComponent<RectTransform>();
+            capRt.anchoredPosition = new Vector2(0f, -185f);
+            capRt.sizeDelta = new Vector2(390f, 40f);
+
+            // Right: Guide Information & Steps
+            GameObject rightContainer = new GameObject("Right_GuideContainer");
+            rightContainer.transform.SetParent(cardObj.transform, false);
+            RectTransform rcRt = rightContainer.AddComponent<RectTransform>();
+            rcRt.anchoredPosition = new Vector2(275f, -10f);
+            rcRt.sizeDelta = new Vector2(590f, 440f);
+
+            // Badge / Category Indicator
+            GameObject badgeObj = new GameObject("CategoryBadge");
+            badgeObj.transform.SetParent(rightContainer.transform, false);
+            _tutorialBadgeTxt = badgeObj.AddComponent<Text>();
+            _tutorialBadgeTxt.font = font;
+            _tutorialBadgeTxt.fontSize = 15;
+            _tutorialBadgeTxt.fontStyle = FontStyle.Bold;
+            _tutorialBadgeTxt.alignment = TextAnchor.MiddleLeft;
+            _tutorialBadgeTxt.color = ColGoldBorder;
+            RectTransform bdRt = badgeObj.GetComponent<RectTransform>();
+            bdRt.anchoredPosition = new Vector2(0f, 195f);
+            bdRt.sizeDelta = new Vector2(580f, 24f);
+
+            // Main Title
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(rightContainer.transform, false);
+            _tutorialTitleTxt = titleObj.AddComponent<Text>();
+            _tutorialTitleTxt.font = font;
+            _tutorialTitleTxt.fontSize = 25;
+            _tutorialTitleTxt.fontStyle = FontStyle.Bold;
+            _tutorialTitleTxt.alignment = TextAnchor.MiddleLeft;
+            _tutorialTitleTxt.color = ColTextWhite;
+            RectTransform ttRt = titleObj.GetComponent<RectTransform>();
+            ttRt.anchoredPosition = new Vector2(0f, 165f);
+            ttRt.sizeDelta = new Vector2(580f, 32f);
+
+            // Overview Paragraph
+            GameObject overviewObj = new GameObject("Overview");
+            overviewObj.transform.SetParent(rightContainer.transform, false);
+            _tutorialOverviewTxt = overviewObj.AddComponent<Text>();
+            _tutorialOverviewTxt.font = font;
+            _tutorialOverviewTxt.fontSize = 15;
+            _tutorialOverviewTxt.fontStyle = FontStyle.Normal;
+            _tutorialOverviewTxt.alignment = TextAnchor.UpperLeft;
+            _tutorialOverviewTxt.color = new Color(0.85f, 0.92f, 1.0f);
+            _tutorialOverviewTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _tutorialOverviewTxt.verticalOverflow = VerticalWrapMode.Truncate;
+            RectTransform ovRt = overviewObj.GetComponent<RectTransform>();
+            ovRt.anchoredPosition = new Vector2(0f, 120f);
+            ovRt.sizeDelta = new Vector2(580f, 48f);
+
+            // Steps Guide Container
+            GameObject stepsGroup = new GameObject("StepsGroup");
+            stepsGroup.transform.SetParent(rightContainer.transform, false);
+            RectTransform sgRt = stepsGroup.AddComponent<RectTransform>();
+            sgRt.anchoredPosition = new Vector2(0f, 5f);
+            sgRt.sizeDelta = new Vector2(580f, 180f);
 
             for (int i = 0; i < 3; i++)
             {
-                float y = 100f - i * 95f;
+                float y = 55f - i * 58f;
                 GameObject row = new GameObject($"Step_{i + 1}");
-                row.transform.SetParent(stepsObj.transform, false);
+                row.transform.SetParent(stepsGroup.transform, false);
+                _tutorialStepRows[i] = row;
                 RectTransform rRt = row.AddComponent<RectTransform>();
                 rRt.anchoredPosition = new Vector2(0f, y);
-                rRt.sizeDelta = new Vector2(500f, 80f);
+                rRt.sizeDelta = new Vector2(580f, 54f);
 
                 // Number badge
                 GameObject numObj = new GameObject("Badge");
                 numObj.transform.SetParent(row.transform, false);
                 Image nbImg = numObj.AddComponent<Image>();
-                nbImg.sprite = ArcaneAssetLoader.GetCircleSprite(36, ColCyanBorder, Color.white, 1.5f);
+                nbImg.sprite = ArcaneAssetLoader.GetCircleSprite(32, ColCyanBorder, Color.white, 1.5f);
                 RectTransform nbRt = numObj.GetComponent<RectTransform>();
-                nbRt.anchoredPosition = new Vector2(-220f, 10f);
-                nbRt.sizeDelta = new Vector2(36f, 36f);
+                nbRt.anchoredPosition = new Vector2(-265f, 8f);
+                nbRt.sizeDelta = new Vector2(32f, 32f);
 
-                CreateTextComp(numObj.transform, stepNums[i], 20, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(36f, 36f));
+                _tutorialStepBadges[i] = CreateTextComp(numObj.transform, (i + 1).ToString(), 18, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(32f, 32f));
 
-                // Title & Desc
-                CreateTextComp(row.transform, stepTitles[i], 22, FontStyle.Bold, ColTextWhite, font, new Vector2(-15f, 18f), new Vector2(360f, 30f));
-                CreateTextComp(row.transform, stepDescs[i], 17, FontStyle.Normal, new Color(0.85f, 0.92f, 1.0f), font, new Vector2(-15f, -16f), new Vector2(360f, 42f));
+                // Step Title & Description
+                _tutorialStepTitles[i] = CreateTextComp(row.transform, "", 18, FontStyle.Bold, ColTextWhite, font, new Vector2(30f, 12f), new Vector2(520f, 26f), TextAnchor.MiddleLeft);
+                _tutorialStepDescs[i] = CreateTextComp(row.transform, "", 14, FontStyle.Normal, new Color(0.82f, 0.90f, 0.98f), font, new Vector2(30f, -14f), new Vector2(520f, 28f), TextAnchor.MiddleLeft);
+                _tutorialStepDescs[i].horizontalOverflow = HorizontalWrapMode.Wrap;
             }
 
-            // Bottom Navigation Footer: < 1 / 5 > + [Tiếp theo]
+            // Tactical Tip Box
+            _tutorialTipContainer = new GameObject("TipContainer");
+            _tutorialTipContainer.transform.SetParent(rightContainer.transform, false);
+            Image tipBg = _tutorialTipContainer.AddComponent<Image>();
+            tipBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(580, 52, 10f, new Color(0.06f, 0.12f, 0.20f, 0.9f), ColGoldBorder, 1.2f);
+            tipBg.type = Image.Type.Sliced;
+            RectTransform tipRt = _tutorialTipContainer.GetComponent<RectTransform>();
+            tipRt.anchoredPosition = new Vector2(0f, -175f);
+            tipRt.sizeDelta = new Vector2(580f, 52f);
+
+            GameObject tipTxtObj = new GameObject("TipText");
+            tipTxtObj.transform.SetParent(_tutorialTipContainer.transform, false);
+            _tutorialTipTxt = tipTxtObj.AddComponent<Text>();
+            _tutorialTipTxt.font = font;
+            _tutorialTipTxt.fontSize = 14;
+            _tutorialTipTxt.alignment = TextAnchor.MiddleLeft;
+            _tutorialTipTxt.color = new Color(1.0f, 0.90f, 0.60f);
+            _tutorialTipTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _tutorialTipTxt.verticalOverflow = VerticalWrapMode.Truncate;
+            RectTransform ttRt2 = tipTxtObj.GetComponent<RectTransform>();
+            ttRt2.anchorMin = Vector2.zero;
+            ttRt2.anchorMax = Vector2.one;
+            ttRt2.offsetMin = new Vector2(16f, 4f);
+            ttRt2.offsetMax = new Vector2(-16f, -4f);
+
+            // Bottom Navigation Footer
             GameObject footer = new GameObject("TutorialFooter");
             footer.transform.SetParent(cardObj.transform, false);
             RectTransform fRt = footer.AddComponent<RectTransform>();
-            fRt.anchoredPosition = new Vector2(0f, -270f);
-            fRt.sizeDelta = new Vector2(1000f, 50f);
+            fRt.anchoredPosition = new Vector2(0f, -295f);
+            fRt.sizeDelta = new Vector2(1100f, 50f);
 
-            CreateTextComp(footer.transform, "<   1 / 5   >", 22, FontStyle.Bold, ColTextWhite, font, new Vector2(-100f, 0f), new Vector2(220f, 38f));
+            // Button Prev
+            GameObject prevBtnObj = new GameObject("BtnPrev");
+            prevBtnObj.transform.SetParent(footer.transform, false);
+            _tutorialBtnPrevBg = prevBtnObj.AddComponent<Image>();
+            _tutorialBtnPrevBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(160, 46, 22f, ColGlassFill, ColCyanBorder, 1.5f);
+            _tutorialBtnPrevBg.type = Image.Type.Sliced;
+            _tutorialBtnPrev = prevBtnObj.AddComponent<Button>();
+            _tutorialBtnPrev.onClick.AddListener(PreviousTutorialPage);
+            prevBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform pRt = prevBtnObj.GetComponent<RectTransform>();
+            pRt.anchoredPosition = new Vector2(-320f, 0f);
+            pRt.sizeDelta = new Vector2(160f, 46f);
+            _tutorialBtnPrevTxt = CreateTextComp(prevBtnObj.transform, AegisLocalization.T("❮ Trước", "❮ Prev"), 18, FontStyle.Bold, ColCyanGlow, font, Vector2.zero, new Vector2(150f, 36f));
 
+            // Page Indicator
+            GameObject indObj = new GameObject("PageIndicator");
+            indObj.transform.SetParent(footer.transform, false);
+            _tutorialPageIndicatorTxt = indObj.AddComponent<Text>();
+            _tutorialPageIndicatorTxt.font = font;
+            _tutorialPageIndicatorTxt.fontSize = 20;
+            _tutorialPageIndicatorTxt.fontStyle = FontStyle.Bold;
+            _tutorialPageIndicatorTxt.alignment = TextAnchor.MiddleCenter;
+            _tutorialPageIndicatorTxt.color = ColTextWhite;
+            RectTransform indRt = indObj.GetComponent<RectTransform>();
+            indRt.anchoredPosition = new Vector2(0f, 0f);
+            indRt.sizeDelta = new Vector2(280f, 40f);
+
+            // Button Next
             GameObject nextBtnObj = new GameObject("BtnNext");
             nextBtnObj.transform.SetParent(footer.transform, false);
-            Image nb = nextBtnObj.AddComponent<Image>();
-            nb.sprite = ArcaneAssetLoader.GetGlassBoxSprite(170, 48, 24f, ColCyanBorder, Color.white, 1.5f);
-            nb.type = Image.Type.Sliced;
-            Button nBtn = nextBtnObj.AddComponent<Button>();
-            nBtn.onClick.AddListener(() => ShowToast(AegisLocalization.T("Đã xem xong trang 1!", "Completed page 1!"), ToastType.Success));
+            _tutorialBtnNextBg = nextBtnObj.AddComponent<Image>();
+            _tutorialBtnNextBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(160, 46, 22f, ColCyanBorder, Color.white, 1.5f);
+            _tutorialBtnNextBg.type = Image.Type.Sliced;
+            _tutorialBtnNext = nextBtnObj.AddComponent<Button>();
+            _tutorialBtnNext.onClick.AddListener(NextTutorialPage);
             nextBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform nRt = nextBtnObj.GetComponent<RectTransform>();
-            nRt.anchoredPosition = new Vector2(360f, 0f);
-            nRt.sizeDelta = new Vector2(170f, 48f);
+            nRt.anchoredPosition = new Vector2(320f, 0f);
+            nRt.sizeDelta = new Vector2(160f, 46f);
+            _tutorialBtnNextTxt = CreateTextComp(nextBtnObj.transform, AegisLocalization.T("Tiếp theo ❯", "Next ❯"), 18, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(150f, 36f));
 
-            CreateTextComp(nextBtnObj.transform, AegisLocalization.T("Tiếp theo ❯", "Next ❯"), 20, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(160f, 36f));
+            // Initial view update
+            UpdateTutorialUI(font);
 
             _tutorialModal.SetActive(false);
+        }
+
+        private void SwitchTutorialTab(TutorialTabType tab)
+        {
+            _selectedTutorialTab = tab;
+            _currentTutorialPage = 0;
+            UpdateTutorialUI();
+        }
+
+        private void PreviousTutorialPage()
+        {
+            if (_currentTutorialPage > 0)
+            {
+                _currentTutorialPage--;
+                UpdateTutorialUI();
+            }
+        }
+
+        private void NextTutorialPage()
+        {
+            int total = TutorialRepository.GetPageCount(_selectedTutorialTab);
+            if (_currentTutorialPage < total - 1)
+            {
+                _currentTutorialPage++;
+                UpdateTutorialUI();
+            }
+            else
+            {
+                // Last page reached in this tab
+                int nextTab = (int)_selectedTutorialTab + 1;
+                if (nextTab < 4)
+                {
+                    ShowToast(AegisLocalization.T("Chuyển sang phần hướng dẫn kế tiếp!", "Advancing to next tutorial section!"), ToastType.Info);
+                    SwitchTutorialTab((TutorialTabType)nextTab);
+                }
+                else
+                {
+                    ShowToast(AegisLocalization.T("Bạn đã hoàn thành toàn bộ hệ thống Hướng dẫn!", "You completed the entire Tutorial!"), ToastType.Success);
+                }
+            }
+        }
+
+        private void UpdateTutorialUI(Font font = null)
+        {
+            if (font == null && _tutorialTitleTxt != null) font = _tutorialTitleTxt.font;
+
+            // 1. Update Tabs Highlight
+            for (int i = 0; i < 4; i++)
+            {
+                bool active = (i == (int)_selectedTutorialTab);
+                if (_tutorialTabBgs[i] != null)
+                {
+                    _tutorialTabBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(195, 44, 14f, 
+                        active ? ColGlassActive : ColGlassFill, 
+                        active ? ColCyanBorder : ColMutedBorder, 
+                        active ? 1.8f : 1.0f);
+                }
+                if (_tutorialTabTexts[i] != null)
+                {
+                    _tutorialTabTexts[i].color = active ? ColCyanGlow : ColTextWhite;
+                    _tutorialTabTexts[i].fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
+                }
+            }
+
+            // 2. Fetch Active Page
+            int total = TutorialRepository.GetPageCount(_selectedTutorialTab);
+            _currentTutorialPage = Mathf.Clamp(_currentTutorialPage, 0, Mathf.Max(0, total - 1));
+            TutorialPageData page = TutorialRepository.GetPage(_selectedTutorialTab, _currentTutorialPage);
+            if (page == null) return;
+
+            // 3. Update Text Content
+            if (_tutorialBadgeTxt != null) _tutorialBadgeTxt.text = page.GetBadge();
+            if (_tutorialTitleTxt != null) _tutorialTitleTxt.text = page.GetTitle();
+            if (_tutorialOverviewTxt != null) _tutorialOverviewTxt.text = page.GetOverview();
+            if (_tutorialCaptionTxt != null) _tutorialCaptionTxt.text = page.GetCaption();
+
+            // 4. Update Steps
+            for (int i = 0; i < 3; i++)
+            {
+                if (_tutorialStepRows[i] == null) continue;
+                if (i < page.steps.Count)
+                {
+                    _tutorialStepRows[i].SetActive(true);
+                    if (_tutorialStepBadges[i] != null) _tutorialStepBadges[i].text = page.steps[i].number;
+                    if (_tutorialStepTitles[i] != null) _tutorialStepTitles[i].text = page.steps[i].GetTitle();
+                    if (_tutorialStepDescs[i] != null) _tutorialStepDescs[i].text = page.steps[i].GetDesc();
+                }
+                else
+                {
+                    _tutorialStepRows[i].SetActive(false);
+                }
+            }
+
+            // 5. Update Tip Box
+            string tip = page.GetTip();
+            if (_tutorialTipContainer != null)
+            {
+                bool hasTip = !string.IsNullOrEmpty(tip);
+                _tutorialTipContainer.SetActive(hasTip);
+                if (hasTip && _tutorialTipTxt != null) _tutorialTipTxt.text = tip;
+            }
+
+            // 6. Update Visual Diagram
+            if (_tutorialDiagramImg != null)
+            {
+                if (_selectedTutorialTab == TutorialTabType.AR)
+                {
+                    _tutorialDiagramImg.sprite = ArcaneAssetLoader.GetARDiagramSprite(360, page.arGraphicType);
+                }
+                else
+                {
+                    _tutorialDiagramImg.sprite = ArcaneAssetLoader.GetCustomBoardDiagram(360, 
+                        page.hasSelectedSquare, page.selectedSquare, 
+                        page.moveSquares, page.captureSquares, page.specialSquares);
+                }
+            }
+
+            // Clear old piece overlay markers
+            if (_tutorialPieceOverlay != null)
+            {
+                for (int i = _tutorialPieceOverlay.childCount - 1; i >= 0; i--)
+                {
+                    Destroy(_tutorialPieceOverlay.GetChild(i).gameObject);
+                }
+
+                // If not AR, render piece symbols on the board
+                if (_selectedTutorialTab != TutorialTabType.AR && page.pieces != null)
+                {
+                    float squarePx = 360f / 8f; // 45px per tile
+                    Font pieceFont = font ?? _tutorialTitleTxt?.font ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    foreach (var p in page.pieces)
+                    {
+                        GameObject pObj = new GameObject($"Piece_{p.file}_{p.rank}");
+                        pObj.transform.SetParent(_tutorialPieceOverlay, false);
+                        Text pt = pObj.AddComponent<Text>();
+                        pt.text = p.symbol;
+                        pt.font = pieceFont;
+                        pt.fontSize = 28;
+                        pt.fontStyle = FontStyle.Bold;
+                        pt.alignment = TextAnchor.MiddleCenter;
+                        pt.color = p.isWhite ? Color.white : new Color(0.98f, 0.42f, 0.42f, 1f);
+
+                        // Add outline for sharp visual definition against any square color
+                        Outline outline = pObj.AddComponent<Outline>();
+                        outline.effectColor = new Color(0.02f, 0.05f, 0.10f, 0.95f);
+                        outline.effectDistance = new Vector2(1.5f, -1.5f);
+
+                        RectTransform prt = pObj.GetComponent<RectTransform>();
+                        float px = (p.file - 3.5f) * squarePx;
+                        float py = (p.rank - 3.5f) * squarePx;
+                        prt.anchoredPosition = new Vector2(px, py);
+                        prt.sizeDelta = new Vector2(squarePx, squarePx);
+                    }
+                }
+            }
+
+            // 7. Update Footer Navigation
+            if (_tutorialPageIndicatorTxt != null)
+            {
+                _tutorialPageIndicatorTxt.text = AegisLocalization.T(
+                    $"Trang {_currentTutorialPage + 1} / {total}", 
+                    $"Page {_currentTutorialPage + 1} / {total}");
+            }
+
+            if (_tutorialBtnPrev != null)
+            {
+                bool canPrev = (_currentTutorialPage > 0);
+                _tutorialBtnPrev.interactable = canPrev;
+                if (_tutorialBtnPrevBg != null)
+                {
+                    _tutorialBtnPrevBg.color = canPrev ? Color.white : new Color(0.35f, 0.35f, 0.35f, 0.5f);
+                }
+                if (_tutorialBtnPrevTxt != null)
+                {
+                    _tutorialBtnPrevTxt.color = canPrev ? ColCyanGlow : new Color(0.5f, 0.5f, 0.5f, 0.6f);
+                }
+            }
+
+            if (_tutorialBtnNext != null && _tutorialBtnNextTxt != null)
+            {
+                bool isLastPage = (_currentTutorialPage == total - 1);
+                bool hasNextTab = ((int)_selectedTutorialTab < 3);
+
+                if (isLastPage && !hasNextTab)
+                {
+                    _tutorialBtnNextTxt.text = AegisLocalization.T("Hoàn thành ✓", "Complete ✓");
+                    _tutorialBtnNextTxt.color = ColDarkBtnText;
+                    if (_tutorialBtnNextBg != null) _tutorialBtnNextBg.color = ColGoldBorder;
+                }
+                else if (isLastPage && hasNextTab)
+                {
+                    _tutorialBtnNextTxt.text = AegisLocalization.T("Mục tiếp ❯❯", "Next Tab ❯❯");
+                    _tutorialBtnNextTxt.color = ColDarkBtnText;
+                    if (_tutorialBtnNextBg != null) _tutorialBtnNextBg.color = ColGoldBorder;
+                }
+                else
+                {
+                    _tutorialBtnNextTxt.text = AegisLocalization.T("Tiếp theo ❯", "Next ❯");
+                    _tutorialBtnNextTxt.color = ColDarkBtnText;
+                    if (_tutorialBtnNextBg != null) _tutorialBtnNextBg.color = Color.white;
+                }
+            }
         }
 
         // =========================================================================
@@ -3297,6 +3668,11 @@ namespace MechChess.UI
             cb.onClick.AddListener(() =>
             {
                 CloseModal(_resultScreenModal);
+                if (_menuCanvasObj != null)
+                {
+                    Canvas c = _menuCanvasObj.GetComponent<Canvas>();
+                    if (c != null) c.sortingOrder = 90;
+                }
                 ShowMenu();
             });
             closeBtn.AddComponent<MenuButtonEffect>();
@@ -4023,7 +4399,7 @@ namespace MechChess.UI
                 rt.anchoredPosition = new Vector2(0f, 120f - i * 75f);
                 rt.sizeDelta = new Vector2(280f, 56f);
 
-                CreateTextComp(lObj.transform, lessons[i], 14, active ? FontStyle.Bold : FontStyle.Normal, active ? new Color(0.0f, 0.95f, 1.0f) : ColTextWhite, font, Vector2.zero, new Vector2(260f, 30f));
+                CreateTextComp(lObj.transform, lessons[i], 14, active ? FontStyle.Bold : FontStyle.Normal, active ? ColCyanGlow : ColTextWhite, font, Vector2.zero, new Vector2(260f, 30f));
             }
 
             // Center: 2D Sicilian Board Diagram
@@ -4196,13 +4572,15 @@ namespace MechChess.UI
 
             Color fillColor = (type == ToastType.Success) ? new Color(0.06f, 0.28f, 0.16f, 0.95f) :
                               (type == ToastType.Error) ? new Color(0.35f, 0.08f, 0.12f, 0.95f) :
+                              (type == ToastType.Warning) ? new Color(0.36f, 0.22f, 0.04f, 0.95f) :
                               new Color(0.04f, 0.14f, 0.28f, 0.95f);
 
             Color borderColor = (type == ToastType.Success) ? new Color(0.2f, 0.95f, 0.5f) :
                                 (type == ToastType.Error) ? new Color(1.0f, 0.35f, 0.45f) :
+                                (type == ToastType.Warning) ? new Color(1.0f, 0.85f, 0.2f) :
                                 ColCyanBorder;
 
-            string icon = (type == ToastType.Success) ? "✓" : (type == ToastType.Error) ? "✕" : "ℹ";
+            string icon = (type == ToastType.Success) ? "✓" : (type == ToastType.Error) ? "✕" : (type == ToastType.Warning) ? "⚠" : "ℹ";
 
             if (bg != null)
             {
@@ -4440,8 +4818,8 @@ namespace MechChess.UI
             if (_friendMyNameTxt != null && UserAccountManager.Instance != null)
             {
                 _friendMyNameTxt.text = AegisLocalization.T(
-                    $"Tên của bạn: <color=#00D2FF><b>{UserAccountManager.Instance.CurrentUsername}</b></color> (Elo {UserAccountManager.Instance.CurrentElo})\n<i>Hãy chia sẻ tên này để bạn bè tìm và mời bạn!</i>",
-                    $"Your Name: <color=#00D2FF><b>{UserAccountManager.Instance.CurrentUsername}</b></color> (Elo {UserAccountManager.Instance.CurrentElo})\n<i>Share this name so friends can invite you!</i>"
+                    $"Tên của bạn: <color=#B99A61><b>{UserAccountManager.Instance.CurrentUsername}</b></color> (Elo {UserAccountManager.Instance.CurrentElo})\n<i>Hãy chia sẻ tên này để bạn bè tìm và mời bạn!</i>",
+                    $"Your Name: <color=#B99A61><b>{UserAccountManager.Instance.CurrentUsername}</b></color> (Elo {UserAccountManager.Instance.CurrentElo})\n<i>Share this name so friends can invite you!</i>"
                 );
             }
             if (_friendTargetInput != null) _friendTargetInput.text = "";
@@ -4536,7 +4914,7 @@ namespace MechChess.UI
             if (OnlineMultiplayerManager.Instance != null)
             {
                 OnlineMultiplayerManager.Instance.SendFriendInvite(targetName.Trim());
-                if (_friendStatusTxt != null) _friendStatusTxt.text = AegisLocalization.T($"<color=#00D2FF>Đang gửi lời mời thách đấu tới '{targetName.Trim()}'...</color>", $"<color=#00D2FF>Sending challenge invite to '{targetName.Trim()}'...</color>");
+                if (_friendStatusTxt != null) _friendStatusTxt.text = AegisLocalization.T($"<color=#B99A61>Đang gửi lời mời thách đấu tới '{targetName.Trim()}'...</color>", $"<color=#B99A61>Sending challenge invite to '{targetName.Trim()}'...</color>");
             }
         }
 
@@ -4658,8 +5036,8 @@ namespace MechChess.UI
             if (_challengeBodyTxt != null)
             {
                 _challengeBodyTxt.text = AegisLocalization.T(
-                    $"Người chơi <b><color=#00D2FF>{fromUser}</color></b> (Elo {fromElo})\ngửi lời mời thách đấu cờ vua với bạn!\n\nBạn có muốn chấp nhận lời mời thi đấu không?",
-                    $"Player <b><color=#00D2FF>{fromUser}</color></b> (Elo {fromElo})\nchallenged you to a chess match!\n\nDo you want to accept the challenge?"
+                    $"Người chơi <b><color=#B99A61>{fromUser}</color></b> (Elo {fromElo})\ngửi lời mời thách đấu cờ vua với bạn!\n\nBạn có muốn chấp nhận lời mời thi đấu không?",
+                    $"Player <b><color=#B99A61>{fromUser}</color></b> (Elo {fromElo})\nchallenged you to a chess match!\n\nDo you want to accept the challenge?"
                 );
             }
             if (_challengeModal != null) _challengeModal.SetActive(true);
@@ -4871,7 +5249,11 @@ namespace MechChess.UI
         {
             CloseAllModals();
             if (!_isInGameMatch) EnsureBaseScreenActive();
-            if (_tutorialModal != null) _tutorialModal.SetActive(true);
+            if (_tutorialModal != null)
+            {
+                _tutorialModal.SetActive(true);
+                UpdateTutorialUI();
+            }
         }
 
         public void OpenShopModal()
@@ -5055,7 +5437,7 @@ namespace MechChess.UI
             return img;
         }
 
-        private void CreateTextComp(Transform parent, string content, int size, FontStyle style, Color color, Font font, Vector2 pos, Vector2 delta, TextAnchor anchor = TextAnchor.MiddleCenter)
+        private Text CreateTextComp(Transform parent, string content, int size, FontStyle style, Color color, Font font, Vector2 pos, Vector2 delta, TextAnchor anchor = TextAnchor.MiddleCenter)
         {
             GameObject txtObj = new GameObject("Txt_" + content.GetHashCode());
             txtObj.transform.SetParent(parent, false);
@@ -5072,6 +5454,7 @@ namespace MechChess.UI
             RectTransform rt = txtObj.GetComponent<RectTransform>();
             rt.anchoredPosition = pos;
             rt.sizeDelta = delta;
+            return t;
         }
 
         private void CreateMenuActionButton(Transform parent, string name, string text, Vector2 pos, Vector2 size, Color fill, Color textCol, int fontSize, Action onClick, Font font, Color? border = null, float borderWidth = 1.2f)

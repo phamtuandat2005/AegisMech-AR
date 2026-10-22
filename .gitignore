@@ -125,5 +125,13 @@ Reference/Current_*.png
 Reference/Pixel_Difference_Heatmap.png
 Reference/Unity_vs_Reference_SideBySide.png
 Reference/Screens/
-Reference/Screens/
 scratch/
+
+# Runtime SQLite/JSON local databases & environments
+backend-ai-docker/.venv/
+backend-ai-docker/app/users_db.json
+
+# Test execution output logs
+Assets/Scripts/Editor/TestResults_*.txt*
+backend-ai-docker/tests/test_results_*.txt
+

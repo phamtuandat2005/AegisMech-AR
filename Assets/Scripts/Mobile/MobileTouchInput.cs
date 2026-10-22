@@ -31,41 +31,114 @@ namespace MechChess.Mobile
         private float _yaw = 0f;
         private float _pitch = 38f;
 
+        [Header("Smoothing & Ergonomics")]
+        public float smoothDampingSpeed = 14f;
+        private float _smoothYaw = 0f;
+        private float _smoothPitch = 38f;
+        private float _smoothDistance = 8.8f;
+
+        public static MobileTouchInput Instance { get; private set; }
+
+        public enum CameraPerspectiveMode
+        {
+            White3D = 0,      // Alliance Front POV (Yaw: 0°, Pitch: 38°)
+            Black3D = 1,      // Syndicate Front POV (Yaw: 180°, Pitch: 38°)
+            TopDown2D = 2,    // Tactical Satellite POV (Yaw: 0°, Pitch: 89.9°)
+            IsometricHero = 3 // Command Cyber POV (Yaw: 45°, Pitch: 34°)
+        }
+
+        public CameraPerspectiveMode CurrentPerspective { get; private set; } = CameraPerspectiveMode.White3D;
+
         private Vector2 _touchStartPos;
         private float _touchStartTime;
         private bool _isSwiping = false;
 
         private void Awake()
         {
+            Instance = this;
             _mainCamera = Camera.main ?? GetComponent<Camera>();
+            _currentDistance = GetOptimalDistance();
+            _smoothYaw = _yaw;
+            _smoothPitch = _pitch;
+            _smoothDistance = _currentDistance;
             EnsureTargetCenter();
-            UpdateCameraTransform();
+            UpdateCameraTransform(immediate: true);
         }
 
         private void Start()
         {
+            _currentDistance = GetOptimalDistance();
+            _smoothYaw = _yaw;
+            _smoothPitch = _pitch;
+            _smoothDistance = _currentDistance;
             EnsureTargetCenter();
-            UpdateCameraTransform();
+            UpdateCameraTransform(immediate: true);
+        }
+
+        /// <summary>
+        /// Calculates optimal camera distance dynamically based on screen aspect ratio.
+        /// In portrait mode (height > width), pulls camera back so the 8x8 board and peripheral notation are fully visible.
+        /// </summary>
+        public float GetOptimalDistance()
+        {
+            if (Screen.width < Screen.height && Screen.height > 0)
+            {
+                float aspect = (float)Screen.width / Screen.height;
+                return Mathf.Clamp(8.8f / aspect * 0.62f, 10.5f, 13.5f);
+            }
+            return 8.8f;
         }
 
         private void EnsureTargetCenter()
         {
             if (targetBoardCenter == null)
             {
-                GameObject centerObj = GameObject.Find("BoardOrbitCenter");
-                if (centerObj == null)
+                if (ChessBoard3DManager.Instance != null && ChessBoard3DManager.Instance.BoardRootContainer != null)
                 {
-                    centerObj = new GameObject("BoardOrbitCenter");
-                    centerObj.transform.position = new Vector3(3.5f, 0.5f, 3.5f);
+                    Transform existing = ChessBoard3DManager.Instance.BoardRootContainer.Find("BoardOrbitCenter");
+                    if (existing != null)
+                    {
+                        targetBoardCenter = existing;
+                    }
+                    else
+                    {
+                        GameObject centerObj = new GameObject("BoardOrbitCenter");
+                        centerObj.transform.SetParent(ChessBoard3DManager.Instance.BoardRootContainer, false);
+                        centerObj.transform.localPosition = new Vector3(3.5f, 0.5f, 3.5f);
+                        targetBoardCenter = centerObj.transform;
+                    }
                 }
-                targetBoardCenter = centerObj.transform;
+                else
+                {
+                    GameObject centerObj = GameObject.Find("BoardOrbitCenter");
+                    if (centerObj == null)
+                    {
+                        centerObj = new GameObject("BoardOrbitCenter");
+                        centerObj.transform.position = new Vector3(3.5f, 0.5f, 3.5f);
+                    }
+                    targetBoardCenter = centerObj.transform;
+                }
             }
+        }
+
+        private void LateUpdate()
+        {
+            EnsureTargetCenter();
+            UpdateCameraTransform(immediate: false);
         }
 
         private void Update()
         {
             HandleModernTouchInput();
             HandleModernMouseInput();
+        }
+
+        private bool IsPointerOverUI(int fingerId = -1)
+        {
+            if (EventSystem.current == null) return false;
+            if (fingerId >= 0)
+                return EventSystem.current.IsPointerOverGameObject(fingerId);
+            return EventSystem.current.IsPointerOverGameObject();
         }
 
         private void HandleModernTouchInput()
@@ -84,28 +157,34 @@ namespace MechChess.Mobile
                 var primary = ts.primaryTouch;
                 Vector2 curPos = primary.position.ReadValue();
                 Vector2 delta = primary.delta.ReadValue();
+                int touchId = primary.touchId.ReadValue();
 
                 if (primary.press.wasPressedThisFrame)
                 {
+                    if (IsPointerOverUI(touchId)) return;
                     _touchStartPos = curPos;
                     _touchStartTime = Time.time;
                     _isSwiping = false;
                 }
                 else if (primary.press.isPressed)
                 {
+                    if (IsPointerOverUI(touchId) && !_isSwiping) return;
+
                     float dist = Vector2.Distance(curPos, _touchStartPos);
                     if (dist > tapMaxDistance)
                     {
                         _isSwiping = true;
                         _yaw += delta.x * rotationSpeed;
                         _pitch -= delta.y * rotationSpeed;
-                        _pitch = Mathf.Clamp(_pitch, 15f, 80f);
+                        _pitch = Mathf.Clamp(_pitch, 15f, 85f);
                         UpdateCameraTransform();
                     }
                 }
 
                 if (primary.press.wasReleasedThisFrame)
                 {
+                    if (IsPointerOverUI(touchId) && !_isSwiping) return;
+
                     float duration = Time.time - _touchStartTime;
                     float dist = Vector2.Distance(curPos, _touchStartPos);
 
@@ -117,7 +196,7 @@ namespace MechChess.Mobile
             }
             else if (activeTouches >= 2)
             {
-                // 2-finger pinch
+                // 2-finger pinch-to-zoom
                 var touch0 = ts.touches[0];
                 var touch1 = ts.touches[1];
 
@@ -151,7 +230,7 @@ namespace MechChess.Mobile
                 Vector2 delta = mouse.delta.ReadValue();
                 _yaw += delta.x * 0.2f;
                 _pitch -= delta.y * 0.2f;
-                _pitch = Mathf.Clamp(_pitch, 15f, 80f);
+                _pitch = Mathf.Clamp(_pitch, 15f, 85f);
                 UpdateCameraTransform();
             }
 
@@ -167,8 +246,7 @@ namespace MechChess.Mobile
             // Left-click tap on PC
             if (mouse.leftButton.wasPressedThisFrame)
             {
-                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-                    return;
+                if (IsPointerOverUI()) return;
 
                 Vector2 mousePos = mouse.position.ReadValue();
                 ProcessTapRaycast(mousePos);
@@ -178,7 +256,7 @@ namespace MechChess.Mobile
         private void ProcessTapRaycast(Vector2 screenPoint)
         {
             if (_mainCamera == null) return;
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+            if (IsPointerOverUI()) return;
 
             Ray ray = _mainCamera.ScreenPointToRay(screenPoint);
             if (Physics.Raycast(ray, out RaycastHit hit, 100f))
@@ -200,27 +278,60 @@ namespace MechChess.Mobile
             }
         }
 
-        private bool _is2DMode = false;
-        private float _savedPitch = 45f;
-        private float _savedYaw = 0f;
+        public string CycleCameraPerspective()
+        {
+            int next = ((int)CurrentPerspective + 1) % 4;
+            return SetCameraPerspective((CameraPerspectiveMode)next);
+        }
+
+        public string SetCameraPerspective(CameraPerspectiveMode mode)
+        {
+            CurrentPerspective = mode;
+            float dist = GetOptimalDistance();
+
+            switch (mode)
+            {
+                case CameraPerspectiveMode.White3D:
+                    _yaw = 0f;
+                    _pitch = 38f;
+                    _currentDistance = dist;
+                    return "Liên Minh (Trắng 3D)";
+
+                case CameraPerspectiveMode.Black3D:
+                    _yaw = 180f;
+                    _pitch = 38f;
+                    _currentDistance = dist;
+                    return "Hắc Ám (Đen 3D)";
+
+                case CameraPerspectiveMode.TopDown2D:
+                    _yaw = 0f;
+                    _pitch = 89.9f;
+                    _currentDistance = dist * 1.06f;
+                    return "Chiến thuật 2D (Top-down)";
+
+                case CameraPerspectiveMode.IsometricHero:
+                    _yaw = 45f;
+                    _pitch = 34f;
+                    _currentDistance = dist * 0.96f;
+                    return "Đẳng cự Sci-Fi (Hero 3D)";
+
+                default:
+                    return string.Empty;
+            }
+        }
 
         public bool Toggle2DView()
         {
-            _is2DMode = !_is2DMode;
-            if (_is2DMode)
+            if (CurrentPerspective == CameraPerspectiveMode.TopDown2D)
             {
-                _savedPitch = _pitch;
-                _savedYaw = _yaw;
-                _pitch = 89.9f; // Top-down 2D view
-                _yaw = 0f;
+                SetCameraPerspective(CameraPerspectiveMode.White3D);
+                return false;
             }
             else
             {
-                _pitch = _savedPitch;
-                _yaw = _savedYaw;
+                SetCameraPerspective(CameraPerspectiveMode.TopDown2D);
+                return true;
             }
-            UpdateCameraTransform();
-            return _is2DMode;
         }
 
         public void SetOrientation(float yaw, float pitch)
@@ -230,12 +341,26 @@ namespace MechChess.Mobile
             UpdateCameraTransform();
         }
 
-        private void UpdateCameraTransform()
+        private void UpdateCameraTransform(bool immediate = false)
         {
             if (targetBoardCenter == null || _mainCamera == null) return;
 
-            Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0);
-            Vector3 offset = rotation * new Vector3(0, 0, -_currentDistance);
+            if (immediate)
+            {
+                _smoothYaw = _yaw;
+                _smoothPitch = _pitch;
+                _smoothDistance = _currentDistance;
+            }
+            else
+            {
+                float dt = Time.unscaledDeltaTime;
+                _smoothYaw = Mathf.LerpAngle(_smoothYaw, _yaw, dt * smoothDampingSpeed);
+                _smoothPitch = Mathf.Lerp(_smoothPitch, _pitch, dt * smoothDampingSpeed);
+                _smoothDistance = Mathf.Lerp(_smoothDistance, _currentDistance, dt * smoothDampingSpeed);
+            }
+
+            Quaternion rotation = Quaternion.Euler(_smoothPitch, _smoothYaw, 0);
+            Vector3 offset = rotation * new Vector3(0, 0, -_smoothDistance);
 
             _mainCamera.transform.position = targetBoardCenter.position + offset;
             _mainCamera.transform.LookAt(targetBoardCenter.position);

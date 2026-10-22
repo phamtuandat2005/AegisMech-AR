@@ -13,6 +13,7 @@ namespace MechChess.Chess3D
         public int file; // 0..7 (a..h)
         public int rank; // 0..7 (1..8)
         public bool hasMoved = false;
+        public bool isCaptured = false;
 
         public MechPieceAnimator Animator { get; private set; }
 

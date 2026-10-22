@@ -217,14 +217,15 @@ Giao diện người dùng được thiết kế dựa trên phong cách **Arcan
 - **Vật liệu URP PBR Emission cao cấp:**
   - *Phe Trắng (Cyber Alliance):* Giáp hợp kim bạc mờ (Metallic = 0.82, Smoothness = 0.65) kết hợp rãnh năng lượng phát sáng Cyan Neon (`#00F0FF`).
   - *Phe Đen (Dark Syndicate):* Giáp thép carbon đen nhám (Metallic = 0.90, Smoothness = 0.45) kết hợp lõi phản ứng Crimson Neon (`#FF1E40`).
-- **Hiệu ứng Hoạt ảnh sống động (`MechPieceAnimator.cs`):** Chuyển động lơ lửng phản trọng lực (Hovering sine-wave), hệ thống hạt bụi sáng phát ra từ ống xả, hiệu ứng nổ tan rã mảnh vỡ khi bị tiêu diệt và hiệu ứng giật điện rung lắc khi trúng đòn bão từ EMP.
+- **Hiệu ứng Hoạt ảnh sống động & Giao chiến 3D (`MechPieceAnimator.cs`):** 
+  - **Giao chiến chém kiếm 3D tức thì:** Khi ăn quân, quân tấn công lao nhanh đến cự ly cận chiến, kích hoạt thanh kiếm năng lượng phát sáng (*Cyber Energy Blade*), vung kiếm chém đối thủ kèm hiệu ứng âm thanh vung kiếm/va chạm giáp, tia lửa va chạm và nổ vỡ vụn tan rã (`PlayCaptureDestruction`) trong ~0.7s mà không làm gián đoạn nhịp ván đấu.
+  - **Hoạt ảnh cơ khí:** Chuyển động lơ lửng phản trọng lực (Hovering sine-wave), hệ thống hạt bụi sáng phát ra từ ống xả, và hiệu ứng giật điện rung lắc khi trúng đòn bão từ EMP.
 
-#### 2. Minigame Vật Lý 2D Hack Giáp (`CombatMinigame2D.cs`):
-- Tự động kích hoạt khi có nước cờ ăn quân (Capture).
-- Tận dụng hệ thống vật lý Unity 2D (`Rigidbody2D`, `Collider2D`, ma sát và lực đẩy vector):
+#### 2. Minigame Vật Lý 2D Hack Giáp Vi Mạch (`CombatMinigame2D.cs`):
+- Hệ thống giải mã vi mạch 2D độc lập tận dụng vật lý Unity 2D (`Rigidbody2D`, `Collider2D`, ma sát và lực đẩy vector):
   - Người chơi điều khiển xung điện lượng tử bằng phím mũi tên/`WASD` hoặc kéo chuột.
   - Vượt qua các tường chắn di động có xung điện trong vòng **5 giây** để chạm vào Lõi năng lượng (Core Node).
-  - Hoàn thành thành công sẽ phát lệnh kết liễu khiến quân địch trên bàn cờ 3D phát nổ tan tành.
+  - Có thể trải nghiệm thử thách giải mã bất cứ lúc nào qua nút bấm **"MINIGAME 2D"** trên thanh công cụ chiến thuật (Tactical Drawer).
 
 #### 3. Bàn Cờ Cờ Vua Đầy Đủ Luật Quốc Tế F01 - F12 (`ChessBoard3DManager.cs`):
 - Bàn cờ 8x8 phát quang với hệ thống ô sáng đánh dấu trực quan: ô được chọn, ô đi hợp lệ, ô cảnh báo Vua bị chiếu đỏ rực, và ô ghi nhận nước cờ vừa đi.
@@ -420,7 +421,7 @@ Bảng hướng dẫn thao tác dành cho Giảng viên / Hội đồng đánh g
 
 | Tiêu Chí Đánh Giá | Điểm | Thao Tác Kiểm Thử Của Giảng Viên | Kết Quả Mong Đợi Đạt Tuyệt Đối |
 | :--- | :---: | :--- | :--- |
-| **1. 2D & 3D Implementation** | **20/20** | 1. Quan sát bàn cờ 32 quân cờ 3D.<br/>2. Di chuyển quân cờ Trắng để ăn một quân cờ Đen.<br/>3. Thử nghiệm nhập thành hoặc thăng cấp tốt. | - 6 mẫu rô-bốt cơ khí độc bản hiển thị sắc nét bằng vật liệu URP phát quang Cyan/Crimson, không dùng file 3D ngoài.<br/>- Cửa sổ Minigame 2D Hack giáp xuất hiện với cơ chế vật lý `Rigidbody2D`, điều khiển xung điện chạm đích trong 5 giây thì quân cờ 3D phát nổ.<br/>- Luật cờ vua hoạt động chuẩn xác: Chiếu, Nhập thành, Thăng cấp tốt. |
+| **1. 2D & 3D Implementation** | **20/20** | 1. Quan sát bàn cờ 32 quân cờ 3D.<br/>2. Di chuyển quân cờ Trắng để ăn một quân cờ Đen.<br/>3. Thử nghiệm nhập thành hoặc thăng cấp tốt.<br/>4. Bấm nút MINIGAME 2D trên thanh công cụ. | - 6 mẫu rô-bốt cơ khí độc bản hiển thị sắc nét bằng vật liệu URP phát quang Cyan/Crimson, không dùng file 3D ngoài.<br/>- Quân cờ tự động rút kiếm năng lượng laser, vung kiếm chém đối thủ và nổ vụn tan rã trực tiếp trên bàn cờ 3D trong 0.7s.<br/>- Cửa sổ Minigame 2D Hack giáp hoạt động với cơ chế vật lý `Rigidbody2D`, điều khiển xung điện chạm đích trong 5 giây.<br/>- Luật cờ vua hoạt động chuẩn xác: Chiếu, Nhập thành, Thăng cấp tốt. |
 | **2. AR & Deep Learning** | **20/20** | 1. Nhấn nút **SCAN TACTICAL CARD (AI)** trên HUD 2D.<br/>2. Nhấn nút **TOGGLE AR/WEBCAM**.<br/>3. Kiểm tra tính năng AI Minimax khi đánh với máy. | - Khung hình webcam được chụp, gửi sang FastAPI, trả về độ tin cậy `confidence_score` > 75% và tự động đi nước cờ tương ứng.<br/>- Chuyển đổi mượt mà giữa AR Foundation và Webcam Fallback.<br/>- AI máy tính tự động phản hồi nước cờ thông minh trong vòng 0.5s. |
 | **3. Mobile Deployment** | **20/20** | 1. Thao tác chuột mô phỏng cảm ứng trên PC hoặc trên màn hình cảm ứng Android: Chạm 1 ngón, vuốt 1 ngón, chụm 2 ngón.<br/>2. Xem cấu hình build tại menu `MechChess -> Configure Android Build`. | - Thao tác chạm chọn quân nhạy bén, vuốt xoay góc nhìn 360 độ mượt mà, pinch-to-zoom phóng to/thu nhỏ từ 4m đến 16m.<br/>- Cấu hình Android chuyển sang `IL2CPP`, vi xử lý `ARM64`, Target SDK 34 và tạo file APK thành công. |
 | **4. IO Cloud Integration** | **20/20** | 1. Thực hiện 1 nước cờ bất kỳ trong Unity.<br/>2. Trên Dashboard Adafruit IO, nhấn nút gửi lệnh `EMP_STRIKE` hoặc `RESET`. | - Các feed `turn-counter`, `last-move`, `board-status` trên Adafruit IO cập nhật giá trị tức thì theo thời gian thực.<br/>- Bàn cờ Unity phản hồi ngay lập tức: toàn bộ quân cờ rung giật sốc điện hoặc ván đấu tự động khởi động lại. |

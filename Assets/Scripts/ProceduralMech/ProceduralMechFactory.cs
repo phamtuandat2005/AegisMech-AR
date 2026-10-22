@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace MechChess.ProceduralMech
@@ -79,6 +77,14 @@ namespace MechChess.ProceduralMech
             // 6. Energy Shield: Translucent tint
             _shieldMat = new Material(shader) { name = "Mech_EnergyShield" };
             SetMaterialEmission(_shieldMat, new Color(0.0f, 0.8f, 1.0f, 0.6f), new Color(0.0f, 1.0f, 1.5f) * 2.0f);
+
+            // Enable GPU Instancing across all mech materials for low-end mobile batching
+            _whiteArmorMat.enableInstancing = true;
+            _whiteGlowMat.enableInstancing = true;
+            _blackArmorMat.enableInstancing = true;
+            _blackGlowMat.enableInstancing = true;
+            _frameJointMat.enableInstancing = true;
+            _shieldMat.enableInstancing = true;
         }
 
         private static void SetMaterialPBR(Material mat, Color baseColor, float metallic, float smoothness)
@@ -796,6 +802,23 @@ namespace MechChess.ProceduralMech
                 }
             }
 
+            // Configure renderer shadows & instancing for custom models
+            foreach (var r in renderers)
+            {
+                if (r != null)
+                {
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                    r.receiveShadows = true;
+                    if (r.sharedMaterials != null)
+                    {
+                        foreach (var m in r.sharedMaterials)
+                        {
+                            if (m != null) m.enableInstancing = true;
+                        }
+                    }
+                }
+            }
+
             // Add sleek team aura ring at the feet (Cyan for White, Crimson for Black) to match sci-fi chess theme
             CreatePrimitive(PrimitiveType.Cylinder, "TeamAuraRing", root, new Vector3(0, 0.015f, 0), new Vector3(0.68f, 0.012f, 0.68f), Quaternion.identity, glowMat);
 
@@ -822,6 +845,8 @@ namespace MechChess.ProceduralMech
             if (r != null && mat != null)
             {
                 r.sharedMaterial = mat;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                r.receiveShadows = true;
             }
 
             return obj;

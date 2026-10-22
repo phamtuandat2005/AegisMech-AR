@@ -9,15 +9,15 @@ namespace AegisMech.UI
     public static class AegisTheme
     {
         public const string GameTitle = "CHESS 3D AR";
-        public const string Tagline = "STRATEGY BEYOND REALITY";
-        public static readonly Color Cyan = new Color(0.30f, 0.80f, 1f, 1f);
-        public static readonly Color CyanBright = new Color(0.55f, 0.92f, 1f, 1f);
-        public static readonly Color Gold = new Color(1f, 0.80f, 0.35f, 1f);
-        public static readonly Color Ink = new Color(0.92f, 0.97f, 1f, 1f);
-        public static readonly Color Muted = new Color(0.58f, 0.70f, 0.82f, 1f);
-        public static readonly Color Success = new Color(0.30f, 0.90f, 0.50f, 1f);
-        public static readonly Color Danger = new Color(1f, 0.32f, 0.38f, 1f);
-        public static readonly Color Navy = new Color(0.02f, 0.05f, 0.10f, 1f);
+        public const string Tagline = "DARK FANTASY MEDIEVAL CHESS";
+        public static readonly Color Cyan = new Color(0.725f, 0.604f, 0.380f, 1f);        // #B99A61 Antique Gold
+        public static readonly Color CyanBright = new Color(0.92f, 0.80f, 0.45f, 1f);     // Radiant Antique Gold
+        public static readonly Color Gold = new Color(0.725f, 0.604f, 0.380f, 1f);       // Imperial Gold
+        public static readonly Color Ink = new Color(0.96f, 0.94f, 0.88f, 1f);            // #F5EEDB Warm Ivory Text
+        public static readonly Color Muted = new Color(0.851f, 0.784f, 0.635f, 1f);       // #D9C8A2 Aged Parchment
+        public static readonly Color Success = new Color(0.322f, 0.427f, 0.341f, 1f);     // #526D57 Magic Green
+        public static readonly Color Danger = new Color(0.490f, 0.224f, 0.259f, 1f);      // #7D3942 Blood Red
+        public static readonly Color Navy = new Color(0.090f, 0.137f, 0.176f, 1f);        // #17232D Midnight Slate
 
         static Font _font;
         public static Font Font

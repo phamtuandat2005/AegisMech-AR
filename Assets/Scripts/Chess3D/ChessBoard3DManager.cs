@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using MechChess.ProceduralMech;
-using MechChess.Combat2D;
 using MechChess.UI;
 using MechChess.Cloud;
 
@@ -64,6 +63,8 @@ namespace MechChess.Chess3D
         private Material _lightTileMat;
         private Material _darkTileMat;
         private Material _highlightTileMat;
+        private Material _selectedTileMat;
+        private Material _captureHighlightMat;
         private Material _lastMoveMat;
         private Material _checkWarningMat;
         private Material _borderMat;
@@ -91,14 +92,51 @@ namespace MechChess.Chess3D
         private int _halfMoveClock = 0; // For 50-move rule (100 half-moves)
         private Stack<MoveHistoryRecord> _moveHistoryStack = new Stack<MoveHistoryRecord>();
 
+        public void SetEnPassantTargetSquareForTest(Vector2Int? square)
+        {
+            _enPassantTargetSquare = square;
+        }
+
+        public ChessPiece3D SelectedPieceForTest => _selectedPiece;
+        public bool IsBusyAnimatingForTest => _isBusyAnimating;
+        public ChessPiece3D AnimatingPieceForTest => _animatingPiece;
+
+        public void SetBusyAnimatingForTest(bool busy, ChessPiece3D piece)
+        {
+            _isBusyAnimating = busy;
+            _animatingPiece = piece;
+            _busyAnimStartTime = Time.time;
+        }
+
+        public void TriggerWatchdogCheckForTest(bool forceTimeout = false)
+        {
+            if (forceTimeout || (_isBusyAnimating && (Time.time - _busyAnimStartTime > 2.5f)))
+            {
+                SkipActiveAnimation();
+            }
+        }
+
         private ChessPiece3D _selectedPiece = null;
         private List<Vector2Int> _validMoves = new List<Vector2Int>();
+        private bool _isBusyAnimating = false;
+        private ChessPiece3D _animatingPiece = null;
+        private float _busyAnimStartTime = 0f;
 
         private Transform _boardRoot;
         private Transform _piecesRoot;
         public Transform BoardRootContainer { get; private set; }
 
         public Action<ChessPiece3D, Action<PieceType>> OnPawnPromotionNeeded;
+
+        private void Update()
+        {
+            // Animation Watchdog: Prevents input from ever locking permanently if an animation or coroutine hangs
+            if (_isBusyAnimating && (Time.time - _busyAnimStartTime > 2.5f))
+            {
+                Debug.LogWarning("[ChessBoard3D] Animation watchdog timeout! Force-releasing animation lock.");
+                SkipActiveAnimation();
+            }
+        }
 
         private void Awake()
         {
@@ -139,12 +177,26 @@ namespace MechChess.Chess3D
             _darkTileMat = new Material(shader) { name = "Tile_DarkCarbon" };
             SetMatColor(_darkTileMat, new Color(0.12f, 0.14f, 0.18f), 0.85f, 0.4f);
 
-            // Highlight Tile: Radiant Neon Green
+            // Highlight Tile: Radiant Neon Emerald Green (Empty valid move square)
             _highlightTileMat = new Material(shader) { name = "Tile_HighlightGreen" };
-            SetMatColor(_highlightTileMat, new Color(0.1f, 1.0f, 0.3f), 0.2f, 0.8f);
+            SetMatColor(_highlightTileMat, new Color(0.1f, 1.0f, 0.35f), 0.2f, 0.8f);
             _highlightTileMat.EnableKeyword("_EMISSION");
             if (_highlightTileMat.HasProperty("_EmissionColor"))
-                _highlightTileMat.SetColor("_EmissionColor", new Color(0.1f, 1.5f, 0.3f) * 2.5f);
+                _highlightTileMat.SetColor("_EmissionColor", new Color(0.1f, 1.8f, 0.4f) * 2.2f);
+
+            // Selected Piece Tile: Radiant Electric Cyan Focus
+            _selectedTileMat = new Material(shader) { name = "Tile_SelectedCyan" };
+            SetMatColor(_selectedTileMat, new Color(0.15f, 0.85f, 1.0f), 0.2f, 0.8f);
+            _selectedTileMat.EnableKeyword("_EMISSION");
+            if (_selectedTileMat.HasProperty("_EmissionColor"))
+                _selectedTileMat.SetColor("_EmissionColor", new Color(0.2f, 1.8f, 2.5f) * 2.2f);
+
+            // Capture Target Tile: Vibrant Plasma Crimson / Attack Danger Red
+            _captureHighlightMat = new Material(shader) { name = "Tile_CaptureCrimson" };
+            SetMatColor(_captureHighlightMat, new Color(1.0f, 0.15f, 0.25f), 0.2f, 0.8f);
+            _captureHighlightMat.EnableKeyword("_EMISSION");
+            if (_captureHighlightMat.HasProperty("_EmissionColor"))
+                _captureHighlightMat.SetColor("_EmissionColor", new Color(2.8f, 0.2f, 0.35f) * 2.5f);
 
             // Last Move Tile: Radiant Amber Gold
             _lastMoveMat = new Material(shader) { name = "Tile_LastMoveGold" };
@@ -163,6 +215,16 @@ namespace MechChess.Chess3D
             // Board Perimeter Border: Gunmetal with neon cyan border
             _borderMat = new Material(shader) { name = "Board_BorderMat" };
             SetMatColor(_borderMat, new Color(0.08f, 0.10f, 0.12f), 0.9f, 0.3f);
+
+            // Enable GPU Instancing across all board materials for low-end mobile performance
+            _lightTileMat.enableInstancing = true;
+            _darkTileMat.enableInstancing = true;
+            _highlightTileMat.enableInstancing = true;
+            _selectedTileMat.enableInstancing = true;
+            _captureHighlightMat.enableInstancing = true;
+            _lastMoveMat.enableInstancing = true;
+            _checkWarningMat.enableInstancing = true;
+            _borderMat.enableInstancing = true;
         }
 
         private void SetMatColor(Material mat, Color col, float metallic, float smoothness)
@@ -198,7 +260,10 @@ namespace MechChess.Chess3D
             arenaPedestal.transform.SetParent(_boardRoot, false);
             arenaPedestal.transform.localPosition = new Vector3(3.5f, -0.2f, 3.5f);
             arenaPedestal.transform.localScale = new Vector3(9.0f, 0.2f, 9.0f);
-            arenaPedestal.GetComponent<Renderer>().sharedMaterial = _borderMat;
+            Renderer pedRend = arenaPedestal.GetComponent<Renderer>();
+            pedRend.sharedMaterial = _borderMat;
+            pedRend.receiveShadows = true;
+            pedRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             // Outer Frame
             float totalSize = 8 * tileSize;
@@ -207,18 +272,25 @@ namespace MechChess.Chess3D
             frame.transform.SetParent(_boardRoot, false);
             frame.transform.localPosition = new Vector3(totalSize / 2f - (tileSize / 2f), -tileHeight / 2f, totalSize / 2f - (tileSize / 2f));
             frame.transform.localScale = new Vector3(totalSize + 0.8f, tileHeight, totalSize + 0.8f);
-            frame.GetComponent<Renderer>().sharedMaterial = _borderMat;
+            Renderer frameRend = frame.GetComponent<Renderer>();
+            frameRend.sharedMaterial = _borderMat;
+            frameRend.receiveShadows = true;
+            frameRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-            // Dedicated Cinematic Arena Key Light
+            // Dedicated Cinematic Arena Key Light with Grounding Soft Shadows
             GameObject keyLightObj = new GameObject("ArenaKeyLight");
             keyLightObj.transform.SetParent(_boardRoot, false);
             Light keyLight = keyLightObj.AddComponent<Light>();
             keyLight.type = LightType.Directional;
             keyLight.color = new Color(1.0f, 0.98f, 0.95f);
             keyLight.intensity = 1.6f;
+            keyLight.shadows = LightShadows.Soft;
+            keyLight.shadowStrength = 0.60f;
+            keyLight.shadowBias = 0.05f;
+            keyLight.shadowNormalBias = 0.4f;
             keyLightObj.transform.localRotation = Quaternion.Euler(55f, -30f, 0);
 
-            // Dedicated Overhead Fill Point Light
+            // Dedicated Overhead Fill Point Light (Shadows Off for Mobile Performance)
             GameObject fillLightObj = new GameObject("ArenaOverheadFill");
             fillLightObj.transform.SetParent(_boardRoot, false);
             fillLightObj.transform.localPosition = new Vector3(3.5f, 6.0f, 3.5f);
@@ -227,6 +299,7 @@ namespace MechChess.Chess3D
             fillLight.color = new Color(0.6f, 0.9f, 1.0f);
             fillLight.intensity = 2.0f;
             fillLight.range = 25f;
+            fillLight.shadows = LightShadows.None;
 
             // 64 Tiles
             for (int file = 0; file < 8; file++)
@@ -242,6 +315,8 @@ namespace MechChess.Chess3D
 
                     Renderer rend = tile.GetComponent<Renderer>();
                     rend.sharedMaterial = isLight ? _lightTileMat : _darkTileMat;
+                    rend.receiveShadows = true;
+                    rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
                     _tileObjects[file, rank] = tile;
                     _tileRenderers[file, rank] = rend;
@@ -252,6 +327,57 @@ namespace MechChess.Chess3D
                     tileClick.rank = rank;
                     tileClick.OnTileClicked = HandleTileClicked;
                 }
+            }
+
+            // Build Perimeter 3D Coordinate Notation (A-H, 1-8)
+            BuildBoardCoordinateLabels();
+        }
+
+        private void BuildBoardCoordinateLabels()
+        {
+            GameObject labelContainer = new GameObject("BoardCoordinateLabels");
+            labelContainer.transform.SetParent(_boardRoot, false);
+
+            Color labelColor = new Color(0.40f, 0.85f, 1.0f, 0.85f); // Neon Cyan
+
+            // Files: A - H (along rank -0.62f bottom and 7.62f top)
+            for (int f = 0; f < 8; f++)
+            {
+                string fileChar = ((char)('A' + f)).ToString();
+                CreateCoordinateTextMesh(labelContainer.transform, fileChar, new Vector3(f * tileSize, 0.02f, -0.62f), labelColor);
+                CreateCoordinateTextMesh(labelContainer.transform, fileChar, new Vector3(f * tileSize, 0.02f, 7.62f), labelColor);
+            }
+
+            // Ranks: 1 - 8 (along file -0.62f left and 7.62f right)
+            for (int r = 0; r < 8; r++)
+            {
+                string rankChar = (r + 1).ToString();
+                CreateCoordinateTextMesh(labelContainer.transform, rankChar, new Vector3(-0.62f, 0.02f, r * tileSize), labelColor);
+                CreateCoordinateTextMesh(labelContainer.transform, rankChar, new Vector3(7.62f, 0.02f, r * tileSize), labelColor);
+            }
+        }
+
+        private void CreateCoordinateTextMesh(Transform parent, string text, Vector3 localPos, Color color)
+        {
+            GameObject textObj = new GameObject($"CoordLabel_{text}");
+            textObj.transform.SetParent(parent, false);
+            textObj.transform.localPosition = localPos;
+            textObj.transform.localRotation = Quaternion.Euler(90f, 0, 0);
+
+            TextMesh tm = textObj.AddComponent<TextMesh>();
+            tm.text = text;
+            tm.fontSize = 26;
+            tm.characterSize = 0.055f;
+            tm.alignment = TextAlignment.Center;
+            tm.anchor = TextAnchor.MiddleCenter;
+            tm.color = color;
+            tm.fontStyle = FontStyle.Bold;
+
+            MeshRenderer mr = textObj.GetComponent<MeshRenderer>();
+            if (mr != null)
+            {
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                mr.receiveShadows = false;
             }
         }
 
@@ -278,6 +404,9 @@ namespace MechChess.Chess3D
             _nextEnPassantSquare = null;
             _halfMoveClock = 0;
             _moveHistoryStack.Clear();
+            _isBusyAnimating = false;
+            _selectedPiece = null;
+            ClearHighlights();
 
             // Setup White (Ranks 0 & 1)
             SetupBackRank(PieceColor.White, 0);
@@ -317,6 +446,17 @@ namespace MechChess.Chess3D
             ChessPiece3D piece = pieceObj.AddComponent<ChessPiece3D>();
             piece.Setup(type, color, file, rank);
             boardPieces[file, rank] = piece;
+
+            // Configure piece shadow casting
+            Renderer[] pieceRends = pieceObj.GetComponentsInChildren<Renderer>();
+            foreach (var r in pieceRends)
+            {
+                if (r != null)
+                {
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                    r.receiveShadows = true;
+                }
+            }
         }
 
         public Vector3 GetWorldPosition(int file, int rank)
@@ -327,9 +467,28 @@ namespace MechChess.Chess3D
         // =========================================================================
         // Selection & Move Logic
         // =========================================================================
+        public void SkipActiveAnimation()
+        {
+            if (_isBusyAnimating)
+            {
+                if (_animatingPiece != null && _animatingPiece.Animator != null)
+                {
+                    _animatingPiece.Animator.SkipCurrentAnimation();
+                }
+                _isBusyAnimating = false;
+                _animatingPiece = null;
+            }
+        }
+
         public void HandlePieceClicked(ChessPiece3D piece)
         {
-            if (isGameOver || piece == null) return;
+            if (isGameOver || piece == null || piece.isCaptured) return;
+
+            // If an animation is in progress, tap immediately skips it
+            if (_isBusyAnimating)
+            {
+                SkipActiveAnimation();
+            }
 
             // Online Multiplayer turn & role enforcement
             if (MechChess.Multiplayer.OnlineMultiplayerManager.Instance != null 
@@ -340,9 +499,14 @@ namespace MechChess.Chess3D
                 if (_selectedPiece == null && piece.pieceColor != online.MyRole) return;
             }
 
-            // If clicking on own piece -> select it
+            // If clicking on own piece -> toggle select / deselect
             if (piece.pieceColor == currentTurn)
             {
+                if (_selectedPiece == piece)
+                {
+                    DeselectPiece();
+                    return;
+                }
                 SelectPiece(piece);
                 return;
             }
@@ -354,26 +518,60 @@ namespace MechChess.Chess3D
             }
         }
 
+        public void DeselectPiece()
+        {
+            if (_selectedPiece != null && _selectedPiece.Animator != null)
+            {
+                _selectedPiece.Animator.SetSelected(false);
+            }
+            ClearHighlights();
+            _selectedPiece = null;
+            _validMoves.Clear();
+        }
+
         public void SelectPiece(ChessPiece3D piece)
         {
             if (isGameOver || piece == null) return;
+            if (_isBusyAnimating) SkipActiveAnimation();
             if (piece.pieceColor != currentTurn) return;
+
+            // Deselect previous piece if any
+            if (_selectedPiece != null && _selectedPiece.Animator != null)
+            {
+                _selectedPiece.Animator.SetSelected(false);
+            }
 
             ClearHighlights();
             _selectedPiece = piece;
             _validMoves = GetLegalMoves(piece);
 
-            // Highlight selected piece square and all valid move squares
-            HighlightTile(piece.file, piece.rank);
+            // Trigger physical lift and hologram focus ring on selected mech
+            if (piece.Animator != null)
+            {
+                piece.Animator.SetSelected(true);
+            }
+
+            // Highlight selected piece square with Electric Cyan Focus
+            HighlightTile(piece.file, piece.rank, TileHighlightType.Selected);
+
+            // Differentiate valid empty moves (Neon Green) vs valid capture targets (Plasma Crimson Red)
             foreach (var move in _validMoves)
             {
-                HighlightTile(move.x, move.y);
+                bool isCapture = (boardPieces[move.x, move.y] != null) ||
+                                 (piece.pieceType == PieceType.Pawn && _enPassantTargetSquare.HasValue && move == _enPassantTargetSquare.Value);
+                HighlightTile(move.x, move.y, isCapture ? TileHighlightType.Capture : TileHighlightType.Move);
             }
         }
 
         private void HandleTileClicked(int file, int rank)
         {
             if (isGameOver) return;
+
+            // If an animation is in progress, tap immediately skips it
+            if (_isBusyAnimating)
+            {
+                SkipActiveAnimation();
+            }
 
             // Online Multiplayer turn enforcement
             if (MechChess.Multiplayer.OnlineMultiplayerManager.Instance != null 
@@ -398,8 +596,7 @@ namespace MechChess.Chess3D
             }
             else
             {
-                ClearHighlights();
-                _selectedPiece = null;
+                DeselectPiece();
             }
         }
 
@@ -484,28 +681,71 @@ namespace MechChess.Chess3D
                 moveNotation += " e.p. [EN PASSANT]";
             }
 
-            // Capture resolution with 2D Minigame
+            // Capture resolution with In-Place 3D Combat Clash (Bypasses 2D minigame modal)
             if (captured != null)
             {
-                if (CombatMinigame2D.Instance != null && !_isExecutingRemoteMove)
+                // Immediately mark captured piece and disable its colliders so it stops receiving raycasts
+                captured.isCaptured = true;
+                Collider[] capCols = captured.GetComponentsInChildren<Collider>();
+                for (int i = 0; i < capCols.Length; i++)
                 {
-                    CombatMinigame2D.Instance.StartMinigame((success) =>
-                    {
-                        FinalizeCaptureAndMove(piece, startFile, startRank, targetFile, targetRank, captured, isEnPassant, isCastling, historyRecord, moveNotation, promoteTo);
-                    });
+                    if (capCols[i] != null) capCols[i].enabled = false;
+                }
+
+                // Clear selection and tile highlights immediately for full combat view
+                _selectedPiece = null;
+                ClearHighlights();
+
+                if (piece.Animator != null)
+                {
+                    _isBusyAnimating = true;
+                    _busyAnimStartTime = Time.time;
+                    _animatingPiece = piece;
+                    Vector3 defenderPos = captured.transform.position;
+
+                    piece.Animator.AnimateAttackAndCapture(
+                        defenderPos,
+                        captured.Animator,
+                        onImpact: () =>
+                        {
+                            // Trigger defender disintegration & explosion on sword slash impact
+                            if (captured.Animator != null) captured.Animator.PlayCaptureDestruction();
+                            else captured.gameObject.SetActive(false);
+                        },
+                        onComplete: () =>
+                        {
+                            try
+                            {
+                                FinalizeCaptureAndMove(piece, startFile, startRank, targetFile, targetRank, captured, isEnPassant, isCastling, historyRecord, moveNotation, promoteTo, skipPieceMoveAnim: true);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.LogError($"[ChessBoard3D] Error in FinalizeCaptureAndMove: {ex}");
+                            }
+                            finally
+                            {
+                                _isBusyAnimating = false;
+                                _animatingPiece = null;
+                            }
+                        }
+                    );
                 }
                 else
                 {
-                    FinalizeCaptureAndMove(piece, startFile, startRank, targetFile, targetRank, captured, isEnPassant, isCastling, historyRecord, moveNotation, promoteTo);
+                    // Fallback if piece lacks animator
+                    if (captured.Animator != null) captured.Animator.PlayCaptureDestruction();
+                    else captured.gameObject.SetActive(false);
+
+                    FinalizeCaptureAndMove(piece, startFile, startRank, targetFile, targetRank, captured, isEnPassant, isCastling, historyRecord, moveNotation, promoteTo, skipPieceMoveAnim: false);
                 }
             }
             else
             {
-                FinalizeMove(piece, startFile, startRank, targetFile, targetRank, isCastling, historyRecord, moveNotation, promoteTo);
+                FinalizeMove(piece, startFile, startRank, targetFile, targetRank, isCastling, historyRecord, moveNotation, promoteTo, skipPieceMoveAnim: false);
             }
         }
 
-        private void FinalizeCaptureAndMove(ChessPiece3D piece, int startFile, int startRank, int targetFile, int targetRank, ChessPiece3D captured, bool isEnPassant, bool isCastling, MoveHistoryRecord historyRecord, string notation, PieceType promoteTo)
+        private void FinalizeCaptureAndMove(ChessPiece3D piece, int startFile, int startRank, int targetFile, int targetRank, ChessPiece3D captured, bool isEnPassant, bool isCastling, MoveHistoryRecord historyRecord, string notation, PieceType promoteTo, bool skipPieceMoveAnim = false)
         {
             if (isEnPassant)
             {
@@ -516,16 +756,17 @@ namespace MechChess.Chess3D
                 boardPieces[targetFile, targetRank] = null;
             }
 
-            if (captured != null)
+            // If not already disintegrated during the sword impact, destroy defender now
+            if (!skipPieceMoveAnim && captured != null)
             {
                 if (captured.Animator != null) captured.Animator.PlayCaptureDestruction();
                 else captured.gameObject.SetActive(false);
             }
 
-            FinalizeMove(piece, startFile, startRank, targetFile, targetRank, isCastling, historyRecord, notation + " [CAPTURED]", promoteTo);
+            FinalizeMove(piece, startFile, startRank, targetFile, targetRank, isCastling, historyRecord, notation + " [CAPTURED]", promoteTo, skipPieceMoveAnim);
         }
 
-        private void FinalizeMove(ChessPiece3D piece, int startFile, int startRank, int targetFile, int targetRank, bool isCastling, MoveHistoryRecord historyRecord, string notation, PieceType promoteTo)
+        private void FinalizeMove(ChessPiece3D piece, int startFile, int startRank, int targetFile, int targetRank, bool isCastling, MoveHistoryRecord historyRecord, string notation, PieceType promoteTo, bool skipPieceMoveAnim = false)
         {
             boardPieces[piece.file, piece.rank] = null;
             boardPieces[targetFile, targetRank] = piece;
@@ -579,10 +820,37 @@ namespace MechChess.Chess3D
                 }
             }
 
-            // Animate moving piece
+            // Animate moving piece (if not already animated by combat clash)
             Vector3 targetPos = GetWorldPosition(targetFile, targetRank);
-            if (piece.Animator != null) piece.Animator.AnimateMoveTo(targetPos, 0.45f);
-            else piece.transform.localPosition = targetPos;
+            if (!skipPieceMoveAnim)
+            {
+                if (piece.Animator != null)
+                {
+                    _isBusyAnimating = true;
+                    _busyAnimStartTime = Time.time;
+                    _animatingPiece = piece;
+                    piece.Animator.AnimateMoveTo(targetPos, 0.40f, onComplete: () =>
+                    {
+                        try
+                        {
+                            // Move animation finished cleanly
+                        }
+                        finally
+                        {
+                            _isBusyAnimating = false;
+                            _animatingPiece = null;
+                        }
+                    });
+                }
+                else
+                {
+                    piece.transform.localPosition = targetPos;
+                }
+            }
+            else
+            {
+                piece.transform.localPosition = targetPos;
+            }
 
             _selectedPiece = null;
             _enPassantTargetSquare = _nextEnPassantSquare;
@@ -730,7 +998,7 @@ namespace MechChess.Chess3D
             currentTurn = opponent;
             if (UIManager2D.Instance != null)
             {
-                UIManager2D.Instance.SetActiveTurn(currentTurn);
+                UIManager2D.Instance.SetActiveTurn(currentTurn, inCheck);
             }
 
             // Update Check Warning Tile on King
@@ -754,7 +1022,8 @@ namespace MechChess.Chess3D
                 ChessPiece3D king = FindKing(currentTurn);
                 if (king != null && IsOnBoard(king.file, king.rank))
                 {
-                    _tileRenderers[king.file, king.rank].sharedMaterial = _checkWarningMat;
+                    if (_tileRenderers != null && _tileRenderers[king.file, king.rank] != null)
+                        _tileRenderers[king.file, king.rank].sharedMaterial = _checkWarningMat;
                 }
             }
         }
@@ -1170,33 +1439,57 @@ namespace MechChess.Chess3D
         // =========================================================================
         // Highlighting
         // =========================================================================
-        private void HighlightTile(int file, int rank)
+        public enum TileHighlightType
         {
-            if (IsOnBoard(file, rank))
+            Move,
+            Selected,
+            Capture
+        }
+
+        private void HighlightTile(int file, int rank, TileHighlightType type = TileHighlightType.Move)
+        {
+            if (_tileRenderers == null || !IsOnBoard(file, rank) || _tileRenderers[file, rank] == null) return;
+
+            Material targetMat = type switch
             {
-                _tileRenderers[file, rank].sharedMaterial = _highlightTileMat;
-            }
+                TileHighlightType.Selected => _selectedTileMat ?? _highlightTileMat,
+                TileHighlightType.Capture => _captureHighlightMat ?? _highlightTileMat,
+                _ => _highlightTileMat
+            };
+            _tileRenderers[file, rank].sharedMaterial = targetMat;
         }
 
         public void ClearHighlights()
         {
+            if (_selectedPiece != null && _selectedPiece.Animator != null)
+            {
+                _selectedPiece.Animator.SetSelected(false);
+            }
+
+            if (_tileRenderers == null) return;
+
             for (int f = 0; f < 8; f++)
             {
                 for (int r = 0; r < 8; r++)
                 {
-                    bool isLight = (f + r) % 2 == 1;
-                    _tileRenderers[f, r].sharedMaterial = isLight ? _lightTileMat : _darkTileMat;
+                    if (_tileRenderers[f, r] != null)
+                    {
+                        bool isLight = (f + r) % 2 == 1;
+                        _tileRenderers[f, r].sharedMaterial = isLight ? _lightTileMat : _darkTileMat;
+                    }
                 }
             }
 
             // F06: Last move highlight on from and to squares
             if (_lastMoveFromTile.HasValue && IsOnBoard(_lastMoveFromTile.Value.x, _lastMoveFromTile.Value.y))
             {
-                _tileRenderers[_lastMoveFromTile.Value.x, _lastMoveFromTile.Value.y].sharedMaterial = _lastMoveMat;
+                if (_tileRenderers[_lastMoveFromTile.Value.x, _lastMoveFromTile.Value.y] != null)
+                    _tileRenderers[_lastMoveFromTile.Value.x, _lastMoveFromTile.Value.y].sharedMaterial = _lastMoveMat;
             }
             if (_lastMoveToTile.HasValue && IsOnBoard(_lastMoveToTile.Value.x, _lastMoveToTile.Value.y))
             {
-                _tileRenderers[_lastMoveToTile.Value.x, _lastMoveToTile.Value.y].sharedMaterial = _lastMoveMat;
+                if (_tileRenderers[_lastMoveToTile.Value.x, _lastMoveToTile.Value.y] != null)
+                    _tileRenderers[_lastMoveToTile.Value.x, _lastMoveToTile.Value.y].sharedMaterial = _lastMoveMat;
             }
 
             UpdateKingCheckHighlight();

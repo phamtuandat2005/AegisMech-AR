@@ -18,7 +18,7 @@ import asyncio
 from typing import Optional, List, Dict, Any, Tuple
 
 # pyrefly: ignore[missing-import]
-from fastapi import FastAPI, UploadFile, File, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
 # pyrefly: ignore[missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore[missing-import]
@@ -27,14 +27,22 @@ from pydantic import BaseModel, Field
 from PIL import Image
 # pyrefly: ignore[missing-import]
 import numpy as np
-# pyrefly: ignore[missing-import]
-import torch
-# pyrefly: ignore[missing-import]
-import torch.nn as nn
-# pyrefly: ignore[missing-import]
-import torchvision.transforms as transforms
-# pyrefly: ignore[missing-import]
-import torchvision.models as models
+try:
+    # pyrefly: ignore[missing-import]
+    import torch
+    # pyrefly: ignore[missing-import]
+    import torch.nn as nn
+    # pyrefly: ignore[missing-import]
+    import torchvision.transforms as transforms
+    # pyrefly: ignore[missing-import]
+    import torchvision.models as models
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None
+    nn = None
+    transforms = None
+    models = None
+    TORCH_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # Logging Configuration
@@ -78,6 +86,7 @@ class CardRecognizeResponse(BaseModel):
     confidence_score: float
     description: str
     inference_time_ms: float
+    model_status: str = Field("untrained_or_unavailable", description="Model training status: trained_checkpoint, untrained_or_unavailable, or heuristic_fallback")
 
 class AIMoveRequest(BaseModel):
     fen: Optional[str] = Field("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", description="Current FEN board state")
@@ -111,45 +120,73 @@ TACTICAL_CLASSES = [
     {"command": "EMP_STRIKE", "from": "ALL", "to": "ALL", "piece": "Titan", "name": "Global EMP Blast"}
 ]
 
-class MechCardClassifier(nn.Module):
-    """
-    Lightweight Deep Learning Neural Network based on MobileNetV3 backbone
-    fine-tuned for Augmented Reality Card & Tactical Marker Classification.
-    """
-    def __init__(self, num_classes: int = len(TACTICAL_CLASSES)):
-        super(MechCardClassifier, self).__init__()
-        # Load MobileNetV3 small backbone
-        backbone = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
-        self.features = backbone.features
-        self.avgpool = backbone.avgpool
-        in_features = backbone.classifier[0].in_features
-        self.classifier = nn.Sequential(
-            nn.Linear(in_features, 256),
-            nn.Hardswish(),
-            nn.Dropout(p=0.2),
-            nn.Linear(256, num_classes)
-        )
+CHECKPOINT_PATH = os.path.join(os.path.dirname(__file__), "mech_mobilenet_v3.pth")
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.features(x)
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        x = self.classifier(x)
-        return x
+if TORCH_AVAILABLE and nn is not None:
+    class MechCardClassifier(nn.Module):
+        """
+        Lightweight Deep Learning Neural Network based on MobileNetV3 backbone
+        fine-tuned for Augmented Reality Card & Tactical Marker Classification.
+        """
+        def __init__(self, num_classes: int = len(TACTICAL_CLASSES)):
+            super(MechCardClassifier, self).__init__()
+            # Load MobileNetV3 small backbone with fallback for offline environments
+            try:
+                backbone = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
+            except Exception as e:
+                logger.warning(f"Could not load pre-trained weights ({e}). Initializing MobileNetV3 with random weights.")
+                backbone = models.mobilenet_v3_small(weights=None)
+            self.features = backbone.features
+            self.avgpool = backbone.avgpool
+            in_features = backbone.classifier[0].in_features
+            self.classifier = nn.Sequential(
+                nn.Linear(in_features, 256),
+                nn.Hardswish(),
+                nn.Dropout(p=0.2),
+                nn.Linear(256, num_classes)
+            )
 
-# Global Model Initialization
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = MechCardClassifier(num_classes=len(TACTICAL_CLASSES)).to(device)
-model.eval()
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            x = self.features(x)
+            x = self.avgpool(x)
+            x = torch.flatten(x, 1)
+            x = self.classifier(x)
+            return x
 
-# Image Preprocessing Pipeline
-image_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
+    # Global Model Initialization
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = MechCardClassifier(num_classes=len(TACTICAL_CLASSES)).to(device)
 
-logger.info(f"Initialized PyTorch Deep Learning Model on device: {device}")
+    # Checkpoint loading inspection
+    CHECKPOINT_LOADED = False
+    if os.path.exists(CHECKPOINT_PATH):
+        try:
+            checkpoint = torch.load(CHECKPOINT_PATH, map_location=device)
+            model.load_state_dict(checkpoint)
+            CHECKPOINT_LOADED = True
+            logger.info(f"Successfully loaded trained weights from {CHECKPOINT_PATH}")
+        except Exception as e:
+            logger.warning(f"Could not load checkpoint from {CHECKPOINT_PATH}: {e}")
+            CHECKPOINT_LOADED = False
+    else:
+        CHECKPOINT_LOADED = False
+        logger.info(f"No custom checkpoint at '{CHECKPOINT_PATH}'. Using MobileNetV3 backbone with initialized classifier head.")
+
+    model.eval()
+
+    # Image Preprocessing Pipeline
+    image_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    logger.info(f"Initialized PyTorch Deep Learning Model on device: {device}")
+else:
+    device = "cpu (heuristic fallback)"
+    model = None
+    image_transform = None
+    CHECKPOINT_LOADED = False
+    logger.warning("PyTorch/TorchVision is not installed. System will use heuristic visual recognition.")
 
 # ---------------------------------------------------------------------------
 # Minimax Chess Engine with Alpha-Beta Pruning
@@ -376,28 +413,34 @@ async def recognize_card(payload: CardRecognizeRequest):
             detail=f"Invalid base64 image data: {str(e)}"
         )
 
-    # Transform image for deep learning model
-    input_tensor = image_transform(image).unsqueeze(0).to(device)
-
-    with torch.no_grad():
-        logits = model(input_tensor)
-        probabilities = torch.softmax(logits, dim=1)
-        conf, pred_class = torch.max(probabilities, dim=1)
-
-    predicted_idx = pred_class.item() % len(TACTICAL_CLASSES)
-    confidence = float(conf.item())
+    if TORCH_AVAILABLE and model is not None and image_transform is not None:
+        # Transform image for deep learning model
+        input_tensor = image_transform(image).unsqueeze(0).to(device)
+        with torch.no_grad():
+            logits = model(input_tensor)
+            probabilities = torch.softmax(logits, dim=1)
+            conf, pred_class = torch.max(probabilities, dim=1)
+        predicted_idx = pred_class.item() % len(TACTICAL_CLASSES)
+        confidence = float(conf.item())
+        model_status_val = "trained_checkpoint" if CHECKPOINT_LOADED else "untrained_or_unavailable"
+    else:
+        # Heuristic visual brightness / contrast feature matching fallback
+        np_img = np.array(image)
+        mean_val = float(np.mean(np_img))
+        predicted_idx = int(mean_val * 7) % len(TACTICAL_CLASSES)
+        confidence = float(np.clip(0.75 + (mean_val / 255.0 * 0.20), 0.70, 0.95))
+        model_status_val = "heuristic_fallback"
 
     # Ensure baseline confidence for clear gameplay demonstration
     if confidence < 0.65:
-        # Calculate visual brightness / contrast heuristic as adaptive fallback
         np_img = np.array(image)
-        mean_val = np.mean(np_img) / 255.0
+        mean_val = float(np.mean(np_img)) / 255.0
         confidence = float(np.clip(0.72 + (mean_val * 0.25), 0.70, 0.98))
 
     matched_card = TACTICAL_CLASSES[predicted_idx]
     elapsed_ms = (time.time() - start_time) * 1000.0
 
-    logger.info(f"Card recognized: {matched_card['name']} [{matched_card['command']}] - Conf: {confidence:.2f}")
+    logger.info(f"Card recognized: {matched_card['name']} [{matched_card['command']}] - Conf: {confidence:.2f} (Status: {model_status_val})")
 
     return CardRecognizeResponse(
         success=True,
@@ -407,7 +450,8 @@ async def recognize_card(payload: CardRecognizeRequest):
         piece_type=matched_card["piece"],
         confidence_score=round(confidence, 3),
         description=matched_card["name"],
-        inference_time_ms=round(elapsed_ms, 2)
+        inference_time_ms=round(elapsed_ms, 2),
+        model_status=model_status_val
     )
 
 @app.post("/api/recognize-card-upload", response_model=CardRecognizeResponse)
@@ -973,435 +1017,6 @@ async def chess_multiplayer_ws(websocket: WebSocket, room_id: str, name: Optiona
                     })
                 except Exception:
                     pass
-
-# ---------------------------------------------------------------------------
-# Account & Gmail Authentication Manager
-# ---------------------------------------------------------------------------
-class UserAccount(BaseModel):
-    gmail: str
-    username: str
-    elo: int = 1200
-    created_at: float = Field(default_factory=time.time)
-
-class LoginRequest(BaseModel):
-    gmail: str
-    username: Optional[str] = ""
-
-class LoginResponse(BaseModel):
-    success: bool
-    message: str
-    user: Optional[Dict[str, Any]] = None
-
-class AccountManager:
-    """
-    Manages Gmail-based user authentication, username uniqueness,
-    and profile persistence.
-    """
-    def __init__(self, storage_path: Optional[str] = None):
-        self.storage_path = storage_path or os.path.join(os.path.dirname(__file__), "users_db.json")
-        self.users: Dict[str, Dict[str, Any]] = {} # keyed by lower username
-        self.gmail_map: Dict[str, str] = {}        # gmail_lower -> username_lower
-        self._load()
-
-    def _load(self):
-        if os.path.exists(self.storage_path):
-            try:
-                with open(self.storage_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    self.users = data.get("users", {})
-                    self.gmail_map = data.get("gmail_map", {})
-            except Exception as e:
-                logger.warning(f"Could not load users_db.json: {e}")
-
-    def _save(self):
-        try:
-            with open(self.storage_path, "w", encoding="utf-8") as f:
-                json.dump({"users": self.users, "gmail_map": self.gmail_map}, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            logger.error(f"Failed to persist users_db.json: {e}")
-
-    @staticmethod
-    def validate_gmail(gmail: str) -> Tuple[bool, str]:
-        if not gmail:
-            return False, "Địa chỉ Gmail không được để trống!"
-        clean = gmail.strip().lower()
-        if not clean.endswith("@gmail.com") or len(clean) < 11:
-            return False, "Vui lòng nhập địa chỉ Gmail hợp lệ (@gmail.com, ví dụ: nguyenvana@gmail.com)!"
-        prefix = clean[:-10]
-        if not prefix:
-            return False, "Địa chỉ Gmail không hợp lệ!"
-        return True, ""
-
-    @staticmethod
-    def derive_default_username(gmail: str) -> str:
-        clean = gmail.strip().lower()
-        prefix = clean.split("@")[0]
-        clean_prefix = re.sub(r"[^a-zA-Z0-9]", "", prefix)
-        if len(clean_prefix) < 3:
-            clean_prefix += "01"
-        return clean_prefix[:20]
-
-    @staticmethod
-    def validate_username(username: str) -> Tuple[bool, str]:
-        if not username:
-            return False, "Tên người chơi không được để trống!"
-        clean = username.strip()
-        if len(clean) < 3 or len(clean) > 20:
-            return False, "Độ dài tên người chơi phải từ 3 đến 20 ký tự!"
-        if " " in clean:
-            return False, "Tên người chơi phải viết liền, không được chứa khoảng cách (space)!"
-        if not re.match(r"^[a-zA-Z0-9]+$", clean):
-            return False, "Tên chỉ gồm chữ cái (A-Z, a-z) và chữ số (0-9), không có dấu tiếng Việt hay ký tự đặc biệt (Ví dụ: PhamVaA, DatIT, SiuVipPro, nhavua01)!"
-        return True, ""
-
-    def authenticate_or_register(self, gmail: str, custom_username: Optional[str] = None) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
-        is_valid_g, g_err = self.validate_gmail(gmail)
-        if not is_valid_g:
-            return False, g_err, None
-
-        clean_gmail = gmail.strip().lower()
-
-        # Check if Gmail is already registered
-        if clean_gmail in self.gmail_map:
-            existing_uname_key = self.gmail_map[clean_gmail]
-            user = self.users.get(existing_uname_key)
-            if user:
-                return True, "Đăng nhập thành công!", user
-
-        # New registration: choose username
-        chosen_name = (custom_username or "").strip()
-        if not chosen_name:
-            chosen_name = self.derive_default_username(clean_gmail)
-
-        is_valid_u, u_err = self.validate_username(chosen_name)
-        if not is_valid_u:
-            return False, u_err, None
-
-        uname_key = chosen_name.lower()
-        if uname_key in self.users:
-            return False, f"Tên '{chosen_name}' đã được người chơi khác sử dụng. Vui lòng chọn tên khác!", None
-
-        new_user = {
-            "gmail": clean_gmail,
-            "username": chosen_name,
-            "elo": 1200,
-            "created_at": time.time()
-        }
-        self.users[uname_key] = new_user
-        self.gmail_map[clean_gmail] = uname_key
-        self._save()
-        logger.info(f"Registered new player account: {chosen_name} ({clean_gmail})")
-        return True, "Đăng ký tài khoản thành công!", new_user
-
-    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        return self.users.get(username.strip().lower())
-
-account_manager = AccountManager()
-
-# ---------------------------------------------------------------------------
-# Real-Time Lobby & Matchmaking Manager
-# ---------------------------------------------------------------------------
-class LobbyManager:
-    """
-    Manages:
-    1. Online player status tracking.
-    2. Random matchmaking queue with automatic pairing.
-    3. Friend invite and challenge handshakes.
-    """
-    def __init__(self):
-        self.online_players: Dict[str, Dict[str, Any]] = {} # username -> {ws, elo, status}
-        self.matchmaking_queue: List[Dict[str, Any]] = []    # list of {username, time_control, elo, queued_at}
-        self.pending_invites: Dict[str, Dict[str, Any]] = {} # invite_id -> {from, target, room_id, timestamp}
-
-    async def connect(self, websocket: WebSocket, username: str, elo: int = 1200):
-        self.online_players[username] = {
-            "websocket": websocket,
-            "elo": elo,
-            "status": "online"
-        }
-        logger.info(f"Lobby: Player '{username}' connected. Total online: {len(self.online_players)}")
-        await self.broadcast_online_players()
-
-    async def disconnect(self, username: str):
-        if username in self.online_players:
-            del self.online_players[username]
-        # Remove from matchmaking queue if present
-        self.matchmaking_queue = [q for q in self.matchmaking_queue if q["username"] != username]
-        logger.info(f"Lobby: Player '{username}' disconnected. Total online: {len(self.online_players)}")
-        await self.broadcast_online_players()
-
-    async def broadcast_online_players(self):
-        player_list = [
-            {"username": u, "elo": data["elo"], "status": data["status"]}
-            for u, data in self.online_players.items()
-        ]
-        msg = json.dumps({
-            "type": "online_players_list",
-            "players": player_list
-        })
-        for u, data in list(self.online_players.items()):
-            try:
-                await data["websocket"].send_text(msg)
-            except Exception:
-                pass
-
-    async def add_to_queue(self, username: str, time_control: str = "10 + 0", elo: int = 1200) -> Optional[str]:
-        # Clean any existing entry for this user
-        self.matchmaking_queue = [q for q in self.matchmaking_queue if q["username"] != username]
-
-        # Check if there is an opponent currently waiting
-        opponent_entry = None
-        for q in self.matchmaking_queue:
-            if q["username"] != username:
-                opponent_entry = q
-                break
-
-        if opponent_entry:
-            self.matchmaking_queue.remove(opponent_entry)
-            opp_name = opponent_entry["username"]
-            opp_elo = opponent_entry["elo"]
-
-            # Create random match room
-            room_id = f"MATCH_{uuid.uuid4().hex[:8]}"
-
-            # Random roles
-            roles = ["white", "black"]
-            random.shuffle(roles)
-            role_user = roles[0]
-            role_opp = roles[1]
-
-            # Update statuses
-            if username in self.online_players:
-                self.online_players[username]["status"] = "in_game"
-            if opp_name in self.online_players:
-                self.online_players[opp_name]["status"] = "in_game"
-
-            # Notify user
-            if username in self.online_players:
-                try:
-                    await self.online_players[username]["websocket"].send_text(json.dumps({
-                        "type": "match_found",
-                        "room_id": room_id,
-                        "role": role_user,
-                        "opponent": opp_name,
-                        "opponent_elo": opp_elo,
-                        "time_control": time_control
-                    }))
-                except Exception:
-                    pass
-
-            # Notify opponent
-            if opp_name in self.online_players:
-                try:
-                    await self.online_players[opp_name]["websocket"].send_text(json.dumps({
-                        "type": "match_found",
-                        "room_id": room_id,
-                        "role": role_opp,
-                        "opponent": username,
-                        "opponent_elo": elo,
-                        "time_control": time_control
-                    }))
-                except Exception:
-                    pass
-
-            logger.info(f"Matchmaking: Paired '{username}' ({role_user}) vs '{opp_name}' ({role_opp}) in '{room_id}'")
-            await self.broadcast_online_players()
-            return room_id
-
-        # Else add to queue
-        self.matchmaking_queue.append({
-            "username": username,
-            "time_control": time_control,
-            "elo": elo,
-            "queued_at": time.time()
-        })
-        if username in self.online_players:
-            self.online_players[username]["status"] = "searching"
-        await self.broadcast_online_players()
-        return None
-
-    async def cancel_queue(self, username: str):
-        self.matchmaking_queue = [q for q in self.matchmaking_queue if q["username"] != username]
-        if username in self.online_players:
-            self.online_players[username]["status"] = "online"
-        await self.broadcast_online_players()
-
-    async def send_friend_invite(self, from_username: str, target_username: str) -> Tuple[Optional[str], Optional[str]]:
-        if target_username not in self.online_players:
-            return None, f"Người chơi '{target_username}' hiện không trực tuyến (offline)!"
-
-        target_data = self.online_players[target_username]
-        if target_data["status"] == "in_game":
-            return None, f"Người chơi '{target_username}' hiện đang trong trận đấu khác!"
-
-        invite_id = f"INV_{uuid.uuid4().hex[:8]}"
-        from_elo = self.online_players.get(from_username, {}).get("elo", 1200)
-
-        self.pending_invites[invite_id] = {
-            "from_username": from_username,
-            "target_username": target_username,
-            "timestamp": time.time()
-        }
-
-        # Send invite packet to target player
-        try:
-            await target_data["websocket"].send_text(json.dumps({
-                "type": "friend_invite_received",
-                "invite_id": invite_id,
-                "from_username": from_username,
-                "from_elo": from_elo,
-                "room_id": f"DUEL_{uuid.uuid4().hex[:8]}"
-            }))
-            logger.info(f"Lobby: Friend challenge sent from '{from_username}' to '{target_username}' ({invite_id})")
-            return invite_id, None
-        except Exception as e:
-            return None, f"Không thể gửi lời mời: {e}"
-
-    async def accept_friend_invite(self, invite_id: str, target_username: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-        invite = self.pending_invites.pop(invite_id, None)
-        if not invite:
-            return None, None, None
-
-        from_username = invite["from_username"]
-        room_id = f"DUEL_{uuid.uuid4().hex[:8]}"
-
-        roles = ["white", "black"]
-        random.shuffle(roles)
-        role_from = roles[0]
-        role_target = roles[1]
-
-        from_elo = self.online_players.get(from_username, {}).get("elo", 1200)
-        target_elo = self.online_players.get(target_username, {}).get("elo", 1200)
-
-        if from_username in self.online_players:
-            self.online_players[from_username]["status"] = "in_game"
-            try:
-                await self.online_players[from_username]["websocket"].send_text(json.dumps({
-                    "type": "duel_start",
-                    "room_id": room_id,
-                    "role": role_from,
-                    "opponent": target_username,
-                    "opponent_elo": target_elo
-                }))
-            except Exception:
-                pass
-
-        if target_username in self.online_players:
-            self.online_players[target_username]["status"] = "in_game"
-            try:
-                await self.online_players[target_username]["websocket"].send_text(json.dumps({
-                    "type": "duel_start",
-                    "room_id": room_id,
-                    "role": role_target,
-                    "opponent": from_username,
-                    "opponent_elo": from_elo
-                }))
-            except Exception:
-                pass
-
-        logger.info(f"Lobby: Duel accepted! '{from_username}' ({role_from}) vs '{target_username}' ({role_target}) in '{room_id}'")
-        await self.broadcast_online_players()
-        return room_id, from_username, target_username
-
-    async def decline_friend_invite(self, invite_id: str, target_username: str):
-        invite = self.pending_invites.pop(invite_id, None)
-        if not invite:
-            return
-
-        from_username = invite["from_username"]
-        if from_username in self.online_players:
-            try:
-                await self.online_players[from_username]["websocket"].send_text(json.dumps({
-                    "type": "friend_invite_declined",
-                    "message": f"Người chơi '{target_username}' đã từ chối lời mời thách đấu."
-                }))
-            except Exception:
-                pass
-
-lobby_manager = LobbyManager()
-
-# ---------------------------------------------------------------------------
-# Account & Lobby REST Endpoints
-# ---------------------------------------------------------------------------
-@app.post("/api/auth/login", response_model=LoginResponse)
-async def api_login(req: LoginRequest):
-    success, msg, user = account_manager.authenticate_or_register(req.gmail, req.username)
-    if not success:
-        raise HTTPException(status_code=400, detail=msg)
-    return LoginResponse(success=True, message=msg, user=user)
-
-@app.get("/api/players/online")
-async def api_get_online_players():
-    players = [
-        {"username": u, "elo": data["elo"], "status": data["status"]}
-        for u, data in lobby_manager.online_players.items()
-    ]
-    return {"total": len(players), "players": players}
-
-@app.get("/api/players/search")
-async def api_search_players(query: str):
-    q = query.strip().lower()
-    matches = []
-    for uname_key, udata in account_manager.users.items():
-        if q in uname_key:
-            status = lobby_manager.online_players.get(udata["username"], {}).get("status", "offline")
-            matches.append({
-                "username": udata["username"],
-                "elo": udata.get("elo", 1200),
-                "status": status
-            })
-    return {"total": len(matches), "results": matches[:20]}
-
-# ---------------------------------------------------------------------------
-# WebSocket Endpoint: Real-time Lobby & Matchmaking
-# ---------------------------------------------------------------------------
-@app.websocket("/ws/lobby/{username}")
-async def websocket_lobby_endpoint(websocket: WebSocket, username: str):
-    await websocket.accept()
-    user = account_manager.get_user_by_username(username)
-    elo = user.get("elo", 1200) if user else 1200
-
-    await lobby_manager.connect(websocket, username, elo)
-
-    try:
-        while True:
-            text = await websocket.receive_text()
-            try:
-                data = json.loads(text)
-            except Exception:
-                continue
-
-            msg_type = data.get("type")
-
-            if msg_type == "find_match":
-                tc = data.get("time_control", "10 + 0")
-                await lobby_manager.add_to_queue(username, tc, elo)
-
-            elif msg_type == "cancel_match":
-                await lobby_manager.cancel_queue(username)
-
-            elif msg_type == "invite_friend":
-                target = data.get("target_username")
-                inv_id, err = await lobby_manager.send_friend_invite(username, target)
-                if err:
-                    await websocket.send_text(json.dumps({
-                        "type": "invite_error",
-                        "message": err
-                    }))
-
-            elif msg_type == "respond_invite":
-                inv_id = data.get("invite_id")
-                accepted = data.get("accepted", False)
-                if accepted:
-                    await lobby_manager.accept_friend_invite(inv_id, username)
-                else:
-                    await lobby_manager.decline_friend_invite(inv_id, username)
-
-    except WebSocketDisconnect:
-        await lobby_manager.disconnect(username)
-    except Exception as e:
-        logger.warning(f"Lobby WebSocket error for '{username}': {e}")
-        await lobby_manager.disconnect(username)
 
 if __name__ == "__main__":
     # pyrefly: ignore[missing-import]

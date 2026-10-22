@@ -9,6 +9,7 @@ using MechChess.Combat2D;
 using MechChess.AR;
 using MechChess.Cloud;
 using MechChess.Mobile;
+using MechChess.Multiplayer;
 
 namespace MechChess.Editor
 {
@@ -105,11 +106,14 @@ namespace MechChess.Editor
             }
 
             // Ensure all central systems are attached
+            if (controller.GetComponent<MainMenu2D>() == null) controller.AddComponent<MainMenu2D>();
             if (controller.GetComponent<ChessBoard3DManager>() == null) controller.AddComponent<ChessBoard3DManager>();
             if (controller.GetComponent<UIManager2D>() == null) controller.AddComponent<UIManager2D>();
             if (controller.GetComponent<CombatMinigame2D>() == null) controller.AddComponent<CombatMinigame2D>();
             if (controller.GetComponent<HybridARController>() == null) controller.AddComponent<HybridARController>();
             if (controller.GetComponent<AdafruitIOCloudConnector>() == null) controller.AddComponent<AdafruitIOCloudConnector>();
+            if (controller.GetComponent<UserAccountManager>() == null) controller.AddComponent<UserAccountManager>();
+            if (controller.GetComponent<OnlineMultiplayerManager>() == null) controller.AddComponent<OnlineMultiplayerManager>();
 
             // Setup Main Camera Orbit
             Camera cam = Camera.main;
