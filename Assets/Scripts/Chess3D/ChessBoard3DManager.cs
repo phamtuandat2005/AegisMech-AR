@@ -648,9 +648,11 @@ namespace MechChess.Chess3D
             PieceColor opponent = (currentTurn == PieceColor.White) ? PieceColor.Black : PieceColor.White;
 
             // 1. Evaluate Check, Checkmate & Draw States for the opponent
-            bool inCheck = IsInCheck(opponent);
-            bool checkmate = inCheck && IsCheckmate(opponent);
-            bool stalemate = !inCheck && IsStalemate(opponent);
+            ChessPiece3D oppKing = FindKing(opponent);
+            bool kingCaptured = (oppKing == null);
+            bool inCheck = !kingCaptured && IsInCheck(opponent);
+            bool checkmate = kingCaptured || (inCheck && IsCheckmate(opponent));
+            bool stalemate = !kingCaptured && !inCheck && IsStalemate(opponent);
             bool insufficientMaterial = IsInsufficientMaterial();
             bool fiftyMoveDraw = (_halfMoveClock >= 100);
 
@@ -676,6 +678,7 @@ namespace MechChess.Chess3D
                 {
                     UIManager2D.Instance.RecordMove($"⚖️ HÒA CỜ: STALEMATE (HẾT NƯỚC ĐI HỢP LỆ)!");
                     UIManager2D.Instance.RecordMove("===============================");
+                    UIManager2D.Instance.TriggerGameOver(PieceColor.White, "Hòa cờ (Stalemate)!", true);
                 }
             }
             else if (insufficientMaterial)
@@ -686,6 +689,7 @@ namespace MechChess.Chess3D
                 {
                     UIManager2D.Instance.RecordMove($"⚖️ HÒA CỜ: KHÔNG ĐỦ LỰC LƯỢNG CHIẾU HẾT!");
                     UIManager2D.Instance.RecordMove("===============================");
+                    UIManager2D.Instance.TriggerGameOver(PieceColor.White, "Hòa cờ (Thiếu lực lượng)!", true);
                 }
             }
             else if (fiftyMoveDraw)
@@ -696,6 +700,7 @@ namespace MechChess.Chess3D
                 {
                     UIManager2D.Instance.RecordMove($"⚖️ HÒA CỜ: LUẬT 50 NƯỚC KHÔNG ĂN QUÂN!");
                     UIManager2D.Instance.RecordMove("===============================");
+                    UIManager2D.Instance.TriggerGameOver(PieceColor.White, "Hòa cờ (Luật 50 nước)!", true);
                 }
             }
             else if (inCheck)
@@ -711,6 +716,13 @@ namespace MechChess.Chess3D
             if (AdafruitIOCloudConnector.Instance != null)
             {
                 AdafruitIOCloudConnector.Instance.PublishTelemetry(turnCounter, 0.95f, statusStr, notation);
+            }
+
+            // If game is over, save state and halt immediately (do not switch turns)
+            if (isGameOver)
+            {
+                SaveCurrentGame();
+                return;
             }
 
             // Switch Turns
