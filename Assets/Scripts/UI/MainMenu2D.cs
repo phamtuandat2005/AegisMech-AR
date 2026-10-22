@@ -730,7 +730,7 @@ namespace MechChess.UI
             _profileNameTxt = infoObj.AddComponent<Text>();
             _profileNameTxt.text = "Player001";
             _profileNameTxt.font = font;
-            _profileNameTxt.fontSize = 22;
+            _profileNameTxt.fontSize = 25;
             _profileNameTxt.fontStyle = FontStyle.Bold;
             _profileNameTxt.alignment = TextAnchor.MiddleLeft;
             _profileNameTxt.color = ColTextWhite;
@@ -739,14 +739,14 @@ namespace MechChess.UI
             infoRt.anchorMax = new Vector2(0f, 0.5f);
             infoRt.pivot = new Vector2(0f, 0.5f);
             infoRt.anchoredPosition = new Vector2(88f, 14f);
-            infoRt.sizeDelta = new Vector2(160f, 26f);
+            infoRt.sizeDelta = new Vector2(180f, 30f);
 
             GameObject lvlObj = new GameObject("UserLevel");
             lvlObj.transform.SetParent(headerObj.transform, false);
             _profileLevelTxt = lvlObj.AddComponent<Text>();
             _profileLevelTxt.text = "Lv. 5";
             _profileLevelTxt.font = font;
-            _profileLevelTxt.fontSize = 17;
+            _profileLevelTxt.fontSize = 19;
             _profileLevelTxt.fontStyle = FontStyle.Bold;
             _profileLevelTxt.alignment = TextAnchor.MiddleLeft;
             _profileLevelTxt.color = new Color(0.0f, 0.82f, 1.0f, 0.95f);
@@ -755,7 +755,7 @@ namespace MechChess.UI
             lvlRt.anchorMax = new Vector2(0f, 0.5f);
             lvlRt.pivot = new Vector2(0f, 0.5f);
             lvlRt.anchoredPosition = new Vector2(88f, -14f);
-            lvlRt.sizeDelta = new Vector2(65f, 22f);
+            lvlRt.sizeDelta = new Vector2(75f, 24f);
 
             // Small diamond dropdown indicator next to Lv. 5
             GameObject diamondObj = new GameObject("DiamondIndicator");
@@ -763,15 +763,15 @@ namespace MechChess.UI
             Text dTxt = diamondObj.AddComponent<Text>();
             dTxt.text = "◊";
             dTxt.font = font;
-            dTxt.fontSize = 18;
+            dTxt.fontSize = 20;
             dTxt.alignment = TextAnchor.MiddleCenter;
             dTxt.color = new Color(0.0f, 0.82f, 1.0f, 0.9f);
             RectTransform dRt = diamondObj.GetComponent<RectTransform>();
             dRt.anchorMin = new Vector2(0f, 0.5f);
             dRt.anchorMax = new Vector2(0f, 0.5f);
             dRt.pivot = new Vector2(0f, 0.5f);
-            dRt.anchoredPosition = new Vector2(156f, -14f);
-            dRt.sizeDelta = new Vector2(20f, 22f);
+            dRt.anchoredPosition = new Vector2(165f, -14f);
+            dRt.sizeDelta = new Vector2(22f, 22f);
 
             // 3 Quick Action Icons (Mail, Reward with red dot, Settings) inside recessed right sub-panel
             CreateHeaderIconButton(headerObj.transform, "BtnMail", "icon_nav_mail.png", "✉", false, new Vector2(355f, 0f), () => ShowToast(AegisLocalization.T("Không có thư mới.", "No new mail."), ToastType.Info), font);
@@ -3241,7 +3241,7 @@ namespace MechChess.UI
             Text cbt = cbTxtObj.AddComponent<Text>();
             cbt.text = "✕";
             cbt.font = font;
-            cbt.fontSize = 16;
+            cbt.fontSize = 20;
             cbt.fontStyle = FontStyle.Bold;
             cbt.alignment = TextAnchor.MiddleCenter;
             cbt.color = ColCyanGlow;
@@ -3286,38 +3286,38 @@ namespace MechChess.UI
             avRt.anchoredPosition = Vector2.zero;
             avRt.sizeDelta = new Vector2(84f, 84f);
 
-            // Username: "Player001" (Bold 24 White)
+            // Username: "Player001" (Bold 30 White)
             string currentName = "Player001";
             if (UserAccountManager.Instance != null && !string.IsNullOrEmpty(UserAccountManager.Instance.CurrentUsername))
                 currentName = UserAccountManager.Instance.CurrentUsername;
-            CreateTextComp(leftPanel.transform, currentName, 24, FontStyle.Bold, ColTextWhite, font, new Vector2(-35f, 188f), new Vector2(230f, 32f), TextAnchor.MiddleLeft);
+            CreateTextComp(leftPanel.transform, currentName, 30, FontStyle.Bold, ColTextWhite, font, new Vector2(-25f, 188f), new Vector2(260f, 38f), TextAnchor.MiddleLeft);
 
-            // Level: "Lv. 5" (Cyan 15)
-            CreateTextComp(leftPanel.transform, "Lv. 5", 15, FontStyle.Bold, ColCyanGlow, font, new Vector2(-35f, 158f), new Vector2(120f, 22f), TextAnchor.MiddleLeft);
+            // Level: "Lv. 5" (Cyan 20 Bold)
+            CreateTextComp(leftPanel.transform, "Lv. 5", 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(-25f, 154f), new Vector2(140f, 26f), TextAnchor.MiddleLeft);
 
-            // EXP Progress Bar (Width 180px, height 14px, fill ~64%) + "320 / 500"
+            // EXP Progress Bar (Width 180px, height 16px, fill ~64%) + "320 / 500"
             GameObject expBarObj = new GameObject("ExpBarBg");
             expBarObj.transform.SetParent(leftPanel.transform, false);
             Image expBg = expBarObj.AddComponent<Image>();
-            expBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(180, 14, 7f, new Color(0.05f, 0.10f, 0.20f, 0.95f), new Color(0.10f, 0.35f, 0.55f, 0.8f), 1f);
+            expBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(180, 16, 8f, new Color(0.05f, 0.10f, 0.20f, 0.95f), new Color(0.10f, 0.35f, 0.55f, 0.8f), 1f);
             expBg.type = Image.Type.Sliced;
             RectTransform expRt = expBarObj.GetComponent<RectTransform>();
-            expRt.anchoredPosition = new Vector2(-40f, 130f);
-            expRt.sizeDelta = new Vector2(180f, 14f);
+            expRt.anchoredPosition = new Vector2(-30f, 124f);
+            expRt.sizeDelta = new Vector2(180f, 16f);
 
             GameObject expFillObj = new GameObject("ExpFill");
             expFillObj.transform.SetParent(expBarObj.transform, false);
             Image expFill = expFillObj.AddComponent<Image>();
-            expFill.sprite = ArcaneAssetLoader.GetGlassBoxSprite(115, 14, 7f, ColCyanGlow, ColCyanGlow, 0f);
+            expFill.sprite = ArcaneAssetLoader.GetGlassBoxSprite(115, 16, 8f, ColCyanGlow, ColCyanGlow, 0f);
             expFill.type = Image.Type.Sliced;
             RectTransform fillRt = expFillObj.GetComponent<RectTransform>();
             fillRt.anchorMin = new Vector2(0f, 0.5f);
             fillRt.anchorMax = new Vector2(0f, 0.5f);
             fillRt.pivot = new Vector2(0f, 0.5f);
             fillRt.anchoredPosition = Vector2.zero;
-            fillRt.sizeDelta = new Vector2(115f, 14f); // 320 / 500 = 64%
+            fillRt.sizeDelta = new Vector2(115f, 16f); // 320 / 500 = 64%
 
-            CreateTextComp(leftPanel.transform, "320 / 500", 13, FontStyle.Bold, new Color(0.85f, 0.92f, 1.0f), font, new Vector2(105f, 130f), new Vector2(90f, 20f), TextAnchor.MiddleLeft);
+            CreateTextComp(leftPanel.transform, "320 / 500", 18, FontStyle.Bold, new Color(0.88f, 0.94f, 1.0f), font, new Vector2(120f, 124f), new Vector2(110f, 26f), TextAnchor.MiddleLeft);
 
             // ---------------------------------------------------------------------
             // Stats Table Card (Lower Left - Matching Image 2)
@@ -3353,7 +3353,7 @@ namespace MechChess.UI
             hdrt.anchoredPosition = new Vector2(0f, -10f);
             hdrt.sizeDelta = new Vector2(490f, 1.5f);
 
-            // 4 Column Headers: Elo, Thắng, Thua, Hòa
+            // 4 Column Headers: Elo, Thắng, Thua, Hòa (Bold 21)
             float[] colX = { -195f, -65f, 65f, 195f };
             string[] statHeaders = {
                 AegisLocalization.T("Elo", "Elo"),
@@ -3363,16 +3363,16 @@ namespace MechChess.UI
             };
             for (int i = 0; i < 4; i++)
             {
-                CreateTextComp(statsCard.transform, statHeaders[i], 16, FontStyle.Normal, ColTextMuted, font, new Vector2(colX[i], 78f), new Vector2(100f, 26f), TextAnchor.MiddleCenter);
+                CreateTextComp(statsCard.transform, statHeaders[i], 21, FontStyle.Bold, new Color(0.80f, 0.88f, 0.98f), font, new Vector2(colX[i], 78f), new Vector2(110f, 30f), TextAnchor.MiddleCenter);
             }
 
-            // Row 1: 1250 (Cyan 24 Bold), 129 (White 21 Bold), 8 (White 21 Bold), Draw Icon
+            // Row 1: 1250 (Cyan 32 Bold), 129 (White 28 Bold), 8 (White 28 Bold), Draw Icon
             int currentElo = 1250;
             if (UserAccountManager.Instance != null && UserAccountManager.Instance.CurrentElo > 0)
                 currentElo = UserAccountManager.Instance.CurrentElo;
-            CreateTextComp(statsCard.transform, currentElo.ToString(), 24, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[0], 30f), new Vector2(100f, 32f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "129", 21, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], 30f), new Vector2(100f, 32f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "8", 21, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], 30f), new Vector2(100f, 32f), TextAnchor.MiddleCenter);
+            CreateTextComp(statsCard.transform, currentElo.ToString(), 32, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[0], 28f), new Vector2(110f, 40f), TextAnchor.MiddleCenter);
+            CreateTextComp(statsCard.transform, "129", 28, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], 28f), new Vector2(110f, 38f), TextAnchor.MiddleCenter);
+            CreateTextComp(statsCard.transform, "8", 28, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], 28f), new Vector2(110f, 38f), TextAnchor.MiddleCenter);
 
             // Draw Icon (profile_draw_icon.png)
             GameObject drawIconObj = new GameObject("DrawIcon");
@@ -3383,10 +3383,10 @@ namespace MechChess.UI
             else drawIconImg.color = ColCyanGlow;
             drawIconImg.preserveAspect = true;
             RectTransform diRt = drawIconObj.GetComponent<RectTransform>();
-            diRt.anchoredPosition = new Vector2(colX[3], 30f);
-            diRt.sizeDelta = new Vector2(32f, 32f);
+            diRt.anchoredPosition = new Vector2(colX[3], 28f);
+            diRt.sizeDelta = new Vector2(36f, 36f);
 
-            // Row 2: Rank Crest, 12 (White), 8 (Cyan), 2 (White)
+            // Row 2: Rank Crest, 12 (White 26 Bold), 8 (Cyan 26 Bold), 2 (White 26 Bold)
             GameObject rankCrestObj = new GameObject("RankCrest");
             rankCrestObj.transform.SetParent(statsCard.transform, false);
             Image rankCrestImg = rankCrestObj.AddComponent<Image>();
@@ -3396,11 +3396,11 @@ namespace MechChess.UI
             rankCrestImg.preserveAspect = true;
             RectTransform rcRt = rankCrestObj.GetComponent<RectTransform>();
             rcRt.anchoredPosition = new Vector2(colX[0], -62f);
-            rcRt.sizeDelta = new Vector2(36f, 36f);
+            rcRt.sizeDelta = new Vector2(38f, 38f);
 
-            CreateTextComp(statsCard.transform, "12", 19, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], -62f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "8", 19, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[2], -62f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "2", 19, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], -62f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
+            CreateTextComp(statsCard.transform, "12", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            CreateTextComp(statsCard.transform, "8", 26, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[2], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            CreateTextComp(statsCard.transform, "2", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
 
             // =====================================================================
             // RIGHT PANEL: Sub-Tabs & Match History Card (Matching Image 2)
@@ -3457,10 +3457,10 @@ namespace MechChess.UI
                 Text txtComp = txtObj.AddComponent<Text>();
                 txtComp.text = pTabs[i];
                 txtComp.font = font;
-                txtComp.fontSize = 16;
-                txtComp.fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
+                txtComp.fontSize = 21;
+                txtComp.fontStyle = FontStyle.Bold;
                 txtComp.alignment = TextAnchor.MiddleCenter;
-                txtComp.color = active ? ColTextWhite : ColTextMuted;
+                txtComp.color = active ? ColTextWhite : new Color(0.75f, 0.84f, 0.96f, 0.85f);
                 _profileTabTexts[i] = txtComp;
 
                 RectTransform txtRt = txtObj.GetComponent<RectTransform>();
@@ -3523,10 +3523,10 @@ namespace MechChess.UI
                 riRt.anchoredPosition = new Vector2(-240f, 0f);
                 riRt.sizeDelta = new Vector2(44f, 44f);
 
-                // Opponent Name
-                CreateTextComp(rowObj.transform, opponents[i], 18, FontStyle.Bold, ColTextWhite, font, new Vector2(-140f, 0f), new Vector2(160f, 30f), TextAnchor.MiddleLeft);
+                // Opponent Name (Bold 24)
+                CreateTextComp(rowObj.transform, opponents[i], 24, FontStyle.Bold, ColTextWhite, font, new Vector2(-125f, 0f), new Vector2(190f, 34f), TextAnchor.MiddleLeft);
 
-                // Score
+                // Score (Bold 28)
                 if (i == 1)
                 {
                     // Loss score: 0 - 1 (1 in bright red)
@@ -3535,22 +3535,22 @@ namespace MechChess.UI
                     Text scoreTxt = scoreObj.AddComponent<Text>();
                     scoreTxt.text = "0 - <color=#FF4444>1</color>";
                     scoreTxt.font = font;
-                    scoreTxt.fontSize = 20;
+                    scoreTxt.fontSize = 28;
                     scoreTxt.fontStyle = FontStyle.Bold;
                     scoreTxt.alignment = TextAnchor.MiddleCenter;
                     scoreTxt.color = ColTextWhite;
                     scoreTxt.supportRichText = true;
                     RectTransform sRt = scoreObj.GetComponent<RectTransform>();
                     sRt.anchoredPosition = new Vector2(35f, 0f);
-                    sRt.sizeDelta = new Vector2(100f, 30f);
+                    sRt.sizeDelta = new Vector2(120f, 38f);
                 }
                 else
                 {
-                    CreateTextComp(rowObj.transform, "1 - 0", 20, FontStyle.Bold, ColTextWhite, font, new Vector2(35f, 0f), new Vector2(100f, 30f), TextAnchor.MiddleCenter);
+                    CreateTextComp(rowObj.transform, "1 - 0", 28, FontStyle.Bold, ColTextWhite, font, new Vector2(35f, 0f), new Vector2(120f, 38f), TextAnchor.MiddleCenter);
                 }
 
-                // Date
-                CreateTextComp(rowObj.transform, dates[i], 15, FontStyle.Normal, new Color(0.65f, 0.75f, 0.88f), font, new Vector2(210f, 0f), new Vector2(130f, 30f), TextAnchor.MiddleRight);
+                // Date (Normal 19)
+                CreateTextComp(rowObj.transform, dates[i], 19, FontStyle.Normal, new Color(0.75f, 0.85f, 0.98f), font, new Vector2(205f, 0f), new Vector2(140f, 32f), TextAnchor.MiddleRight);
             }
 
             // Tab 1 Content: Achievements (Thành tích)
@@ -3576,8 +3576,8 @@ namespace MechChess.UI
             };
             for (int i = 0; i < 3; i++)
             {
-                CreateTextComp(achContainer.transform, "🏆  " + achTitles[i], 16, FontStyle.Bold, ColTextWhite, font, new Vector2(-120f, 80f - i * 80f), new Vector2(320f, 30f), TextAnchor.MiddleLeft);
-                CreateTextComp(achContainer.transform, achProgress[i], 15, FontStyle.Bold, ColCyanGlow, font, new Vector2(190f, 80f - i * 80f), new Vector2(130f, 30f), TextAnchor.MiddleRight);
+                CreateTextComp(achContainer.transform, "🏆  " + achTitles[i], 21, FontStyle.Bold, ColTextWhite, font, new Vector2(-110f, 80f - i * 80f), new Vector2(350f, 34f), TextAnchor.MiddleLeft);
+                CreateTextComp(achContainer.transform, achProgress[i], 19, FontStyle.Bold, ColCyanGlow, font, new Vector2(190f, 80f - i * 80f), new Vector2(150f, 34f), TextAnchor.MiddleRight);
             }
             achContainer.SetActive(false);
 
@@ -3599,7 +3599,7 @@ namespace MechChess.UI
             };
             for (int i = 0; i < 3; i++)
             {
-                CreateTextComp(skinTabContainer.transform, "🛡  " + ownedSkins[i], 16, FontStyle.Bold, ColTextWhite, font, new Vector2(-120f, 80f - i * 80f), new Vector2(320f, 30f), TextAnchor.MiddleLeft);
+                CreateTextComp(skinTabContainer.transform, "🛡  " + ownedSkins[i], 21, FontStyle.Bold, ColTextWhite, font, new Vector2(-110f, 80f - i * 80f), new Vector2(370f, 34f), TextAnchor.MiddleLeft);
             }
             skinTabContainer.SetActive(false);
 
@@ -3620,8 +3620,9 @@ namespace MechChess.UI
                 }
                 if (_profileTabTexts[i] != null)
                 {
-                    _profileTabTexts[i].color = (i == tabIndex) ? ColCyanGlow : ColTextWhite;
-                    _profileTabTexts[i].fontStyle = (i == tabIndex) ? FontStyle.Bold : FontStyle.Normal;
+                    _profileTabTexts[i].color = (i == tabIndex) ? ColTextWhite : new Color(0.75f, 0.84f, 0.96f, 0.85f);
+                    _profileTabTexts[i].fontStyle = FontStyle.Bold;
+                    _profileTabTexts[i].fontSize = 21;
                 }
                 if (_profileTabContainers[i] != null)
                 {
