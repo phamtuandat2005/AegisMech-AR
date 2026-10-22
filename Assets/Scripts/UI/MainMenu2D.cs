@@ -868,6 +868,21 @@ namespace MechChess.UI
 
         private void BuildLeftMainMenuNav(Transform parent, Font font)
         {
+            // Dark Frosted Glass Dock Backing for Left Navigation (ensures high contrast over bright cloud backgrounds)
+            GameObject dockBacking = new GameObject("NavDockBacking");
+            dockBacking.transform.SetParent(parent, false);
+            RectTransform dbRt = dockBacking.AddComponent<RectTransform>();
+            dbRt.anchorMin = new Vector2(0f, 1f);
+            dbRt.anchorMax = new Vector2(0f, 1f);
+            dbRt.pivot = new Vector2(0f, 1f);
+            dbRt.anchoredPosition = new Vector2(40f, -205f);
+            dbRt.sizeDelta = new Vector2(420f, 495f);
+
+            Image dbImg = dockBacking.AddComponent<Image>();
+            dbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(420, 495, 24f, new Color(0.015f, 0.04f, 0.09f, 0.82f), new Color(0.0f, 0.65f, 0.95f, 0.30f), 1.5f);
+            dbImg.type = Image.Type.Sliced;
+            dbImg.raycastTarget = false;
+
             _navContainer = new GameObject("LeftNavigationStack");
             _navContainer.transform.SetParent(parent, false);
             RectTransform ncRt = _navContainer.AddComponent<RectTransform>();
@@ -909,7 +924,8 @@ namespace MechChess.UI
                 le.preferredHeight = 68f;
 
                 Image bg = itemObj.AddComponent<Image>();
-                bg.color = Color.clear;
+                bg.type = Image.Type.Sliced;
+                bg.color = Color.white;
 
                 Button btn = itemObj.AddComponent<Button>();
                 btn.navigation = new Navigation { mode = Navigation.Mode.None };
@@ -944,6 +960,15 @@ namespace MechChess.UI
                 t.alignment = TextAnchor.MiddleLeft;
                 t.color = (i == 0) ? Color.white : new Color(0.95f, 0.98f, 1.0f, 0.95f);
                 t.raycastTarget = false;
+
+                Outline outline = txtObj.AddComponent<Outline>();
+                outline.effectColor = new Color(0.01f, 0.03f, 0.08f, 0.95f);
+                outline.effectDistance = new Vector2(1.5f, -1.5f);
+
+                Shadow shadow = txtObj.AddComponent<Shadow>();
+                shadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
+                shadow.effectDistance = new Vector2(2f, -2f);
+
                 RectTransform trt = txtObj.GetComponent<RectTransform>();
                 trt.anchorMin = new Vector2(0f, 0.5f);
                 trt.anchorMax = new Vector2(0f, 0.5f);
@@ -996,13 +1021,23 @@ namespace MechChess.UI
                 {
                     if (isActive)
                     {
-                        if (chevronSprite != null) _navItemBgs[i].sprite = chevronSprite;
+                        if (chevronSprite != null)
+                        {
+                            _navItemBgs[i].sprite = chevronSprite;
+                            _navItemBgs[i].type = Image.Type.Simple;
+                        }
+                        else
+                        {
+                            _navItemBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(440, 105, 18f, new Color(0.06f, 0.22f, 0.48f, 0.95f), ColCyanBorder, 2f);
+                            _navItemBgs[i].type = Image.Type.Sliced;
+                        }
                         _navItemBgs[i].color = Color.white;
                     }
                     else
                     {
-                        _navItemBgs[i].sprite = null;
-                        _navItemBgs[i].color = Color.clear;
+                        _navItemBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 68, 14f, new Color(0.02f, 0.05f, 0.12f, 0.90f), new Color(0.0f, 0.75f, 1.0f, 0.40f), 1.2f);
+                        _navItemBgs[i].type = Image.Type.Sliced;
+                        _navItemBgs[i].color = Color.white;
                     }
                 }
 
