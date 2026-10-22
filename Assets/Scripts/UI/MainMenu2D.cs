@@ -4495,6 +4495,10 @@ namespace MechChess.UI
 
         public void OpenSettingsModal()
         {
+            if (_menuCanvasObj != null && !_menuCanvasObj.activeSelf)
+            {
+                _menuCanvasObj.SetActive(true);
+            }
             CloseAllModals();
             EnsureBaseScreenActive();
             if (_settingsModal != null)
