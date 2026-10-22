@@ -1861,7 +1861,7 @@ namespace MechChess.UI
             // Right Close: "✕"
             GameObject closeBtnObj = new GameObject("HeaderCloseBtn");
             closeBtnObj.transform.SetParent(cardObj.transform, false);
-            RectTransform cbRt = closeBtnObj.GetComponent<RectTransform>();
+            RectTransform cbRt = closeBtnObj.AddComponent<RectTransform>();
             cbRt.anchorMin = new Vector2(1f, 1f);
             cbRt.anchorMax = new Vector2(1f, 1f);
             cbRt.pivot = new Vector2(1f, 1f);

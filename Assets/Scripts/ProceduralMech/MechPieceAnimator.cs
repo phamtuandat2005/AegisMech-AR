@@ -148,7 +148,10 @@ namespace MechChess.ProceduralMech
         /// </summary>
         public void TriggerEMPShock()
         {
-            StartCoroutine(EMPShockRoutine());
+            if (gameObject.activeInHierarchy)
+            {
+                StartCoroutine(EMPShockRoutine());
+            }
         }
 
         private IEnumerator EMPShockRoutine()
