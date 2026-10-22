@@ -707,6 +707,7 @@ namespace MechChess.UI
             hRt.pivot = new Vector2(1f, 1f);
             hRt.anchoredPosition = new Vector2(-60f, -36f);
             hRt.sizeDelta = new Vector2(540f, 86f);
+            headerObj.transform.localScale = new Vector3(1.1f, 1.1f, 1.0f); // Phóng to 10% theo yêu cầu người dùng
 
             // Circular Avatar with Cyan Ring
             GameObject avObj = new GameObject("Avatar");
@@ -773,12 +774,12 @@ namespace MechChess.UI
             dRt.sizeDelta = new Vector2(20f, 22f);
 
             // 3 Quick Action Icons (Mail, Reward with red dot, Settings) inside recessed right sub-panel
-            CreateHeaderIconButton(headerObj.transform, "BtnMail", "✉", false, new Vector2(355f, 0f), () => ShowToast(AegisLocalization.T("Không có thư mới.", "No new mail."), ToastType.Info), font);
-            CreateHeaderIconButton(headerObj.transform, "BtnInbox", "📥", true, new Vector2(415f, 0f), () => ShowToast(AegisLocalization.T("1 phần thưởng chưa nhận!", "1 unclaimed reward!"), ToastType.Success), font);
-            CreateHeaderIconButton(headerObj.transform, "BtnQuickSettings", "⚙", false, new Vector2(475f, 0f), OpenSettingsModal, font);
+            CreateHeaderIconButton(headerObj.transform, "BtnMail", "icon_nav_mail.png", "✉", false, new Vector2(355f, 0f), () => ShowToast(AegisLocalization.T("Không có thư mới.", "No new mail."), ToastType.Info), font);
+            CreateHeaderIconButton(headerObj.transform, "BtnInbox", "icon_nav_reward.png", "★", true, new Vector2(415f, 0f), () => ShowToast(AegisLocalization.T("1 phần thưởng chưa nhận!", "1 unclaimed reward!"), ToastType.Success), font);
+            CreateHeaderIconButton(headerObj.transform, "BtnQuickSettings", "icon_nav_settings.png", "⚙", false, new Vector2(475f, 0f), OpenSettingsModal, font);
         }
 
-        private void CreateHeaderIconButton(Transform parent, string name, string icon, bool showRedBadge, Vector2 pos, Action onClick, Font font)
+        private void CreateHeaderIconButton(Transform parent, string name, string spriteName, string fallbackGlyph, bool showRedBadge, Vector2 pos, Action onClick, Font font)
         {
             GameObject btnObj = new GameObject(name);
             btnObj.transform.SetParent(parent, false);
@@ -798,48 +799,34 @@ namespace MechChess.UI
             rt.anchoredPosition = pos;
             rt.sizeDelta = new Vector2(46f, 46f);
 
-            if (name == "BtnQuickSettings")
+            Sprite iconSpr = null;
+            if (!string.IsNullOrEmpty(spriteName))
             {
-                Sprite setSpr = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_settings.png");
-                if (setSpr != null)
-                {
-                    GameObject imgObj = new GameObject("Icon");
-                    imgObj.transform.SetParent(btnObj.transform, false);
-                    Image icImg = imgObj.AddComponent<Image>();
-                    icImg.sprite = setSpr;
-                    icImg.color = ColTextWhite;
-                    icImg.preserveAspect = true;
-                    icImg.raycastTarget = false;
-                    RectTransform irt = imgObj.GetComponent<RectTransform>();
-                    irt.anchorMin = new Vector2(0.5f, 0.5f);
-                    irt.anchorMax = new Vector2(0.5f, 0.5f);
-                    irt.pivot = new Vector2(0.5f, 0.5f);
-                    irt.anchoredPosition = Vector2.zero;
-                    irt.sizeDelta = new Vector2(26f, 26f);
-                }
-                else
-                {
-                    GameObject txtObj = new GameObject("Icon");
-                    txtObj.transform.SetParent(btnObj.transform, false);
-                    Text t = txtObj.AddComponent<Text>();
-                    t.text = icon;
-                    t.font = font;
-                    t.fontSize = 22;
-                    t.alignment = TextAnchor.MiddleCenter;
-                    t.color = ColTextWhite;
-                    RectTransform trt = txtObj.GetComponent<RectTransform>();
-                    trt.anchorMin = Vector2.zero;
-                    trt.anchorMax = Vector2.one;
-                    trt.offsetMin = Vector2.zero;
-                    trt.offsetMax = Vector2.zero;
-                }
+                iconSpr = ArcaneAssetLoader.LoadArcaneSprite(spriteName);
+            }
+
+            if (iconSpr != null)
+            {
+                GameObject imgObj = new GameObject("Icon");
+                imgObj.transform.SetParent(btnObj.transform, false);
+                Image icImg = imgObj.AddComponent<Image>();
+                icImg.sprite = iconSpr;
+                icImg.color = ColTextWhite;
+                icImg.preserveAspect = true;
+                icImg.raycastTarget = false;
+                RectTransform irt = imgObj.GetComponent<RectTransform>();
+                irt.anchorMin = new Vector2(0.5f, 0.5f);
+                irt.anchorMax = new Vector2(0.5f, 0.5f);
+                irt.pivot = new Vector2(0.5f, 0.5f);
+                irt.anchoredPosition = Vector2.zero;
+                irt.sizeDelta = new Vector2(26f, 26f);
             }
             else
             {
                 GameObject txtObj = new GameObject("Icon");
                 txtObj.transform.SetParent(btnObj.transform, false);
                 Text t = txtObj.AddComponent<Text>();
-                t.text = icon;
+                t.text = fallbackGlyph;
                 t.font = font;
                 t.fontSize = 22;
                 t.alignment = TextAnchor.MiddleCenter;
