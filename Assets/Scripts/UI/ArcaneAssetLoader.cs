@@ -635,5 +635,520 @@ namespace MechChess.UI
             _proceduralCache[key] = s;
             return s;
         }
+
+        private static float RoundedRectDist(float px, float py, float minX, float minY, float maxX, float maxY, float r)
+        {
+            float cx = Mathf.Clamp(px, minX + r, maxX - r);
+            float cy = Mathf.Clamp(py, minY + r, maxY - r);
+            return Vector2.Distance(new Vector2(px, py), new Vector2(cx, cy)) - r;
+        }
+
+        private static float SegmentDist(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 pa = p - a;
+            Vector2 ba = b - a;
+            float h = Mathf.Clamp01(Vector2.Dot(pa, ba) / Vector2.Dot(ba, ba));
+            return (pa - ba * h).magnitude;
+        }
+
+
+        /// <summary>
+        /// Antialiased procedural Camera / Snapshot icon sprite.
+        /// </summary>
+        public static Sprite GetCameraIconSprite(int size = 64, Color? iconColor = null)
+        {
+            Color baseCol = iconColor ?? new Color(0.96f, 0.94f, 0.88f, 1f);
+            string key = $"CameraIcon_{size}_{baseCol}";
+            if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            int sw = size * PROC_SCALE;
+            int sh = size * PROC_SCALE;
+            float scale = (float)sw / 256f;
+
+            Texture2D tex = new Texture2D(sw, sh, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Color[] colors = new Color[sw * sh];
+
+            for (int y = 0; y < sh; y++)
+            {
+                float py = (y + 0.5f) / scale;
+                for (int x = 0; x < sw; x++)
+                {
+                    float px = (x + 0.5f) / scale;
+
+                    // Camera main body: 38..218 (W: 180), 44..172 (H: 128), r = 22
+                    float bodyDist = RoundedRectDist(px, py, 38f, 44f, 218f, 172f, 22f);
+                    // Top viewfinder bump: 84..140 (W: 56), 168..204 (H: 36), r = 12
+                    float bumpDist = RoundedRectDist(px, py, 84f, 168f, 140f, 204f, 12f);
+
+                    float cameraDist = Mathf.Min(bodyDist, bumpDist);
+                    if (cameraDist > 1.2f)
+                    {
+                        colors[y * sw + x] = Color.clear;
+                        continue;
+                    }
+
+                    // Lens cutout groove around center (128, 108)
+                    float dLens = Vector2.Distance(new Vector2(px, py), new Vector2(128f, 108f));
+                    // Cutout ring between radius 30 and 44
+                    float ringDist = Mathf.Abs(dLens - 37f) - 7f; // < 0 inside cutout ring
+
+                    // Flash glass dot at (184, 146), radius 9
+                    float dFlash = Vector2.Distance(new Vector2(px, py), new Vector2(184f, 146f)) - 9f;
+
+                    // Calculate interior cutout mask (1 = solid, 0 = cutout)
+                    float cutoutAlpha = 1f;
+                    if (ringDist <= 1f)
+                    {
+                        cutoutAlpha = Mathf.Clamp01(ringDist);
+                    }
+                    if (dFlash <= 1f)
+                    {
+                        cutoutAlpha = Mathf.Min(cutoutAlpha, Mathf.Clamp01(dFlash));
+                    }
+
+                    // Outer antialiased alpha
+                    float outerAlpha = Mathf.Clamp01(-cameraDist + 1f);
+                    float finalAlpha = outerAlpha * cutoutAlpha;
+
+                    Color c = baseCol;
+                    // Subtle glass highlight reflection on top edge of lens
+                    float dReflection = Vector2.Distance(new Vector2(px, py), new Vector2(136f, 116f));
+                    if (dReflection <= 6f && dLens <= 26f)
+                    {
+                        c = Color.Lerp(c, Color.white, 0.45f);
+                    }
+                    c.a *= finalAlpha;
+                    colors[y * sw + x] = c;
+                }
+            }
+
+            tex.SetPixels(colors);
+            tex.Apply();
+
+            Sprite s = Sprite.Create(tex, new Rect(0, 0, sw, sh), new Vector2(0.5f, 0.5f), 100f * PROC_SCALE);
+            _proceduralCache[key] = s;
+            return s;
+        }
+
+        /// <summary>
+        /// Antialiased procedural Video / Camcorder / Record icon sprite.
+        /// </summary>
+        public static Sprite GetVideoIconSprite(int size = 64, Color? iconColor = null)
+        {
+            Color baseCol = iconColor ?? new Color(0.96f, 0.94f, 0.88f, 1f);
+            string key = $"VideoIcon_{size}_{baseCol}";
+            if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            int sw = size * PROC_SCALE;
+            int sh = size * PROC_SCALE;
+            float scale = (float)sw / 256f;
+
+            Texture2D tex = new Texture2D(sw, sh, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Color[] colors = new Color[sw * sh];
+
+            for (int y = 0; y < sh; y++)
+            {
+                float py = (y + 0.5f) / scale;
+                for (int x = 0; x < sw; x++)
+                {
+                    float px = (x + 0.5f) / scale;
+
+                    // Camera main body: 36..158 (W: 122), 64..192 (H: 128), r = 20
+                    float bodyDist = RoundedRectDist(px, py, 36f, 64f, 158f, 192f, 20f);
+
+                    // Lens cone / trapeze from x = 168 to 226
+                    float coneDist = 999f;
+                    if (px >= 166f && px <= 228f)
+                    {
+                        float t = Mathf.Clamp01((px - 168f) / 58f);
+                        float halfH = Mathf.Lerp(26f, 54f, t);
+                        float vertDist = Mathf.Abs(py - 128f) - halfH;
+                        float horizDist = Mathf.Max(168f - px, px - 226f);
+                        coneDist = Mathf.Max(vertDist, horizDist);
+                    }
+
+                    float videoDist = Mathf.Min(bodyDist, coneDist);
+                    if (videoDist > 1.2f)
+                    {
+                        colors[y * sw + x] = Color.clear;
+                        continue;
+                    }
+
+                    // Recording indicator circle cutout inside body at (97, 128)
+                    float dCenter = Vector2.Distance(new Vector2(px, py), new Vector2(97f, 128f));
+                    // Cutout ring between radius 20 and 32
+                    float ringDist = Mathf.Abs(dCenter - 26f) - 6f; // < 0 inside cutout ring
+
+                    float cutoutAlpha = (ringDist <= 1f) ? Mathf.Clamp01(ringDist) : 1f;
+                    float outerAlpha = Mathf.Clamp01(-videoDist + 1f);
+                    float finalAlpha = outerAlpha * cutoutAlpha;
+
+                    Color c = baseCol;
+                    // Center recording dot tinted with subtle crimson gold
+                    if (dCenter <= 14f)
+                    {
+                        c = new Color(0.95f, 0.35f, 0.38f, 1f);
+                    }
+                    c.a *= finalAlpha;
+                    colors[y * sw + x] = c;
+                }
+            }
+
+            tex.SetPixels(colors);
+            tex.Apply();
+
+            Sprite s = Sprite.Create(tex, new Rect(0, 0, sw, sh), new Vector2(0.5f, 0.5f), 100f * PROC_SCALE);
+            _proceduralCache[key] = s;
+            return s;
+        }
+
+        /// <summary>
+        /// Antialiased procedural Settings Gear icon sprite.
+        /// </summary>
+        public static Sprite GetSettingsGearIconSprite(int size = 64, Color? iconColor = null)
+        {
+            Color baseCol = iconColor ?? new Color(0.96f, 0.94f, 0.88f, 1f);
+            string key = $"GearIcon_{size}_{baseCol}";
+            if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            int sw = size * PROC_SCALE;
+            int sh = size * PROC_SCALE;
+            float scale = (float)sw / 256f;
+
+            Texture2D tex = new Texture2D(sw, sh, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Color[] colors = new Color[sw * sh];
+
+            for (int y = 0; y < sh; y++)
+            {
+                float py = (y + 0.5f) / scale;
+                for (int x = 0; x < sw; x++)
+                {
+                    float px = (x + 0.5f) / scale;
+
+                    float dx = px - 128f;
+                    float dy = py - 128f;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                    if (dist > 105f)
+                    {
+                        colors[y * sw + x] = Color.clear;
+                        continue;
+                    }
+
+                    float angle = Mathf.Atan2(dy, dx);
+                    // 6-teeth gear profile
+                    float toothWave = Mathf.Cos(6f * angle);
+                    float toothProfile = Mathf.SmoothStep(-0.25f, 0.25f, toothWave);
+                    float rOuter = Mathf.Lerp(76f, 98f, toothProfile);
+                    float rHole = 30f;
+
+                    float outerDist = dist - rOuter;
+                    float holeDist = rHole - dist;
+
+                    if (outerDist > 1.2f || holeDist > 1.2f)
+                    {
+                        colors[y * sw + x] = Color.clear;
+                        continue;
+                    }
+
+                    float outerAlpha = Mathf.Clamp01(-outerDist + 1f);
+                    float holeAlpha = Mathf.Clamp01(-holeDist + 1f);
+                    float alpha = outerAlpha * holeAlpha;
+
+                    Color c = baseCol;
+                    // Groove ring at radius 50..54
+                    float grooveDist = Mathf.Abs(dist - 52f) - 2f;
+                    if (grooveDist <= 1f)
+                    {
+                        alpha *= Mathf.Clamp01(grooveDist);
+                    }
+
+                    c.a *= alpha;
+                    colors[y * sw + x] = c;
+                }
+            }
+
+            tex.SetPixels(colors);
+            tex.Apply();
+
+            Sprite s = Sprite.Create(tex, new Rect(0, 0, sw, sh), new Vector2(0.5f, 0.5f), 100f * PROC_SCALE);
+            _proceduralCache[key] = s;
+            return s;
+        }
+
+        /// <summary>
+        /// Antialiased procedural Crosshair / Reticle icon sprite for Exit AR.
+        /// </summary>
+        public static Sprite GetCrosshairIconSprite(int size = 64, Color? iconColor = null)
+        {
+            Color baseCol = iconColor ?? new Color(0.96f, 0.94f, 0.88f, 1f);
+            string key = $"CrosshairIcon_{size}_{baseCol}";
+            if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            int sw = size * PROC_SCALE;
+            int sh = size * PROC_SCALE;
+            float scale = (float)sw / 256f;
+
+            Texture2D tex = new Texture2D(sw, sh, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Color[] colors = new Color[sw * sh];
+
+            for (int y = 0; y < sh; y++)
+            {
+                float py = (y + 0.5f) / scale;
+                for (int x = 0; x < sw; x++)
+                {
+                    float px = (x + 0.5f) / scale;
+
+                    float dx = px - 128f;
+                    float dy = py - 128f;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                    // Circular ring between radius 64 and 80
+                    float ringDist = Mathf.Abs(dist - 72f) - 8f;
+
+                    // Center dot radius 14
+                    float dotDist = dist - 14f;
+
+                    // 4 Crosshair ticks (W: 10, extending from radius 56 to 98)
+                    float tickX = Mathf.Abs(dx) - 5f;
+                    float tickY = Mathf.Abs(dy) - 5f;
+                    float tickHoriz = Mathf.Max(tickY, Mathf.Abs(dx - 77f * Mathf.Sign(dx)) - 21f);
+                    float tickVert = Mathf.Max(tickX, Mathf.Abs(dy - 77f * Mathf.Sign(dy)) - 21f);
+                    float ticksDist = Mathf.Min(tickHoriz, tickVert);
+
+                    float totalDist = Mathf.Min(ringDist, Mathf.Min(dotDist, ticksDist));
+
+                    if (totalDist > 1.2f)
+                    {
+                        colors[y * sw + x] = Color.clear;
+                        continue;
+                    }
+
+                    float alpha = Mathf.Clamp01(-totalDist + 1f);
+                    Color c = baseCol;
+                    c.a *= alpha;
+                    colors[y * sw + x] = c;
+                }
+            }
+
+            tex.SetPixels(colors);
+            tex.Apply();
+
+            Sprite s = Sprite.Create(tex, new Rect(0, 0, sw, sh), new Vector2(0.5f, 0.5f), 100f * PROC_SCALE);
+            _proceduralCache[key] = s;
+            return s;
+        }
+
+        /// <summary>
+        /// Antialiased procedural Pause (two rounded bars) icon sprite.
+        /// </summary>
+        public static Sprite GetPauseIconSprite(int size = 64, Color? iconColor = null)
+        {
+            Color baseCol = iconColor ?? new Color(0.96f, 0.94f, 0.88f, 1f);
+            string key = $"PauseIcon_{size}_{baseCol}";
+            if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            int sw = size * PROC_SCALE;
+            int sh = size * PROC_SCALE;
+            float scale = (float)sw / 256f;
+
+            Texture2D tex = new Texture2D(sw, sh, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Color[] colors = new Color[sw * sh];
+
+            for (int y = 0; y < sh; y++)
+            {
+                float py = (y + 0.5f) / scale;
+                for (int x = 0; x < sw; x++)
+                {
+                    float px = (x + 0.5f) / scale;
+
+                    // Left vertical rounded bar: X 72..110, Y 58..198, radius 10
+                    float dLeft = RoundedRectDist(px, py, 72f, 58f, 110f, 198f, 10f);
+                    // Right vertical rounded bar: X 146..184, Y 58..198, radius 10
+                    float dRight = RoundedRectDist(px, py, 146f, 58f, 184f, 198f, 10f);
+
+                    float dist = Mathf.Min(dLeft, dRight);
+                    if (dist > 1.2f)
+                    {
+                        colors[y * sw + x] = Color.clear;
+                        continue;
+                    }
+
+                    float alpha = Mathf.Clamp01(-dist + 1f);
+                    Color c = baseCol;
+                    c.a *= alpha;
+                    colors[y * sw + x] = c;
+                }
+            }
+
+            tex.SetPixels(colors);
+            tex.Apply();
+
+            Sprite s = Sprite.Create(tex, new Rect(0, 0, sw, sh), new Vector2(0.5f, 0.5f), 100f * PROC_SCALE);
+            _proceduralCache[key] = s;
+            return s;
+        }
+
+        /// <summary>
+        /// Antialiased procedural Hint (illuminating idea lightbulb) icon sprite.
+        /// </summary>
+        public static Sprite GetHintIconSprite(int size = 64, Color? iconColor = null)
+        {
+            Color baseCol = iconColor ?? new Color(0.96f, 0.94f, 0.88f, 1f);
+            string key = $"HintIcon_{size}_{baseCol}";
+            if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            int sw = size * PROC_SCALE;
+            int sh = size * PROC_SCALE;
+            float scale = (float)sw / 256f;
+
+            Texture2D tex = new Texture2D(sw, sh, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Color[] colors = new Color[sw * sh];
+
+            for (int y = 0; y < sh; y++)
+            {
+                float py = (y + 0.5f) / scale;
+                for (int x = 0; x < sw; x++)
+                {
+                    float px = (x + 0.5f) / scale;
+
+                    // 1. Bulb sphere head at (128, 144), radius 48
+                    float dCircle = Vector2.Distance(new Vector2(px, py), new Vector2(128f, 144f)) - 48f;
+
+                    // 2. Bulb neck tapering downwards
+                    float dNeck = 999f;
+                    if (py >= 94f && py <= 130f)
+                    {
+                        float t = (py - 94f) / 36f;
+                        float halfW = Mathf.Lerp(26f, 44f, t);
+                        float dX = Mathf.Abs(px - 128f) - halfW;
+                        float dY = Mathf.Max(94f - py, py - 130f);
+                        dNeck = Mathf.Max(dX, dY);
+                    }
+
+                    // 3. Threaded screw base at bottom: X 104..152, Y 72..94, radius 6
+                    float dBase = RoundedRectDist(px, py, 104f, 72f, 152f, 94f, 6f);
+
+                    // 4. Contact tip at bottom: X 116..140, Y 56..68, radius 5
+                    float dTip = RoundedRectDist(px, py, 116f, 56f, 140f, 68f, 5f);
+
+                    float bulbDist = Mathf.Min(dCircle, Mathf.Min(dNeck, Mathf.Min(dBase, dTip)));
+
+                    // 5. Radiance rays radiating around the bulb head
+                    float dRayTop = RoundedRectDist(px, py, 124f, 210f, 132f, 226f, 4f);
+                    float dRayL = SegmentDist(new Vector2(px, py), new Vector2(60f, 196f), new Vector2(78f, 178f)) - 4.5f;
+                    float dRayR = SegmentDist(new Vector2(px, py), new Vector2(196f, 196f), new Vector2(178f, 178f)) - 4.5f;
+
+                    float totalDist = Mathf.Min(bulbDist, Mathf.Min(dRayTop, Mathf.Min(dRayL, dRayR)));
+                    if (totalDist > 1.2f)
+                    {
+                        colors[y * sw + x] = Color.clear;
+                        continue;
+                    }
+
+                    float alpha = Mathf.Clamp01(-totalDist + 1f);
+
+                    // Screw thread cutout grooves at py around 78 and 86
+                    if ((py >= 77f && py <= 79f) || (py >= 85f && py <= 87f))
+                    {
+                        if (Mathf.Abs(px - 128f) <= 24f)
+                        {
+                            alpha *= 0.25f;
+                        }
+                    }
+
+                    Color c = baseCol;
+                    c.a *= alpha;
+                    colors[y * sw + x] = c;
+                }
+            }
+
+            tex.SetPixels(colors);
+            tex.Apply();
+
+            Sprite s = Sprite.Create(tex, new Rect(0, 0, sw, sh), new Vector2(0.5f, 0.5f), 100f * PROC_SCALE);
+            _proceduralCache[key] = s;
+            return s;
+        }
+
+        /// <summary>
+        /// Antialiased procedural Undo (counter-clockwise circular return arrow) icon sprite.
+        /// </summary>
+        public static Sprite GetUndoIconSprite(int size = 64, Color? iconColor = null)
+        {
+            Color baseCol = iconColor ?? new Color(0.96f, 0.94f, 0.88f, 1f);
+            string key = $"UndoIcon_{size}_{baseCol}";
+            if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            int sw = size * PROC_SCALE;
+            int sh = size * PROC_SCALE;
+            float scale = (float)sw / 256f;
+
+            Texture2D tex = new Texture2D(sw, sh, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Color[] colors = new Color[sw * sh];
+
+            for (int y = 0; y < sh; y++)
+            {
+                float py = (y + 0.5f) / scale;
+                for (int x = 0; x < sw; x++)
+                {
+                    float px = (x + 0.5f) / scale;
+
+                    // 1. Circular arc ring: Center at (136, 120), radius 54, thickness 18 (half-thickness 9)
+                    float dCenter = Vector2.Distance(new Vector2(px, py), new Vector2(136f, 120f));
+                    float dRing = Mathf.Abs(dCenter - 54f) - 9f;
+
+                    float angDeg = Mathf.Atan2(py - 120f, px - 136f) * Mathf.Rad2Deg;
+                    float dArc = (angDeg >= -55f && angDeg <= 145f) ? dRing : 999f;
+
+                    // Rounded cap at bottom-right tail of arc (-55 deg)
+                    float dCapEnd = Vector2.Distance(new Vector2(px, py), new Vector2(167f, 76f)) - 9f;
+                    float arcDist = Mathf.Min(dArc, dCapEnd);
+
+                    // 2. Bold arrow head pointing left, tip at (52, 142), base at x = 90
+                    float dTri = Mathf.Max(px - 90f, -(0.644f * (px - 52f) - 0.765f * Mathf.Abs(py - 142f)));
+
+                    float totalDist = Mathf.Min(arcDist, dTri);
+                    if (totalDist > 1.2f)
+                    {
+                        colors[y * sw + x] = Color.clear;
+                        continue;
+                    }
+
+                    float alpha = Mathf.Clamp01(-totalDist + 1f);
+                    Color c = baseCol;
+                    c.a *= alpha;
+                    colors[y * sw + x] = c;
+                }
+            }
+
+            tex.SetPixels(colors);
+            tex.Apply();
+
+            Sprite s = Sprite.Create(tex, new Rect(0, 0, sw, sh), new Vector2(0.5f, 0.5f), 100f * PROC_SCALE);
+            _proceduralCache[key] = s;
+            return s;
+        }
     }
 }
