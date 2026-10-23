@@ -796,8 +796,8 @@ namespace AegisMech.UI.EditorTools
             var coinTxt = Tx(Rt("Amount", cc, 0f, 0f, 1f, 1f), "1250", 30, AegisTheme.Gold, TextAnchor.MiddleLeft, FontStyle.Bold);
             coinTxt.rectTransform.offsetMin = new Vector2(66f, 0f);
             var shTabs = MakeTopTabs(shp, new[] { "Skin quân cờ", "Bàn cờ", "Hiệu ứng" }, 0.19f, 0.18f, 0.775f, 0.865f, null);
-            string[] sn = { "Knight of Light", "Dark Legion", "Cyber Future", "Forest Spirit" };
-            string[] sg = { "K", "D", "C", "F" };
+            string[] sn = { "Knight of Light", "Dark Legion", "Arcane Paladin", "Forest Spirit" };
+            string[] sg = { "K", "D", "A", "F" };
             Color[] scol = { new Color(0.85f, 0.75f, 0.40f), new Color(0.61f, 0.30f, 0.79f), new Color(0.20f, 0.78f, 1f), new Color(0.24f, 0.75f, 0.42f) };
             var cards = new AegisShopScreen.Card[4];
             for (int i = 0; i < 4; i++)

@@ -3287,7 +3287,7 @@ namespace MechChess.UI
             scRt.anchoredPosition = new Vector2(0f, -14f);
             scRt.sizeDelta = new Vector2(1440f, 480f);
 
-            string[] skinNames = { "Knight of Light", "Dark Legion", "Cyber Future", "Forest Spirit" };
+            string[] skinNames = { "Knight of Light", "Dark Legion", "Arcane Paladin", "Forest Spirit" };
             string[] skinTextures = { "skin_knight_light.png", "skin_dark_legion.png", "skin_cyber_future.png", "skin_forest_spirit.png" };
             string[] frameSprites = { "shop_card_frame_default.png", "shop_card_frame_crimson.png", "shop_card_frame_cyan.png", "shop_card_frame_default.png" };
             int[] skinPrices = { 1000, 1000, 1500, 1500 };
@@ -3312,7 +3312,7 @@ namespace MechChess.UI
             bcRt.anchoredPosition = new Vector2(0f, -14f);
             bcRt.sizeDelta = new Vector2(1440f, 480f);
             string[] boardNames = {
-                AegisLocalization.T("Bàn Cờ Cyber Neon", "Cyber Neon Board"),
+                AegisLocalization.T("Bàn Cờ Hoàng Gia Cổ Điển", "Royal Antique Board"),
                 AegisLocalization.T("Bàn Cờ Cổ Điển", "Classic Board"),
                 AegisLocalization.T("Bàn Cờ Dung Nham", "Magma Board"),
                 AegisLocalization.T("Bàn Cờ Pha Lê", "Crystal Board")
@@ -4342,7 +4342,7 @@ namespace MechChess.UI
             string[] ownedSkins = {
                 AegisLocalization.T("Knight of Light (Đang dùng)", "Knight of Light (Equipped)"),
                 AegisLocalization.T("Dark Legion (Đã sở hữu)", "Dark Legion (Owned)"),
-                AegisLocalization.T("Cyber Future (Đã sở hữu)", "Cyber Future (Owned)")
+                AegisLocalization.T("Arcane Paladin (Đã sở hữu)", "Arcane Paladin (Owned)")
             };
             for (int i = 0; i < 3; i++)
             {

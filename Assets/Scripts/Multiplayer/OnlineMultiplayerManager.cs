@@ -68,7 +68,7 @@ namespace MechChess.Multiplayer
         [Header("Connection Settings")]
         public string serverAddress = "ws://localhost:8000";
         public string currentRoomId = "ROOM-101";
-        public string playerName = "CyberCommander";
+        public string playerName = "ArcaneCommander";
 
         [Header("State")]
         public bool IsOnlineMatch { get; private set; } = false;
@@ -497,7 +497,7 @@ namespace MechChess.Multiplayer
                     {
                         case "room_joined":
                             MyRole = (packet.role == "white") ? PieceColor.White : PieceColor.Black;
-                            string roleName = (MyRole == PieceColor.White) ? "QUÂN TRẮNG (Cyber Alliance)" : "QUÂN ĐEN (Dark Syndicate)";
+                            string roleName = (MyRole == PieceColor.White) ? "QUÂN TRẮNG (Hoàng Gia / Royal Alliance)" : "QUÂN ĐEN (Hắc Ám / Shadow Legion)";
                             if (UIManager2D.Instance != null)
                             {
                                 UIManager2D.Instance.RecordMove($"[ONLINE] Bạn đã vào phòng: {packet.room_id}");

@@ -41,14 +41,14 @@ namespace AegisMech.UI
             {
                 new Item("skin_light", "Knight of Light", "K", 1000, "#D8B450"),
                 new Item("skin_dark", "Dark Legion", "D", 1000, "#9B4DCA"),
-                new Item("skin_cyber", "Cyber Future", "C", 1000, "#33C8FF"),
+                new Item("skin_cyber", "Arcane Paladin", "A", 1000, "#33C8FF"),
                 new Item("skin_forest", "Forest Spirit", "F", 1000, "#3DBE6A"),
             },
             new Item[]
             {
                 new Item("board_royal", "Hoàng Cung", "H", 800, "#C9A24B"),
                 new Item("board_ice", "Pha Lê Băng", "P", 1200, "#7FD6FF"),
-                new Item("board_neon", "Thành Phố Neon", "N", 1500, "#FF4FB0"),
+                new Item("board_neon", "Thành Trì Cổ", "T", 1500, "#B99A61"),
                 new Item("board_wood", "Rừng Cổ Thụ", "R", 900, "#6B8F3E"),
             },
             new Item[]

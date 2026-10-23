@@ -929,13 +929,13 @@ namespace MechChess.UI
             CreateText(contentObj.transform, "Sec2Title", AegisLocalization.T("── PHÉP THUẬT & PHƯƠNG THỨC ──", "── ARCANUM & MODES ──"), 16, TextAnchor.MiddleCenter, new Vector2(0, -96), new Vector2(420, 22), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
 
             // Row 1: AI CV Card Scan & AI Auto Strike
-            CreateCyberGameButton(contentObj.transform, "BtnScanCard", "📷", AegisLocalization.T("QUÉT THẺ", "SCAN CARD"), AegisLocalization.T("NHẬN DIỆN THẺ AI", "AI CARD VISION"), new Vector2(-108, -138), new Vector2(210, 46), CyberButtonColor.Cyan, () =>
+            CreateCyberGameButton(contentObj.transform, "BtnScanCard", "📜", AegisLocalization.T("QUÉT THẺ", "SCAN CARD"), AegisLocalization.T("NHẬN DIỆN THẺ BÀI", "TACTICAL CARD VISION"), new Vector2(-108, -138), new Vector2(210, 46), CyberButtonColor.Cyan, () =>
             {
                 SetTacticalDrawerOpen(false);
                 OnScanCardClicked?.Invoke();
             }, defaultFont);
 
-            CreateCyberGameButton(contentObj.transform, "BtnAIMove", "🤖", AegisLocalization.T("ĐÒN AI", "TRIGGER AI"), AegisLocalization.T("ĐÒN ĐÁNH STOCKFISH", "STOCKFISH STRIKE"), new Vector2(108, -138), new Vector2(210, 46), CyberButtonColor.Crimson, () =>
+            CreateCyberGameButton(contentObj.transform, "BtnAIMove", "🧙‍♂️", AegisLocalization.T("PHÁP LỰC AI", "AI SPELL"), AegisLocalization.T("ĐÒN ĐÁNH STOCKFISH", "STOCKFISH STRIKE"), new Vector2(108, -138), new Vector2(210, 46), CyberButtonColor.Crimson, () =>
             {
                 OnTriggerAIClicked?.Invoke();
             }, defaultFont);
@@ -971,15 +971,15 @@ namespace MechChess.UI
                 }
             }, defaultFont);
 
-            CreateCyberGameButton(contentObj.transform, "BtnTest2DCombat", "⚡", AegisLocalization.T("MINIGAME 2D", "2D COMBAT"), AegisLocalization.T("CHIẾN ĐẤU CỔ ĐIỂN", "TACTICAL OVERRIDE"), new Vector2(108, -242), new Vector2(210, 46), CyberButtonColor.Amber, () =>
+            CreateCyberGameButton(contentObj.transform, "BtnTest2DCombat", "⚔️", AegisLocalization.T("ẤN CHÚ 2D", "ARCANE CLASH"), AegisLocalization.T("TRANH ĐOẠT PHÁP TRẬN", "RUNE WARD DUEL"), new Vector2(108, -242), new Vector2(210, 46), CyberButtonColor.Amber, () =>
             {
                 SetTacticalDrawerOpen(false);
                 if (MechChess.Combat2D.CombatMinigame2D.Instance != null)
                 {
-                    RecordMove(AegisLocalization.T("[CHIẾN ĐẤU 2D] Bắt đầu minigame đấu trí!", "[2D COMBAT] Manually Initiated Tactical Minigame!"));
+                    RecordMove(AegisLocalization.T("[ẤN CHÚ 2D] Khởi kích trận chiến phá giải pháp trận!", "[ARCANE CLASH] Initiated Rune Ward Clash!"));
                     MechChess.Combat2D.CombatMinigame2D.Instance.StartMinigame((win) =>
                     {
-                        RecordMove(win ? AegisLocalization.T("[CHIẾN ĐẤU 2D] Đột kích thành công: Sát thương 100%!", "[2D COMBAT] Strike Succeeded: 100% Lethal Damage!") : AegisLocalization.T("[CHIẾN ĐẤU 2D] Hết thời gian vi mạch: Đòn đánh cơ bản.", "[2D COMBAT] Circuit Timeout: Standard Strike."));
+                        RecordMove(win ? AegisLocalization.T("[ẤN CHÚ 2D] Phá vỡ phong ấn thành công: Sát thương 100%!", "[ARCANE CLASH] Ward Shattered: 100% Critical Damage!") : AegisLocalization.T("[ẤN CHÚ 2D] Hết thời gian ngưng tụ: Đòn đánh cơ bản.", "[ARCANE CLASH] Channeling Depleted: Normal Strike."));
                     });
                 }
             }, defaultFont);
@@ -1527,9 +1527,9 @@ namespace MechChess.UI
                 {
                     float glow = 0.82f + 0.18f * Mathf.Sin(Time.time * 3f);
                     if (_activeColor == PieceColor.White)
-                        _turnIndicatorText.color = new Color(0.0f, 0.95f * glow, 1.0f * glow);
+                        _turnIndicatorText.color = new Color(0.92f * glow, 0.80f * glow, 0.45f * glow);
                     else
-                        _turnIndicatorText.color = new Color(1.0f * glow, 0.25f, 0.35f);
+                        _turnIndicatorText.color = new Color(1.0f * glow, 0.30f, 0.35f);
                 }
             }
         }
@@ -1584,7 +1584,7 @@ namespace MechChess.UI
                 MechChess.Chess3D.ChessBoard3DManager.Instance.isGameOver = true;
             }
 
-            string winnerName = (winner == PieceColor.White) ? AegisLocalization.T("LIÊN MINH", "ALLIANCE") : AegisLocalization.T("HẮC ÁM", "SYNDICATE");
+            string winnerName = (winner == PieceColor.White) ? AegisLocalization.T("HOÀNG GIA", "ROYAL ALLIANCE") : AegisLocalization.T("HẮC ÁM", "SHADOW LEGION");
             if (_turnIndicatorText != null)
             {
                 if (isDraw)
@@ -1595,7 +1595,7 @@ namespace MechChess.UI
                 else
                 {
                     _turnIndicatorText.text = AegisLocalization.T($"🏆 {winnerName} CHIẾN THẮNG!", $"🏆 {winnerName} VICTORIOUS!");
-                    _turnIndicatorText.color = Color.yellow;
+                    _turnIndicatorText.color = new Color(0.92f, 0.80f, 0.45f);
                 }
             }
 
@@ -1639,8 +1639,8 @@ namespace MechChess.UI
 
             if (_turnIndicatorText != null)
             {
-                _turnIndicatorText.text = AegisLocalization.T(">> LƯỢT: LIÊN MINH (TRẮNG) <<", ">> TURN: ALLIANCE (WHITE) <<");
-                _turnIndicatorText.color = new Color(0.0f, 0.95f, 1.0f);
+                _turnIndicatorText.text = AegisLocalization.T(">> LƯỢT: HOÀNG GIA (TRẮNG) <<", ">> TURN: ROYAL (WHITE) <<");
+                _turnIndicatorText.color = new Color(0.92f, 0.80f, 0.45f);
             }
         }
 
@@ -1674,8 +1674,8 @@ namespace MechChess.UI
             if (_isMatchAborted || _isGameOver) return;
 
             string teamName = (color == PieceColor.White)
-                ? AegisLocalization.T("LIÊN MINH (TRẮNG)", "ALLIANCE (WHITE)")
-                : AegisLocalization.T("HẮC ÁM (ĐEN)", "SYNDICATE (BLACK)");
+                ? AegisLocalization.T("HOÀNG GIA (TRẮNG)", "ROYAL (WHITE)")
+                : AegisLocalization.T("HẮC ÁM (ĐEN)", "SHADOW (BLACK)");
 
             if (_turnIndicatorText != null)
             {
@@ -1694,7 +1694,7 @@ namespace MechChess.UI
                 else
                 {
                     _turnIndicatorText.text = AegisLocalization.T($">> LƯỢT: {teamName} <<", $">> TURN: {teamName} <<");
-                    _turnIndicatorText.color = (color == PieceColor.White) ? new Color(0.0f, 0.95f, 1.0f) : new Color(1.0f, 0.25f, 0.35f);
+                    _turnIndicatorText.color = (color == PieceColor.White) ? new Color(0.92f, 0.80f, 0.45f) : new Color(0.85f, 0.30f, 0.35f);
                 }
             }
         }

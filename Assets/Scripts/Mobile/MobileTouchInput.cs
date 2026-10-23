@@ -295,7 +295,7 @@ namespace MechChess.Mobile
                     _yaw = 0f;
                     _pitch = 38f;
                     _currentDistance = dist;
-                    return "Liên Minh (Trắng 3D)";
+                    return "Hoàng Gia (Trắng 3D)";
 
                 case CameraPerspectiveMode.Black3D:
                     _yaw = 180f;
@@ -313,7 +313,7 @@ namespace MechChess.Mobile
                     _yaw = 45f;
                     _pitch = 34f;
                     _currentDistance = dist * 0.96f;
-                    return "Đẳng cự Sci-Fi (Hero 3D)";
+                    return "Đẳng cự Sử Thi (Hero 3D)";
 
                 default:
                     return string.Empty;

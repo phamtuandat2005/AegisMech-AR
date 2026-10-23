@@ -71,7 +71,7 @@ namespace MechChess.AR
         // True AR Background Quad
         private GameObject _backgroundQuad;
         private Material _webcamQuadMat;
-        private int _arDisplayMode = 0; // 0 = Fullscreen AR Reality, 1 = PIP Scanner, 2 = Cyber Studio
+        private int _arDisplayMode = 0; // 0 = Fullscreen AR Reality, 1 = PIP Scanner, 2 = Arcane Realm Studio
 
         // F10 & F12 UI references
         private GameObject _pipContainer;
@@ -116,7 +116,7 @@ namespace MechChess.AR
             // Do NOT start webcam on startup! Keep camera hardware completely off until a match/AR mode is started
             SetupARBackgroundQuad();
 
-            // Default display mode: Pure Cyber Studio Arena (Mode 2)
+            // Default display mode: Arcane Realm Studio Arena (Mode 2)
             // Clean 3D studio chessboard at scale 1.0, with zero webcam background intrusion
             currentScaleMultiplier = 1.0f;
             ApplyDisplayMode(2);
@@ -451,7 +451,7 @@ namespace MechChess.AR
                 }
                 if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Corner PIP Scanner Viewport ON");
             }
-            else // Pure Cyber Studio Arena (Mode 2) - Camera turned off
+            else // Arcane Realm Studio Arena (Mode 2) - Camera turned off
             {
                 StopWebcam();
                 if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
@@ -464,7 +464,7 @@ namespace MechChess.AR
                     chessboardRoot.localPosition = Vector3.zero;
                     chessboardRoot.localRotation = Quaternion.identity;
                 }
-                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Pure Cyber Studio Arena ON");
+                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[CHẾ ĐỘ AR] Cung Điện Huyền Thuật (Arcane Realm Studio) ON");
             }
         }
 

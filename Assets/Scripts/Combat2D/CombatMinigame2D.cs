@@ -9,9 +9,9 @@ using MechChess.UI;
 namespace MechChess.Combat2D
 {
     /// <summary>
-    /// Holographic Sci-Fi 2D "Armor Hack" Minigame using Rigidbody2D and Collider2D.
-    /// Triggered whenever a Mech piece captures an enemy piece, or tested via Tactical Drawer.
-    /// Player guides a Quantum Electrical Impulse through moving laser firewall gates to the Core Reactor.
+    /// Dark Fantasy Arcane 2D "Rune Ward Shatter" Minigame using Rigidbody2D and Collider2D.
+    /// Triggered whenever a piece captures an enemy unit, or tested via Tactical Drawer.
+    /// Player guides a Holy Light Spark through moving blood rune barriers to the enemy Soul Core.
     /// </summary>
     public class CombatMinigame2D : MonoBehaviour
     {
@@ -23,15 +23,15 @@ namespace MechChess.Combat2D
         private const float TOTAL_TIME = 5.0f;
         private Action<bool> _onCompleteCallback;
 
-        // Visual Theme Palette (Sci-Fi Cyberpunk Arcane)
-        private readonly Color ColBackdrop = new Color(0.015f, 0.035f, 0.08f, 0.88f);
-        private readonly Color ColCardFill = new Color(0.02f, 0.05f, 0.12f, 0.96f);
-        private readonly Color ColCyanBorder = new Color(0.0f, 0.85f, 1.0f, 0.92f);
-        private readonly Color ColCyanGlow = new Color(0.0f, 0.95f, 1.0f, 1.0f);
+        // Visual Theme Palette (Dark Fantasy Medieval Arcane)
+        private readonly Color ColBackdrop = new Color(0.03f, 0.03f, 0.06f, 0.92f);
+        private readonly Color ColCardFill = new Color(0.06f, 0.08f, 0.12f, 0.96f);
+        private readonly Color ColGoldBorder = new Color(0.725f, 0.604f, 0.380f, 0.95f);
+        private readonly Color ColGoldGlow = new Color(0.95f, 0.82f, 0.45f, 1.0f);
         private readonly Color ColGoldAccent = new Color(0.98f, 0.75f, 0.12f, 1.0f);
-        private readonly Color ColCrimsonDanger = new Color(1.0f, 0.22f, 0.28f, 0.95f);
-        private readonly Color ColEmeraldTarget = new Color(0.0f, 1.0f, 0.55f, 0.95f);
-        private readonly Color ColTextMuted = new Color(0.60f, 0.72f, 0.85f, 0.90f);
+        private readonly Color ColCrimsonDanger = new Color(0.80f, 0.22f, 0.28f, 0.95f);
+        private readonly Color ColEmeraldTarget = new Color(0.32f, 0.78f, 0.45f, 0.95f);
+        private readonly Color ColTextMuted = new Color(0.85f, 0.78f, 0.65f, 0.85f);
 
         // UI & Physics GameObjects
         private GameObject _canvasRoot;
@@ -142,12 +142,12 @@ namespace MechChess.Combat2D
             tcRt.anchoredPosition = Vector2.zero;
             tcRt.sizeDelta = new Vector2(1060f, 700f);
 
-            // Card Background: Sliced Glass Box with Cyan Border
+            // Card Background: Sliced Glass Box with Antique Gold Border
             Image tcBg = _terminalCardObj.AddComponent<Image>();
-            tcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1060, 700, 24f, ColCardFill, ColCyanBorder, 2.2f);
+            tcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1060, 700, 24f, ColCardFill, ColGoldBorder, 2.2f);
             tcBg.type = Image.Type.Sliced;
 
-            // Card PCB Circuit Texture Overlay (Subtle holographic glow)
+            // Card Arcane Circle Texture Overlay (Warm mystical gold glow)
             GameObject pcbOverlay = new GameObject("PcbOverlay");
             pcbOverlay.transform.SetParent(_terminalCardObj.transform, false);
             RectTransform pcbRt = pcbOverlay.AddComponent<RectTransform>();
@@ -161,7 +161,7 @@ namespace MechChess.Combat2D
             {
                 pcbImg.sprite = pcbSprite;
                 pcbImg.type = Image.Type.Simple;
-                pcbImg.color = new Color(0.0f, 0.85f, 1.0f, 0.28f); // Soft cyan circuit glow
+                pcbImg.color = new Color(0.725f, 0.604f, 0.380f, 0.22f); // Warm gold arcane circle glow
                 pcbImg.preserveAspect = false;
             }
             else
@@ -170,11 +170,11 @@ namespace MechChess.Combat2D
             }
             pcbImg.raycastTarget = false;
 
-            // Corner Cyber Accents (◤ ◥ ◣ ◢)
-            CreateCornerBracket(_terminalCardObj.transform, "◤ 01-OVERRIDE", new Vector2(24f, -20f), new Vector2(0f, 1f), font);
-            CreateCornerBracket(_terminalCardObj.transform, "FREQ-99.8GHz ◥", new Vector2(-24f, -20f), new Vector2(1f, 1f), font);
-            CreateCornerBracket(_terminalCardObj.transform, "◣ MATRIX-SYS", new Vector2(24f, 20f), new Vector2(0f, 0f), font);
-            CreateCornerBracket(_terminalCardObj.transform, "TACTICAL-v2 ◢", new Vector2(-24f, 20f), new Vector2(1f, 0f), font);
+            // Corner Arcane Glyphs (◤ ❖ ◥ ◣ ❖ ◢)
+            CreateCornerBracket(_terminalCardObj.transform, "◤ ❖ PHÁP TRẬN HOÀNG GIA", new Vector2(24f, -20f), new Vector2(0f, 1f), font);
+            CreateCornerBracket(_terminalCardObj.transform, "ẤN CHÚ CỔ ĐẠI ❖ ◥", new Vector2(-24f, -20f), new Vector2(1f, 1f), font);
+            CreateCornerBracket(_terminalCardObj.transform, "◣ ❖ BÍ THUẬT HIỆP SĨ", new Vector2(24f, 20f), new Vector2(0f, 0f), font);
+            CreateCornerBracket(_terminalCardObj.transform, "CHIẾN TRƯỜNG THẦN THOẠI ❖ ◢", new Vector2(-24f, 20f), new Vector2(1f, 0f), font);
 
             // 4. Header Bar (Title + Subtitle + Close Button)
             GameObject headerObj = new GameObject("HeaderBar");
@@ -194,8 +194,8 @@ namespace MechChess.Combat2D
             _titleText.fontSize = 23;
             _titleText.fontStyle = FontStyle.Bold;
             _titleText.alignment = TextAnchor.MiddleCenter;
-            _titleText.color = ColCyanGlow;
-            _titleText.text = AegisLocalization.T("⚡ ĐỘT NHẬP TÁC CHIẾN: HACK TƯỜNG LỬA GIÁP", "⚡ TACTICAL OVERRIDE: BREACH ENEMY ARMOR CIRCUIT");
+            _titleText.color = ColGoldGlow;
+            _titleText.text = AegisLocalization.T("⚔️ ẤN CHÚ TRANH ĐOẠT: PHÁ VỠ PHÁP TRẬN ĐỐI THỦ", "⚔️ ARCANE CLASH: SHATTER ENEMY RUNE WARD");
             RectTransform tRt = titleObj.GetComponent<RectTransform>();
             tRt.anchoredPosition = new Vector2(0f, 10f);
             tRt.sizeDelta = new Vector2(850f, 32f);
@@ -208,7 +208,7 @@ namespace MechChess.Combat2D
             _subtitleText.fontSize = 13;
             _subtitleText.alignment = TextAnchor.MiddleCenter;
             _subtitleText.color = ColTextMuted;
-            _subtitleText.text = AegisLocalization.T("/// GIAO THỨC NEURAL XUNG ĐIỆN: DẪN XUNG ĐẾN LÕI GIÁP ĐỐI PHƯƠNG ///", "/// NEURAL IMPULSE PROTOCOL: GUIDE IMPULSE INTO ENEMY CORE ///");
+            _subtitleText.text = AegisLocalization.T("❖ ĐIỀU KHIỂN TINH CẦU THÁNH QUANG VƯỢT LƯỚI HUYẾT TINH CHẠM TÂM LINH THẠCH ❖", "❖ GUIDE THE HOLY SPARK PAST BLOOD RUNES TO SHATTER THE ENEMY SOUL CORE ❖");
             RectTransform subRt = subObj.GetComponent<RectTransform>();
             subRt.anchoredPosition = new Vector2(0f, -16f);
             subRt.sizeDelta = new Vector2(850f, 24f);
@@ -244,7 +244,7 @@ namespace MechChess.Combat2D
             cbtRt.offsetMin = Vector2.zero;
             cbtRt.offsetMax = Vector2.zero;
 
-            // 5. High-Tech Segmented Energy Breach Timer Bar (Width: 680, Height: 24)
+            // 5. Segmented Arcane Channelling Timer Bar (Width: 680, Height: 24)
             GameObject timerBarPod = new GameObject("TimerBarPod");
             timerBarPod.transform.SetParent(_terminalCardObj.transform, false);
             RectTransform tbpRt = timerBarPod.AddComponent<RectTransform>();
@@ -256,7 +256,7 @@ namespace MechChess.Combat2D
 
             // Timer Bar Capsule Background
             Image tbpBg = timerBarPod.AddComponent<Image>();
-            tbpBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(680, 26, 13f, new Color(0.01f, 0.03f, 0.07f, 0.92f), new Color(0.12f, 0.28f, 0.45f, 0.8f), 1.2f);
+            tbpBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(680, 26, 13f, new Color(0.02f, 0.03f, 0.06f, 0.94f), new Color(0.45f, 0.35f, 0.22f, 0.8f), 1.2f);
             tbpBg.type = Image.Type.Sliced;
 
             // Fill Bar
@@ -270,9 +270,9 @@ namespace MechChess.Combat2D
             _timerFillRt.sizeDelta = new Vector2(674f, 20f);
 
             _timerFillImg = fillObj.AddComponent<Image>();
-            _timerFillImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(674, 20, 10f, ColCyanGlow, Color.clear, 0f);
+            _timerFillImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(674, 20, 10f, ColGoldGlow, Color.clear, 0f);
             _timerFillImg.type = Image.Type.Sliced;
-            _timerFillImg.color = ColCyanGlow;
+            _timerFillImg.color = ColGoldGlow;
 
             // Timer Text Overlay
             GameObject timerTxtObj = new GameObject("TimerText");
@@ -283,7 +283,7 @@ namespace MechChess.Combat2D
             _timerText.fontStyle = FontStyle.Bold;
             _timerText.alignment = TextAnchor.MiddleCenter;
             _timerText.color = Color.white;
-            _timerText.text = "⏱ CIRCUIT BREACH WINDOW: 5.00s";
+            _timerText.text = "⏱ ARCANE CHANNELLING: 5.00s";
             RectTransform ttRt = timerTxtObj.GetComponent<RectTransform>();
             ttRt.anchorMin = Vector2.zero;
             ttRt.anchorMax = Vector2.one;
@@ -299,7 +299,7 @@ namespace MechChess.Combat2D
 
             // Arena Background Glass Plate
             Image arenaBg = _arenaBounds.AddComponent<Image>();
-            arenaBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(760, 410, 18f, new Color(0.015f, 0.04f, 0.09f, 0.85f), new Color(0.0f, 0.65f, 0.90f, 0.65f), 1.5f);
+            arenaBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(760, 410, 18f, new Color(0.03f, 0.04f, 0.07f, 0.88f), new Color(0.725f, 0.604f, 0.380f, 0.75f), 1.5f);
             arenaBg.type = Image.Type.Sliced;
 
             // Arena Horizontal Tech Pathway Guide Lines
@@ -324,7 +324,7 @@ namespace MechChess.Combat2D
             _statusText.fontStyle = FontStyle.Bold;
             _statusText.alignment = TextAnchor.MiddleCenter;
             _statusText.color = Color.white;
-            _statusText.text = AegisLocalization.T("Vượt qua tường lửa vi mạch trong vòng 5 giây!", "Bypass circuit firewall within 5 seconds!");
+            _statusText.text = AegisLocalization.T("Vượt qua lưới huyết tinh cổ xưa để kích hoạt đòn đánh chí mạng!", "Bypass ancient blood rune wards to unleash a critical strike!");
 
             // 8. Instructions & Virtual D-Pad Touch Bar
             BuildControlsAndInstructionsPod(_terminalCardObj.transform, font);
@@ -342,14 +342,14 @@ namespace MechChess.Combat2D
             t.font = font;
             t.fontSize = 11;
             t.fontStyle = FontStyle.Bold;
-            t.color = new Color(0.0f, 0.85f, 1.0f, 0.60f);
+            t.color = new Color(0.725f, 0.604f, 0.380f, 0.75f);
             t.alignment = (anchor.x == 0f) ? TextAnchor.UpperLeft : TextAnchor.UpperRight;
             RectTransform rt = obj.GetComponent<RectTransform>();
             rt.anchorMin = anchor;
             rt.anchorMax = anchor;
             rt.pivot = anchor;
             rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(160f, 22f);
+            rt.sizeDelta = new Vector2(180f, 22f);
         }
 
         private void CreateArenaGuideLines(Transform arena)
@@ -360,7 +360,7 @@ namespace MechChess.Combat2D
                 GameObject line = new GameObject("GuideLine_" + i);
                 line.transform.SetParent(arena, false);
                 Image img = line.AddComponent<Image>();
-                img.color = new Color(0.0f, 0.75f, 1.0f, (i == 1) ? 0.22f : 0.12f);
+                img.color = new Color(0.725f, 0.604f, 0.380f, (i == 1) ? 0.20f : 0.10f);
                 RectTransform rt = line.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0f, 0.5f);
                 rt.anchorMax = new Vector2(1f, 0.5f);
@@ -378,12 +378,12 @@ namespace MechChess.Combat2D
             Font font = GetDefaultFont();
 
             // 1. 4 Solid Glowing Boundary Rails with BoxCollider2D
-            CreateWall("WallTop", new Vector2(0, height / 2f - 6f), new Vector2(width - 20f, 12f), new Color(0.0f, 0.85f, 1.0f, 0.75f));
-            CreateWall("WallBottom", new Vector2(0, -height / 2f + 6f), new Vector2(width - 20f, 12f), new Color(0.0f, 0.85f, 1.0f, 0.75f));
-            CreateWall("WallLeft", new Vector2(-width / 2f + 6f, 0), new Vector2(12f, height - 20f), new Color(0.0f, 0.85f, 1.0f, 0.75f));
-            CreateWall("WallRight", new Vector2(width / 2f - 6f, 0), new Vector2(12f, height - 20f), new Color(0.0f, 0.85f, 1.0f, 0.75f));
+            CreateWall("WallTop", new Vector2(0, height / 2f - 6f), new Vector2(width - 20f, 12f), new Color(0.725f, 0.604f, 0.380f, 0.75f));
+            CreateWall("WallBottom", new Vector2(0, -height / 2f + 6f), new Vector2(width - 20f, 12f), new Color(0.725f, 0.604f, 0.380f, 0.75f));
+            CreateWall("WallLeft", new Vector2(-width / 2f + 6f, 0), new Vector2(12f, height - 20f), new Color(0.725f, 0.604f, 0.380f, 0.75f));
+            CreateWall("WallRight", new Vector2(width / 2f - 6f, 0), new Vector2(12f, height - 20f), new Color(0.725f, 0.604f, 0.380f, 0.75f));
 
-            // 2. Start Deploy Pad (x = -280, y = 0)
+            // 2. Start Summon Pad (x = -280, y = 0)
             _deployPadObj = new GameObject("DeployPad");
             _deployPadObj.transform.SetParent(_arenaBounds.transform, false);
             RectTransform dpRt = _deployPadObj.AddComponent<RectTransform>();
@@ -391,22 +391,22 @@ namespace MechChess.Combat2D
             dpRt.sizeDelta = new Vector2(68f, 68f);
 
             Image dpImg = _deployPadObj.AddComponent<Image>();
-            dpImg.sprite = ArcaneAssetLoader.GetCircleSprite(68, new Color(0.02f, 0.10f, 0.22f, 0.65f), new Color(0.0f, 0.85f, 1.0f, 0.75f), 1.5f);
+            dpImg.sprite = ArcaneAssetLoader.GetCircleSprite(68, new Color(0.08f, 0.06f, 0.04f, 0.75f), new Color(0.725f, 0.604f, 0.380f, 0.85f), 1.5f);
             dpImg.raycastTarget = false;
 
             // Deploy Label below
             GameObject dplObj = new GameObject("DeployLabel");
             dplObj.transform.SetParent(_deployPadObj.transform, false);
             Text dpl = dplObj.AddComponent<Text>();
-            dpl.text = AegisLocalization.T("[ KHỞI TẠO ]", "[ DEPLOY ]");
+            dpl.text = AegisLocalization.T("[ ĐIỂM TRIỆU HỒI ]", "[ SUMMON PAD ]");
             dpl.font = font;
             dpl.fontSize = 11;
             dpl.fontStyle = FontStyle.Bold;
             dpl.alignment = TextAnchor.MiddleCenter;
-            dpl.color = new Color(0.4f, 0.85f, 1.0f, 0.85f);
+            dpl.color = new Color(0.92f, 0.80f, 0.45f, 0.90f);
             RectTransform dplr = dplObj.GetComponent<RectTransform>();
             dplr.anchoredPosition = new Vector2(0f, -48f);
-            dplr.sizeDelta = new Vector2(100f, 20f);
+            dplr.sizeDelta = new Vector2(110f, 20f);
 
             // 3. Moving Laser Firewall Gates (Obstacles)
             // Gate 1: x = -130, moves vertically
@@ -431,7 +431,7 @@ namespace MechChess.Combat2D
             }
             else
             {
-                nodeImg.sprite = ArcaneAssetLoader.GetCircleSprite(86, ColEmeraldTarget, ColCyanBorder, 2f);
+                nodeImg.sprite = ArcaneAssetLoader.GetCircleSprite(86, ColEmeraldTarget, ColGoldBorder, 2f);
             }
             nodeImg.preserveAspect = true;
 
@@ -449,7 +449,7 @@ namespace MechChess.Combat2D
             GameObject cLabel = new GameObject("CoreLabel");
             cLabel.transform.SetParent(_targetNode.transform, false);
             Text clText = cLabel.AddComponent<Text>();
-            clText.text = AegisLocalization.T("[ LÕI GIÁP • 100% ]", "[ ENEMY CORE ]");
+            clText.text = AegisLocalization.T("[ TÂM LINH THẠCH • 100% ]", "[ SOUL CORE • 100% ]");
             clText.font = font;
             clText.fontSize = 11;
             clText.fontStyle = FontStyle.Bold;
@@ -457,7 +457,7 @@ namespace MechChess.Combat2D
             clText.color = ColEmeraldTarget;
             RectTransform clr = cLabel.GetComponent<RectTransform>();
             clr.anchoredPosition = new Vector2(0f, -56f);
-            clr.sizeDelta = new Vector2(130f, 20f);
+            clr.sizeDelta = new Vector2(150f, 20f);
 
             // Core Trigger Collider
             CircleCollider2D nodeCol = _targetNode.AddComponent<CircleCollider2D>();
@@ -483,7 +483,7 @@ namespace MechChess.Combat2D
             }
             else
             {
-                pImg.sprite = ArcaneAssetLoader.GetCircleSprite(50, ColCyanGlow, Color.white, 2.5f);
+                pImg.sprite = ArcaneAssetLoader.GetCircleSprite(50, ColGoldGlow, Color.white, 2.5f);
             }
             pImg.preserveAspect = true;
 
@@ -509,7 +509,7 @@ namespace MechChess.Combat2D
                 RectTransform rt = dot.AddComponent<RectTransform>();
                 rt.sizeDelta = new Vector2(16f, 16f);
                 Image img = dot.AddComponent<Image>();
-                img.sprite = ArcaneAssetLoader.GetCircleSprite(16, ColCyanGlow, Color.white, 1f);
+                img.sprite = ArcaneAssetLoader.GetCircleSprite(16, ColGoldGlow, Color.white, 1f);
                 img.raycastTarget = false;
                 dot.SetActive(false);
 
@@ -621,8 +621,8 @@ namespace MechChess.Combat2D
             _controlsHintText.alignment = TextAnchor.MiddleCenter;
             _controlsHintText.color = ColTextMuted;
             _controlsHintText.text = AegisLocalization.T(
-                "🎮 Điều khiển: Phím [W/A/S/D] • [Mũi Tên] hoặc Chạm & Kéo xung điện vào Lõi Giáp",
-                "🎮 Controls: [WASD] • [Arrow Keys] or Touch & Drag Impulse into the Core Reactor"
+                "🎮 Điều khiển: Phím [W/A/S/D] • [Mũi Tên] hoặc Chạm & Kéo Tinh Cầu vào Tâm Linh Thạch",
+                "🎮 Controls: [WASD] • [Arrow Keys] or Touch & Drag Spark into the Soul Core"
             );
 
             // Optional On-Screen Touch Controls (Left / Right / Up / Down) for Touchscreens
@@ -641,7 +641,7 @@ namespace MechChess.Combat2D
             rt.sizeDelta = new Vector2(46f, 34f);
 
             Image bg = btnObj.AddComponent<Image>();
-            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(46, 34, 8f, new Color(0.04f, 0.12f, 0.24f, 0.85f), ColCyanBorder, 1.2f);
+            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(46, 34, 8f, new Color(0.08f, 0.07f, 0.05f, 0.88f), ColGoldBorder, 1.2f);
             bg.type = Image.Type.Sliced;
 
             GameObject tObj = new GameObject("Txt");
@@ -652,7 +652,7 @@ namespace MechChess.Combat2D
             txt.fontSize = 16;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
-            txt.color = ColCyanGlow;
+            txt.color = ColGoldGlow;
 
             RectTransform trt = tObj.GetComponent<RectTransform>();
             trt.anchorMin = Vector2.zero;
@@ -678,19 +678,19 @@ namespace MechChess.Combat2D
 
             // Update text for current language
             if (_titleText != null)
-                _titleText.text = AegisLocalization.T("⚡ ĐỘT NHẬP TÁC CHIẾN: HACK TƯỜNG LỬA GIÁP", "⚡ TACTICAL OVERRIDE: BREACH ENEMY ARMOR CIRCUIT");
+                _titleText.text = AegisLocalization.T("⚔️ ẤN CHÚ TRANH ĐOẠT: PHÁ VỠ PHÁP TRẬN ĐỐI THỦ", "⚔️ ARCANE CLASH: SHATTER ENEMY RUNE WARD");
             if (_subtitleText != null)
-                _subtitleText.text = AegisLocalization.T("/// GIAO THỨC NEURAL XUNG ĐIỆN: DẪN XUNG ĐẾN LÕI GIÁP ĐỐI PHƯƠNG ///", "/// NEURAL IMPULSE PROTOCOL: GUIDE IMPULSE INTO ENEMY CORE ///");
+                _subtitleText.text = AegisLocalization.T("❖ ĐIỀU KHIỂN TINH CẦU THÁNH QUANG VƯỢT LƯỚI HUYẾT TINH CHẠM TÂM LINH THẠCH ❖", "❖ GUIDE THE HOLY SPARK PAST BLOOD RUNES TO SHATTER THE ENEMY SOUL CORE ❖");
             if (_statusText != null)
             {
-                _statusText.text = AegisLocalization.T("Vượt qua tường lửa vi mạch trong vòng 5 giây!", "Bypass circuit firewall within 5 seconds!");
+                _statusText.text = AegisLocalization.T("Vượt qua lưới huyết tinh cổ xưa để kích hoạt đòn đánh chí mạng!", "Bypass ancient blood rune wards to unleash a critical strike!");
                 _statusText.color = Color.white;
             }
             if (_controlsHintText != null)
             {
                 _controlsHintText.text = AegisLocalization.T(
-                    "🎮 Điều khiển: Phím [W/A/S/D] • [Mũi Tên] hoặc Chạm & Kéo xung điện vào Lõi Giáp",
-                    "🎮 Controls: [WASD] • [Arrow Keys] or Touch & Drag Impulse into the Core Reactor"
+                    "🎮 Điều khiển: Phím [W/A/S/D] • [Mũi Tên] hoặc Chạm & Kéo Tinh Cầu vào Tâm Linh Thạch",
+                    "🎮 Controls: [WASD] • [Arrow Keys] or Touch & Drag Spark into the Soul Core"
                 );
             }
 
@@ -722,7 +722,7 @@ namespace MechChess.Combat2D
 
             if (_statusText != null)
             {
-                _statusText.text = AegisLocalization.T("ĐÃ HỦY ĐỘT NHẬP: Thực hiện đòn đánh động năng cơ bản.", "BREACH ABORTED: Standard Kinetic Strike Executed.");
+                _statusText.text = AegisLocalization.T("ĐÃ THU HỒI ẤN CHÚ: Tung đòn tấn công cơ bản.", "WARD CLASH RETRACTED: Standard attack executed.");
                 _statusText.color = new Color(1.0f, 0.45f, 0.45f);
             }
 
@@ -750,7 +750,7 @@ namespace MechChess.Combat2D
                 if (progress > 0.5f)
                 {
                     float t = (progress - 0.5f) / 0.5f;
-                    _timerFillImg.color = Color.Lerp(ColGoldAccent, ColCyanGlow, t);
+                    _timerFillImg.color = Color.Lerp(ColGoldAccent, ColGoldGlow, t);
                 }
                 else
                 {
@@ -763,8 +763,8 @@ namespace MechChess.Combat2D
             if (_timerText != null)
             {
                 _timerText.text = AegisLocalization.T(
-                    $"⏱ CỬA SỔ ĐỘT NHẬP: {Mathf.Max(0, _timeRemaining):0.00}s",
-                    $"⏱ CIRCUIT BREACH WINDOW: {Mathf.Max(0, _timeRemaining):0.00}s"
+                    $"⏱ THỜI GIAN ẤN CHÚ: {Mathf.Max(0, _timeRemaining):0.00}s",
+                    $"⏱ ARCANE CHANNELLING: {Mathf.Max(0, _timeRemaining):0.00}s"
                 );
             }
 
@@ -870,7 +870,7 @@ namespace MechChess.Combat2D
                 RectTransform rt = dot.GetComponent<RectTransform>();
                 rt.anchoredPosition = pos;
                 rt.localScale = Vector3.one;
-                if (img != null) img.color = new Color(0.0f, 0.95f, 1.0f, 0.75f);
+                if (img != null) img.color = new Color(0.95f, 0.82f, 0.45f, 0.75f);
                 StartCoroutine(FadeOutDot(dot, img));
             }
         }
@@ -889,7 +889,7 @@ namespace MechChess.Combat2D
                 }
                 if (img != null)
                 {
-                    img.color = new Color(0.0f, 0.95f, 1.0f, (1f - t) * 0.75f);
+                    img.color = new Color(0.95f, 0.82f, 0.45f, (1f - t) * 0.75f);
                 }
                 yield return null;
             }
@@ -907,8 +907,8 @@ namespace MechChess.Combat2D
             if (_statusText != null)
             {
                 _statusText.text = AegisLocalization.T(
-                    ">>> ĐỘT NHẬP GIÁP THÀNH CÔNG! SÁT THƯƠNG CHÍ MẠNG 100% <<<",
-                    ">>> ARMOR BREACH CONFIRMED! 100% LETHAL STRIKE <<<"
+                    ">>> PHÁ VỠ PHÁP TRẬN THÀNH CÔNG! SÁT THƯƠNG CHÍ MẠNG 100% <<<",
+                    ">>> RUNE WARD SHATTERED! 100% CRITICAL STRIKE <<<"
                 );
                 _statusText.color = ColEmeraldTarget;
             }
@@ -937,7 +937,7 @@ namespace MechChess.Combat2D
                 float t = elapsed / dur;
                 float sz = Mathf.Lerp(80f, 380f, t);
                 sRt.sizeDelta = new Vector2(sz, sz);
-                sImg.color = new Color(0.0f, 1.0f, 0.55f, 1f - t);
+                sImg.color = new Color(0.32f, 0.78f, 0.45f, 1f - t);
                 yield return null;
             }
 
@@ -954,8 +954,8 @@ namespace MechChess.Combat2D
             if (_statusText != null)
             {
                 _statusText.text = AegisLocalization.T(
-                    "CẢNH BÁO: HẾT THỜI GIAN ĐỘT NHẬP - Thực hiện đòn đánh cơ bản.",
-                    "CIRCUIT TIMEOUT: Standard Kinetic Strike Executed."
+                    "CẢNH BÁO: HẾT THỜI GIAN ẤN CHÚ - Tung đòn đánh vật lý thông thường.",
+                    "ARCANE TIMEOUT: Standard physical strike executed."
                 );
                 _statusText.color = ColGoldAccent;
             }
