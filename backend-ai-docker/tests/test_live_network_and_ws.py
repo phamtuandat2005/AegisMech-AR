@@ -173,7 +173,7 @@ def run_all_tests():
 
     # Start live Uvicorn server in a subprocess
     python_exe = sys.executable
-    server_dir = os.path.dirname(os.path.abspath(__file__))
+    server_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     cmd = [python_exe, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(TEST_PORT)]
     
     server_proc = subprocess.Popen(cmd, cwd=server_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

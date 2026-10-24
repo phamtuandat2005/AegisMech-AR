@@ -160,6 +160,17 @@ namespace MechChess.UI
         private Text _profileNameTxt;
         private Text _profileLevelTxt;
 
+        // Dynamic Profile Modal References
+        private Text _profileModalNameComp;
+        private Text _profileModalLevelComp;
+        private Text _profileModalExpComp;
+        private RectTransform _profileModalExpFillRt;
+        private Text _profileModalEloComp;
+        private Text _profileModalWinsComp;
+        private Text _profileModalLossesComp;
+        private Text _profileModalDrawsComp;
+        private Transform _matchHistoryRowsParent;
+
         // Dynamic Main Menu Navigation Selection (0: Chơi ngay, 1: Hướng dẫn, 2: Cài đặt, 3: Cửa hàng, 4: Thoát)
         private int _selectedMenuNavIndex = 0;
         private GameObject _navContainer;
@@ -179,9 +190,9 @@ namespace MechChess.UI
         private readonly Image[] _settingsTabIcons = new Image[5];
         private readonly GameObject[] _settingsPanels = new GameObject[5];
 
-        // Mode Select State (4 feature cards, user reference design)
-        private int _selectedModeCardIndex = 0; // 0: Đấu với máy, 1: Hai người, 2: AR, 3: Học cờ & Puzzle
-        private readonly Image[] _modeCardFrameBgs = new Image[4];
+        // Mode Select State (5 feature cards: AI, Online PvP, 2P, AR, Learn)
+        private int _selectedModeCardIndex = 0;
+        private readonly Image[] _modeCardFrameBgs = new Image[5];
 
         // Shop State (3 category tabs, 4 feature items, user reference design)
         private int _selectedShopTab = 0; // 0: Skin quân cờ, 1: Bàn cờ, 2: Hiệu ứng
@@ -315,12 +326,33 @@ namespace MechChess.UI
             AegisLocalization.LoadSavedLanguage();
             AegisLocalization.OnLanguageChanged += OnLanguageChanged;
 
+            if (UserAccountManager.Instance != null)
+            {
+                UserAccountManager.Instance.OnProfileUpdated += HandleProfileUpdated;
+                UserAccountManager.Instance.OnAccountUpdated += HandleAccountUpdated;
+            }
+
             BuildAllScreens(false);
         }
 
         private void OnDestroy()
         {
             AegisLocalization.OnLanguageChanged -= OnLanguageChanged;
+            if (UserAccountManager.Instance != null)
+            {
+                UserAccountManager.Instance.OnProfileUpdated -= HandleProfileUpdated;
+                UserAccountManager.Instance.OnAccountUpdated -= HandleAccountUpdated;
+            }
+        }
+
+        private void HandleProfileUpdated(MechChess.Multiplayer.UserAccountData profile)
+        {
+            UpdateUserProfileUI();
+        }
+
+        private void HandleAccountUpdated(string username, string gmail, int elo)
+        {
+            UpdateUserProfileUI();
         }
 
         private Coroutine _refreshLanguageCoroutine;
@@ -515,12 +547,28 @@ namespace MechChess.UI
                 OnlineMultiplayerManager.Instance.OnOnlinePlayersUpdatedEvent += UpdateOnlinePlayersUI;
             }
 
+            // Ensure app keeps running in background for smooth multiplayer testing
+            Application.runInBackground = true;
+
             // Start with Splash Screen Loading Animation
             StartCoroutine(RunSplashSequence());
         }
 
         private void Update()
         {
+            // Toggle Fullscreen / Windowed with F11 or Alt+Enter on PC
+            if (Input.GetKeyDown(KeyCode.F11) || ((Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) && Input.GetKeyDown(KeyCode.Return)))
+            {
+                if (Screen.fullScreenMode == FullScreenMode.Windowed)
+                {
+                    Screen.fullScreenMode = FullScreenMode.FullScreenWindow;
+                }
+                else
+                {
+                    Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
+                }
+            }
+
             // Responsive canvas aspect ratio updates
             if (_menuScaler != null)
             {
@@ -804,6 +852,7 @@ namespace MechChess.UI
         private IEnumerator RunSplashSequence()
         {
             _userTappedSplash = false;
+            if (_screenSplash != null) _screenSplash.transform.SetAsLastSibling();
             AegisAudioManager.PlayStartupJingle();
 
             CanvasGroup cg = _screenSplash != null ? _screenSplash.GetComponent<CanvasGroup>() : null;
@@ -842,23 +891,26 @@ namespace MechChess.UI
                 _splashLoadingTxt.color = ColCyanGlow;
             }
 
-            // Allow player to tap anywhere to enter immediately, or auto-advance after 2 seconds
-            float waitTimer = 0f;
-            while (waitTimer < 2.0f && !_userTappedSplash)
+            // Reset tap state so touches during loading don't accidentally skip this screen
+            _userTappedSplash = false;
+
+            // Wait for player tap, pulsing the text to invite interaction
+            float pulseTimer = 0f;
+            while (!_userTappedSplash)
             {
-                waitTimer += Time.unscaledDeltaTime;
+                pulseTimer += Time.unscaledDeltaTime;
                 if (_splashLoadingTxt != null)
                 {
-                    float pulse = 0.60f + 0.40f * Mathf.PingPong(waitTimer * 3.5f, 1f);
+                    float pulse = 0.50f + 0.50f * Mathf.PingPong(pulseTimer * 2.5f, 1f);
                     _splashLoadingTxt.color = new Color(ColCyanGlow.r, ColCyanGlow.g, ColCyanGlow.b, pulse);
                 }
                 yield return null;
             }
 
-            if (_userTappedSplash)
-            {
-                AegisAudioManager.PlayButtonClick();
-            }
+            AegisAudioManager.PlayButtonClick();
+
+            // Pre-activate Main Menu behind the splash screen for smooth seamless dissolve (prevents black screen)
+            if (_screenMainMenu != null) _screenMainMenu.SetActive(true);
 
             // Smooth cinematic fade-out transition into Main Menu
             if (cg != null)
@@ -2276,7 +2328,7 @@ namespace MechChess.UI
             sepRt.anchoredPosition = new Vector2(0f, -80f);
             sepRt.sizeDelta = new Vector2(1440f, 1.5f);
 
-            // 4 Vertical Featured Cards Container (Full height inside window, no squishing bottom banner)
+            // 5 Vertical Featured Cards Container (Full height inside window)
             GameObject cardsContainer = new GameObject("CardsContainer");
             cardsContainer.transform.SetParent(windowObj.transform, false);
             RectTransform ccRt = cardsContainer.AddComponent<RectTransform>();
@@ -2286,9 +2338,9 @@ namespace MechChess.UI
             ccRt.anchoredPosition = new Vector2(0f, -38f);
             ccRt.sizeDelta = new Vector2(1440f, 660f);
 
-            float cardWidth = 330f;
-            float cardGap = 35f;
-            float totalSpan = 4 * cardWidth + 3 * cardGap;
+            float cardWidth = 270f;
+            float cardGap = 22f;
+            float totalSpan = 5 * cardWidth + 4 * cardGap; // 1350 + 88 = 1438f
             float startX = -totalSpan / 2f + cardWidth / 2f;
 
             // Card 1: Đấu với máy (Index 0)
@@ -2297,23 +2349,29 @@ namespace MechChess.UI
                 AegisLocalization.T("Chọn độ khó và bắt đầu\nthử thách AI", "Choose difficulty & challenge\nintelligent AI"),
                 "mode_card_ai.png", new Vector2(startX + 0 * (cardWidth + cardGap), 0f), OpenAIDifficultyModal, font);
 
-            // Card 2: Hai người (Index 1)
-            CreateModeFeatureCard(1, cardsContainer.transform, "Card2P",
+            // Card 2: Đấu Online (Index 1)
+            CreateModeFeatureCard(1, cardsContainer.transform, "CardOnline",
+                AegisLocalization.T("Đấu Online", "Online Match"),
+                AegisLocalization.T("Ghép đấu xếp hạng ELO\nvà thách đấu bạn bè", "Ranked matchmaking\nand friend duels"),
+                "mode_card_online.png", new Vector2(startX + 1 * (cardWidth + cardGap), 0f), () => RequireLogin(() => ShowMatchmakingModal()), font);
+
+            // Card 3: Hai người (Index 2)
+            CreateModeFeatureCard(2, cardsContainer.transform, "Card2P",
                 AegisLocalization.T("Hai người", "Pass & Play"),
                 AegisLocalization.T("Chơi cùng bạn bè\ntrên cùng thiết bị", "Play with friends\non the same device"),
-                "mode_card_2p.png", new Vector2(startX + 1 * (cardWidth + cardGap), 0f), () => LaunchGame(GameLaunchMode.LocalPassAndPlay), font);
+                "mode_card_2p.png", new Vector2(startX + 2 * (cardWidth + cardGap), 0f), () => LaunchGame(GameLaunchMode.LocalPassAndPlay), font);
 
-            // Card 3: AR (Index 2)
-            CreateModeFeatureCard(2, cardsContainer.transform, "CardAR",
+            // Card 4: AR (Index 3)
+            CreateModeFeatureCard(3, cardsContainer.transform, "CardAR",
                 AegisLocalization.T("AR", "AR Mode"),
                 AegisLocalization.T("Đặt bàn cờ lên mặt bàn thật\nqua camera", "Place board on tabletop\nvia camera tracking"),
-                "mode_card_ar.png", new Vector2(startX + 2 * (cardWidth + cardGap), 0f), () => LaunchGame(GameLaunchMode.AugmentedReality), font);
+                "mode_card_ar.png", new Vector2(startX + 3 * (cardWidth + cardGap), 0f), () => LaunchGame(GameLaunchMode.AugmentedReality), font);
 
-            // Card 4: Học cờ & Puzzle (Index 3)
-            CreateModeFeatureCard(3, cardsContainer.transform, "CardLearn",
+            // Card 5: Học cờ & Puzzle (Index 4)
+            CreateModeFeatureCard(4, cardsContainer.transform, "CardLearn",
                 AegisLocalization.T("Học cờ & Puzzle", "Learn & Puzzles"),
                 AegisLocalization.T("Nâng cao kỹ năng\nvà tư duy chiến thuật", "Enhance chess tactics\nand strategic thinking"),
-                "mode_card_learn.png", new Vector2(startX + 3 * (cardWidth + cardGap), 0f), OpenLearnScreen, font);
+                "mode_card_learn.png", new Vector2(startX + 4 * (cardWidth + cardGap), 0f), OpenLearnScreen, font);
         }
 
         private void CreateModeFeatureCard(int index, Transform parent, string name, string title, string desc, string textureName, Vector2 pos, Action onClick, Font font)
@@ -2331,7 +2389,7 @@ namespace MechChess.UI
             }
             else
             {
-                cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(330, 570, 20f, ColGlassFill, isSelected ? ColCyanGlow : ColCyanBorder, isSelected ? 2.5f : 1.5f);
+                cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(270, 600, 20f, ColGlassFill, isSelected ? ColCyanGlow : ColCyanBorder, isSelected ? 2.5f : 1.5f);
                 cardBg.type = Image.Type.Sliced;
             }
             if (index >= 0 && index < _modeCardFrameBgs.Length)
@@ -2348,9 +2406,9 @@ namespace MechChess.UI
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(330f, 570f);
+            rt.sizeDelta = new Vector2(270f, 600f);
 
-            // Card Artwork Image - fills upper 67% of card
+            // Card Artwork Image - fills upper portion of card
             GameObject artObj = new GameObject("Artwork");
             artObj.transform.SetParent(cardObj.transform, false);
             Image artImg = artObj.AddComponent<Image>();
@@ -2369,7 +2427,7 @@ namespace MechChess.UI
             artRt.anchorMax = new Vector2(0.5f, 1f);
             artRt.pivot = new Vector2(0.5f, 1f);
             artRt.anchoredPosition = new Vector2(0f, -14f);
-            artRt.sizeDelta = new Vector2(302f, 385f);
+            artRt.sizeDelta = new Vector2(246f, 400f);
 
             // Title
             GameObject titleObj = new GameObject("CardTitle");
@@ -2377,7 +2435,7 @@ namespace MechChess.UI
             Text titleTxt = titleObj.AddComponent<Text>();
             titleTxt.text = title;
             titleTxt.font = font;
-            titleTxt.fontSize = 26;
+            titleTxt.fontSize = 24;
             titleTxt.fontStyle = FontStyle.Bold;
             titleTxt.alignment = TextAnchor.MiddleCenter;
             titleTxt.color = ColTextWhite;
@@ -2387,8 +2445,8 @@ namespace MechChess.UI
             tRt.anchorMin = new Vector2(0.5f, 0f);
             tRt.anchorMax = new Vector2(0.5f, 0f);
             tRt.pivot = new Vector2(0.5f, 0f);
-            tRt.anchoredPosition = new Vector2(0f, 96f);
-            tRt.sizeDelta = new Vector2(310f, 36f);
+            tRt.anchoredPosition = new Vector2(0f, 102f);
+            tRt.sizeDelta = new Vector2(255f, 36f);
 
             // Description (centered 2 lines)
             GameObject descObj = new GameObject("CardDesc");
@@ -2396,7 +2454,7 @@ namespace MechChess.UI
             Text descTxt = descObj.AddComponent<Text>();
             descTxt.text = desc;
             descTxt.font = font;
-            descTxt.fontSize = 17;
+            descTxt.fontSize = 15;
             descTxt.lineSpacing = 1.25f;
             descTxt.alignment = TextAnchor.MiddleCenter;
             descTxt.color = new Color(0.75f, 0.85f, 0.96f, 0.95f);
@@ -2406,8 +2464,8 @@ namespace MechChess.UI
             dRt.anchorMin = new Vector2(0.5f, 0f);
             dRt.anchorMax = new Vector2(0.5f, 0f);
             dRt.pivot = new Vector2(0.5f, 0f);
-            dRt.anchoredPosition = new Vector2(0f, 26f);
-            dRt.sizeDelta = new Vector2(310f, 60f);
+            dRt.anchoredPosition = new Vector2(0f, 24f);
+            dRt.sizeDelta = new Vector2(255f, 64f);
         }
 
         private void SelectModeCard(int index, Action onAction)
@@ -2426,7 +2484,7 @@ namespace MechChess.UI
                     }
                     else
                     {
-                        _modeCardFrameBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(330, 570, 20f, ColGlassFill, (i == index) ? ColCyanGlow : ColCyanBorder, (i == index) ? 2.5f : 1.5f);
+                        _modeCardFrameBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(270, 600, 20f, ColGlassFill, (i == index) ? ColCyanGlow : ColCyanBorder, (i == index) ? 2.5f : 1.5f);
                     }
                 }
             }
@@ -2434,52 +2492,6 @@ namespace MechChess.UI
             onAction?.Invoke();
         }
 
-        private void BuildOnlineRankedBanner(Transform parent, Font font)
-        {
-            GameObject bannerObj = new GameObject("OnlineRankedBanner");
-            bannerObj.transform.SetParent(parent, false);
-
-            Image bg = bannerObj.AddComponent<Image>();
-            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1200, 60, 18f, new Color(0.04f, 0.10f, 0.22f, 0.92f), ColCyanBorder, 1.2f);
-            bg.type = Image.Type.Sliced;
-
-            Button btn = bannerObj.AddComponent<Button>();
-            btn.onClick.AddListener(() =>
-            {
-                RequireLogin(() =>
-                {
-                    // Show options: Random Match or Friend Duel
-                    OpenOnlineMatchChoiceModal();
-                });
-            });
-            bannerObj.AddComponent<MenuButtonEffect>();
-
-            RectTransform bRt = bannerObj.GetComponent<RectTransform>();
-            bRt.anchorMin = new Vector2(0.5f, 0f);
-            bRt.anchorMax = new Vector2(0.5f, 0f);
-            bRt.pivot = new Vector2(0.5f, 0f);
-            bRt.anchoredPosition = new Vector2(0f, 25f);
-            bRt.sizeDelta = new Vector2(1200f, 58f);
-
-            GameObject txtObj = new GameObject("Txt");
-            txtObj.transform.SetParent(bannerObj.transform, false);
-            Text t = txtObj.AddComponent<Text>();
-            t.text = AegisLocalization.T(
-                "🌐  <color=#B99A61><b>ĐẤU TRƯỜNG ONLINE:</b></color> Ghép Đấu Trực Tuyến & Thách Đấu Bạn Bè  ➜  <color=#B99A61><b>THAM GIA NGAY</b></color>",
-                "🌐  <color=#B99A61><b>ONLINE MULTIPLAYER:</b></color> Auto Matchmaking & Friend Duel  ➜  <color=#B99A61><b>JOIN NOW</b></color>");
-            t.font = font;
-            t.fontSize = 19;
-            t.fontStyle = FontStyle.Bold;
-            t.alignment = TextAnchor.MiddleCenter;
-            t.color = ColTextWhite;
-            t.horizontalOverflow = HorizontalWrapMode.Overflow;
-            t.verticalOverflow = VerticalWrapMode.Overflow;
-            RectTransform trt = txtObj.GetComponent<RectTransform>();
-            trt.anchorMin = Vector2.zero;
-            trt.anchorMax = Vector2.one;
-            trt.offsetMin = new Vector2(10f, 0f);
-            trt.offsetMax = new Vector2(-10f, 0f);
-        }
 
         // =========================================================================
         // SCREEN 4: CHỌN ĐỘ KHÓ AI (AI Select Modal with Paladin portrait & golden CTA)
@@ -4612,6 +4624,26 @@ namespace MechChess.UI
                 _resultEloTxt.text = isDraw ? "<color=#80d8ff>Elo +0</color>" : (victory ? "<color=#00e676>Elo +12</color>" : "<color=#ff5252>Elo -8</color>");
             }
 
+            // Securely record match result to Supabase database via FastAPI
+            if (UserAccountManager.Instance != null && UserAccountManager.Instance.IsLoggedIn)
+            {
+                string matchRes = isDraw ? "draw" : (victory ? "win" : "loss");
+                string oppName = "Cyber AI";
+                UserAccountManager.Instance.RecordMatchResult(matchRes, oppName, true, "white", moves, durationSec, (ok, res) =>
+                {
+                    if (ok && res != null)
+                    {
+                        if (_resultEloTxt != null)
+                        {
+                            string sign = res.elo_change >= 0 ? "+" : "";
+                            string colorHex = res.elo_change > 0 ? "#00e676" : (res.elo_change < 0 ? "#ff5252" : "#80d8ff");
+                            _resultEloTxt.text = $"<color={colorHex}>Elo {sign}{res.elo_change}</color> (Tổng: {res.new_elo})";
+                        }
+                        UpdateUserProfileUI();
+                    }
+                });
+            }
+
             _resultScreenModal.SetActive(true);
         }
 
@@ -4718,12 +4750,12 @@ namespace MechChess.UI
             string currentName = "Player001";
             if (UserAccountManager.Instance != null && !string.IsNullOrEmpty(UserAccountManager.Instance.CurrentUsername))
                 currentName = UserAccountManager.Instance.CurrentUsername;
-            CreateTextComp(leftPanel.transform, currentName, 30, FontStyle.Bold, ColTextWhite, font, new Vector2(-25f, 188f), new Vector2(260f, 38f), TextAnchor.MiddleLeft);
+            _profileModalNameComp = CreateTextComp(leftPanel.transform, currentName, 30, FontStyle.Bold, ColTextWhite, font, new Vector2(-25f, 188f), new Vector2(260f, 38f), TextAnchor.MiddleLeft);
 
-            // Level: "Lv. 5" (Cyan 20 Bold)
-            CreateTextComp(leftPanel.transform, "Lv. 5", 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(-25f, 154f), new Vector2(140f, 26f), TextAnchor.MiddleLeft);
+            // Level: "Lv. 1" (Cyan 20 Bold)
+            _profileModalLevelComp = CreateTextComp(leftPanel.transform, "Lv. 1", 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(-25f, 154f), new Vector2(140f, 26f), TextAnchor.MiddleLeft);
 
-            // EXP Progress Bar (Width 180px, height 16px, fill ~64%) + "320 / 500"
+            // EXP Progress Bar (Width 180px, height 16px)
             GameObject expBarObj = new GameObject("ExpBarBg");
             expBarObj.transform.SetParent(leftPanel.transform, false);
             Image expBg = expBarObj.AddComponent<Image>();
@@ -4738,14 +4770,14 @@ namespace MechChess.UI
             Image expFill = expFillObj.AddComponent<Image>();
             expFill.sprite = ArcaneAssetLoader.GetGlassBoxSprite(115, 16, 8f, ColCyanGlow, ColCyanGlow, 0f);
             expFill.type = Image.Type.Sliced;
-            RectTransform fillRt = expFillObj.GetComponent<RectTransform>();
-            fillRt.anchorMin = new Vector2(0f, 0.5f);
-            fillRt.anchorMax = new Vector2(0f, 0.5f);
-            fillRt.pivot = new Vector2(0f, 0.5f);
-            fillRt.anchoredPosition = Vector2.zero;
-            fillRt.sizeDelta = new Vector2(115f, 16f); // 320 / 500 = 64%
+            _profileModalExpFillRt = expFillObj.GetComponent<RectTransform>();
+            _profileModalExpFillRt.anchorMin = new Vector2(0f, 0.5f);
+            _profileModalExpFillRt.anchorMax = new Vector2(0f, 0.5f);
+            _profileModalExpFillRt.pivot = new Vector2(0f, 0.5f);
+            _profileModalExpFillRt.anchoredPosition = Vector2.zero;
+            _profileModalExpFillRt.sizeDelta = new Vector2(0f, 16f);
 
-            CreateTextComp(leftPanel.transform, "320 / 500", 18, FontStyle.Bold, new Color(0.88f, 0.94f, 1.0f), font, new Vector2(120f, 124f), new Vector2(110f, 26f), TextAnchor.MiddleLeft);
+            _profileModalExpComp = CreateTextComp(leftPanel.transform, "0 / 100", 18, FontStyle.Bold, new Color(0.88f, 0.94f, 1.0f), font, new Vector2(120f, 124f), new Vector2(110f, 26f), TextAnchor.MiddleLeft);
 
             // ---------------------------------------------------------------------
             // Stats Table Card (Lower Left - Matching Image 2)
@@ -4794,13 +4826,13 @@ namespace MechChess.UI
                 CreateTextComp(statsCard.transform, statHeaders[i], 21, FontStyle.Bold, new Color(0.80f, 0.88f, 0.98f), font, new Vector2(colX[i], 78f), new Vector2(110f, 30f), TextAnchor.MiddleCenter);
             }
 
-            // Row 1: 1250 (Cyan 32 Bold), 129 (White 28 Bold), 8 (White 28 Bold), Draw Icon
+            // Row 1: Elo (Cyan 32 Bold), Wins (White 28 Bold), Losses (White 28 Bold), Draw Icon
             int currentElo = 1250;
             if (UserAccountManager.Instance != null && UserAccountManager.Instance.CurrentElo > 0)
                 currentElo = UserAccountManager.Instance.CurrentElo;
-            CreateTextComp(statsCard.transform, currentElo.ToString(), 32, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[0], 28f), new Vector2(110f, 40f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "129", 28, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], 28f), new Vector2(110f, 38f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "8", 28, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], 28f), new Vector2(110f, 38f), TextAnchor.MiddleCenter);
+            _profileModalEloComp = CreateTextComp(statsCard.transform, currentElo.ToString(), 32, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[0], 28f), new Vector2(110f, 40f), TextAnchor.MiddleCenter);
+            _profileModalWinsComp = CreateTextComp(statsCard.transform, "0", 28, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], 28f), new Vector2(110f, 38f), TextAnchor.MiddleCenter);
+            _profileModalLossesComp = CreateTextComp(statsCard.transform, "0", 28, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], 28f), new Vector2(110f, 38f), TextAnchor.MiddleCenter);
 
             // Draw Icon (profile_draw_icon.png)
             GameObject drawIconObj = new GameObject("DrawIcon");
@@ -4814,7 +4846,7 @@ namespace MechChess.UI
             diRt.anchoredPosition = new Vector2(colX[3], 28f);
             diRt.sizeDelta = new Vector2(36f, 36f);
 
-            // Row 2: Rank Crest, 12 (White 26 Bold), 8 (Cyan 26 Bold), 2 (White 26 Bold)
+            // Row 2: Rank Crest, 12 (White 26 Bold), 8 (Cyan 26 Bold), Draws (White 26 Bold)
             GameObject rankCrestObj = new GameObject("RankCrest");
             rankCrestObj.transform.SetParent(statsCard.transform, false);
             Image rankCrestImg = rankCrestObj.AddComponent<Image>();
@@ -4827,8 +4859,31 @@ namespace MechChess.UI
             rcRt.sizeDelta = new Vector2(38f, 38f);
 
             CreateTextComp(statsCard.transform, "12", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "8", 26, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[2], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
-            CreateTextComp(statsCard.transform, "2", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalDrawsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+
+            // Switch Account / Logout Button
+            CreateMenuActionButton(
+                leftPanel.transform,
+                "BtnSwitchAccount",
+                AegisLocalization.T("⇄  ĐỔI TÀI KHOẢN / ĐĂNG XUẤT", "⇄  SWITCH ACCOUNT / LOGOUT"),
+                new Vector2(0f, -200f),
+                new Vector2(380f, 44f),
+                new Color(0.10f, 0.18f, 0.30f, 0.95f),
+                ColCyanGlow,
+                16,
+                () =>
+                {
+                    CloseModal(_profileModal);
+                    if (UserAccountManager.Instance != null)
+                    {
+                        UserAccountManager.Instance.Logout();
+                    }
+                    ShowLoginModal();
+                },
+                font,
+                ColCyanBorder,
+                1.4f
+            );
 
             // =====================================================================
             // RIGHT PANEL: Sub-Tabs & Match History Card (Matching Image 2)
@@ -4902,6 +4957,7 @@ namespace MechChess.UI
             GameObject historyContainer = new GameObject("Tab0_MatchHistory");
             historyContainer.transform.SetParent(rightPanel.transform, false);
             _profileTabContainers[0] = historyContainer;
+            _matchHistoryRowsParent = historyContainer.transform;
             Image hcBg = historyContainer.AddComponent<Image>();
             hcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(610, 360, 18f, new Color(0.02f, 0.05f, 0.10f, 0.94f), ColMutedBorder, 1.2f);
             hcBg.type = Image.Type.Sliced;
@@ -5066,6 +5122,15 @@ namespace MechChess.UI
             {
                 _profileModal.SetActive(true);
                 AegisAudioManager.PlayModalOpen();
+                UpdateUserProfileUI();
+                LoadDynamicMatchHistory();
+                if (UserAccountManager.Instance != null && UserAccountManager.Instance.IsLoggedIn)
+                {
+                    UserAccountManager.Instance.FetchProfile((ok, prof) =>
+                    {
+                        if (ok) UpdateUserProfileUI();
+                    });
+                }
             }
         }
 
@@ -6531,17 +6596,109 @@ namespace MechChess.UI
 
         public void UpdateUserProfileUI()
         {
-            string username = "Player001";
-            int elo = 1200;
-
-            if (UserAccountManager.Instance != null && UserAccountManager.Instance.IsLoggedIn)
-            {
-                username = UserAccountManager.Instance.CurrentUsername;
-                elo = UserAccountManager.Instance.CurrentElo;
-            }
+            var profile = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentProfile : null;
+            string username = (UserAccountManager.Instance != null && !string.IsNullOrEmpty(UserAccountManager.Instance.CurrentUsername))
+                ? UserAccountManager.Instance.CurrentUsername
+                : "Player001";
+            int elo = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentElo : 1200;
+            int level = profile != null ? profile.level : 1;
+            int exp = profile != null ? profile.exp : 0;
+            int maxExp = profile != null ? Mathf.Max(100, profile.max_exp) : 100;
+            int wins = profile != null ? profile.wins : 0;
+            int losses = profile != null ? profile.losses : 0;
+            int draws = profile != null ? profile.draws : 0;
 
             if (_profileNameTxt != null) _profileNameTxt.text = username;
-            if (_profileLevelTxt != null) _profileLevelTxt.text = $"Lv. 5 • Elo {elo}";
+            if (_profileLevelTxt != null) _profileLevelTxt.text = $"Lv. {level} • Elo {elo}";
+
+            if (_profileModalNameComp != null) _profileModalNameComp.text = username;
+            if (_profileModalLevelComp != null) _profileModalLevelComp.text = $"Lv. {level}";
+            if (_profileModalExpComp != null) _profileModalExpComp.text = $"{exp} / {maxExp}";
+            if (_profileModalExpFillRt != null)
+            {
+                float ratio = Mathf.Clamp01((float)exp / maxExp);
+                _profileModalExpFillRt.sizeDelta = new Vector2(180f * ratio, 16f);
+            }
+            if (_profileModalEloComp != null) _profileModalEloComp.text = elo.ToString();
+            if (_profileModalWinsComp != null) _profileModalWinsComp.text = wins.ToString();
+            if (_profileModalLossesComp != null) _profileModalLossesComp.text = losses.ToString();
+            if (_profileModalDrawsComp != null) _profileModalDrawsComp.text = draws.ToString();
+        }
+
+        public void LoadDynamicMatchHistory()
+        {
+            if (_matchHistoryRowsParent == null) return;
+            if (UserAccountManager.Instance == null || !UserAccountManager.Instance.IsLoggedIn) return;
+
+            UserAccountManager.Instance.FetchMatchHistory(5, (success, matches) =>
+            {
+                if (_matchHistoryRowsParent == null) return;
+
+                // Remove existing dynamic rows or notices
+                for (int c = _matchHistoryRowsParent.childCount - 1; c >= 0; c--)
+                {
+                    Transform ch = _matchHistoryRowsParent.GetChild(c);
+                    if (ch.name.StartsWith("DynamicRow_") || ch.name.StartsWith("EmptyNotice"))
+                    {
+                        Destroy(ch.gameObject);
+                    }
+                }
+
+                if (!success || matches == null || matches.Length == 0)
+                {
+                    // Leave default static display if empty or failed
+                    return;
+                }
+
+                // Hide the 3 hardcoded static rows
+                for (int r = 0; r < 3; r++)
+                {
+                    Transform staticRow = _matchHistoryRowsParent.Find("Row_" + r);
+                    if (staticRow != null) staticRow.gameObject.SetActive(false);
+                }
+
+                Font font = GetDefaultFont();
+                float startY = 90f;
+                float rowSpacing = 105f;
+                for (int i = 0; i < Mathf.Min(matches.Length, 3); i++)
+                {
+                    var m = matches[i];
+                    GameObject rowObj = new GameObject("DynamicRow_" + i);
+                    rowObj.transform.SetParent(_matchHistoryRowsParent, false);
+                    RectTransform rRt = rowObj.AddComponent<RectTransform>();
+                    rRt.anchoredPosition = new Vector2(0f, startY - (i * rowSpacing));
+                    rRt.sizeDelta = new Vector2(570f, 80f);
+
+                    // Row Icon
+                    GameObject rIconObj = new GameObject("Icon");
+                    rIconObj.transform.SetParent(rowObj.transform, false);
+                    Image rIconImg = rIconObj.AddComponent<Image>();
+                    string iconName = m.is_ai ? "profile_vs_ai_icon.png" : "profile_vs_player_icon.png";
+                    Sprite icSp = ArcaneAssetLoader.LoadArcaneSprite(iconName);
+                    if (icSp != null) rIconImg.sprite = icSp;
+                    else rIconImg.color = ColCyanGlow;
+                    rIconImg.preserveAspect = true;
+                    RectTransform riRt = rIconObj.GetComponent<RectTransform>();
+                    riRt.anchoredPosition = new Vector2(-235f, 0f);
+                    riRt.sizeDelta = new Vector2(46f, 46f);
+
+                    // Opponent Name
+                    string oppTitle = !string.IsNullOrEmpty(m.opponent_name) ? m.opponent_name : (m.is_ai ? "VS AI" : "VS Player");
+                    CreateTextComp(rowObj.transform, oppTitle, 22, FontStyle.Bold, ColTextWhite, font, new Vector2(-90f, 12f), new Vector2(220f, 28f), TextAnchor.MiddleLeft);
+
+                    // Date
+                    CreateTextComp(rowObj.transform, m.ended_at, 16, FontStyle.Normal, new Color(0.60f, 0.75f, 0.90f), font, new Vector2(-90f, -16f), new Vector2(220f, 22f), TextAnchor.MiddleLeft);
+
+                    // Score + Result Color
+                    Color scoreCol = (m.result == "win") ? ColGoldBorder : ((m.result == "loss") ? new Color(0.95f, 0.4f, 0.4f) : new Color(0.8f, 0.85f, 0.9f));
+                    CreateTextComp(rowObj.transform, m.score, 28, FontStyle.Bold, scoreCol, font, new Vector2(105f, 0f), new Vector2(90f, 36f), TextAnchor.MiddleCenter);
+
+                    // Elo Change (+12 / -8)
+                    string eloStr = m.elo_change > 0 ? $"+{m.elo_change}" : m.elo_change.ToString();
+                    Color eloCol = m.elo_change >= 0 ? new Color(0f, 0.90f, 0.45f) : new Color(1f, 0.35f, 0.35f);
+                    CreateTextComp(rowObj.transform, $"Elo {eloStr}", 18, FontStyle.Bold, eloCol, font, new Vector2(215f, 0f), new Vector2(90f, 30f), TextAnchor.MiddleCenter);
+                }
+            });
         }
 
         // =========================================================================

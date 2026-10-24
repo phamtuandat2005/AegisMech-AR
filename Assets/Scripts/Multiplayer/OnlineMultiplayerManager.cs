@@ -52,6 +52,10 @@ namespace MechChess.Multiplayer
         public int from_elo;
         public string target_username;
         public bool accepted;
+
+        // Presence & Heartbeat extensions
+        public double server_time;
+        public string status;
     }
 
     /// <summary>
@@ -60,6 +64,7 @@ namespace MechChess.Multiplayer
     /// 1. Real-time random matchmaking queue with auto pairing by server.
     /// 2. Direct friend invitation & challenges by username lookup.
     /// 3. In-game bidirectional move synchronization and turn enforcement.
+    /// 4. Authoritative Presence, Heartbeat Ping/Pong, and Session Management.
     /// </summary>
     public class OnlineMultiplayerManager : MonoBehaviour
     {
@@ -85,6 +90,12 @@ namespace MechChess.Multiplayer
         private ClientWebSocket _lobbyWebSocket;
         private CancellationTokenSource _lobbyCts;
 
+        // Reconnect & Session state
+        private bool _manualDisconnect = false;
+        private bool _isSuperseded = false;
+        private bool _isReconnecting = false;
+        private float _reconnectDelay = 2.0f;
+
         private readonly Queue<Action> _mainThreadQueue = new Queue<Action>();
         private readonly object _queueLock = new object();
 
@@ -98,6 +109,8 @@ namespace MechChess.Multiplayer
         public event Action<string> OnInviteErrorEvent;
         public event Action OnMatchmakingSearchingEvent;
         public event Action OnMatchmakingCancelledEvent;
+        public event Action<string> OnMatchmakingErrorEvent;
+        public event Action<string> OnSessionSupersededEvent;
         public event Action<List<OnlinePlayerInfo>> OnOnlinePlayersUpdatedEvent;
 
         public List<OnlinePlayerInfo> CachedOnlinePlayers { get; private set; } = new List<OnlinePlayerInfo>();
@@ -163,28 +176,43 @@ namespace MechChess.Multiplayer
             if (string.IsNullOrEmpty(playerName)) return;
 
             DisconnectLobby();
+            _manualDisconnect = false;
+            _isSuperseded = false;
 
             _lobbyCts = new CancellationTokenSource();
             _lobbyWebSocket = new ClientWebSocket();
 
             string cleanHost = serverAddress.TrimEnd('/');
-            string uriString = $"{cleanHost}/ws/lobby/{Uri.EscapeDataString(playerName)}";
+            string tokenParam = "";
+            if (UserAccountManager.Instance != null && !string.IsNullOrEmpty(UserAccountManager.Instance.AuthToken))
+            {
+                tokenParam = $"?token={Uri.EscapeDataString(UserAccountManager.Instance.AuthToken)}";
+            }
+            string uriString = $"{cleanHost}/ws/lobby/{Uri.EscapeDataString(playerName)}{tokenParam}";
 
             try
             {
                 Uri uri = new Uri(uriString);
                 await _lobbyWebSocket.ConnectAsync(uri, _lobbyCts.Token);
                 Debug.Log($"[OnlineMultiplayer] Connected to Lobby WebSocket as '{playerName}'");
+                _reconnectDelay = 2.0f;
                 _ = ReceiveLobbyLoop(_lobbyWebSocket, _lobbyCts.Token);
+                _ = SendHeartbeatLoop(_lobbyWebSocket, _lobbyCts.Token);
             }
             catch (Exception ex)
             {
                 Debug.LogWarning($"[OnlineMultiplayer] Lobby connection failed: {ex.Message}");
+                if (!_manualDisconnect && !_isSuperseded)
+                {
+                    _ = ScheduleLobbyReconnect();
+                }
             }
         }
 
         public async void DisconnectLobby()
         {
+            _manualDisconnect = true;
+
             if (_lobbyCts != null)
             {
                 _lobbyCts.Cancel();
@@ -204,6 +232,54 @@ namespace MechChess.Multiplayer
                 catch { }
                 _lobbyWebSocket.Dispose();
                 _lobbyWebSocket = null;
+            }
+        }
+
+        private async Task SendHeartbeatLoop(ClientWebSocket ws, CancellationToken ct)
+        {
+            while (ws != null && ws.State == WebSocketState.Open && !ct.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(10000, ct); // Ping every 10s
+                    if (ws.State == WebSocketState.Open && !ct.IsCancellationRequested)
+                    {
+                        string pingPayload = "{\"type\":\"ping\"}";
+                        byte[] bytes = Encoding.UTF8.GetBytes(pingPayload);
+                        await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, ct);
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[OnlineMultiplayer] Heartbeat ping loop interrupted: {ex.Message}");
+                    break;
+                }
+            }
+        }
+
+        private async Task ScheduleLobbyReconnect()
+        {
+            if (_isReconnecting || _isSuperseded || _manualDisconnect) return;
+            _isReconnecting = true;
+            try
+            {
+                int delayMs = (int)(_reconnectDelay * 1000);
+                Debug.Log($"[OnlineMultiplayer] Attempting Lobby reconnect in {_reconnectDelay:F1}s...");
+                await Task.Delay(delayMs);
+                _reconnectDelay = Mathf.Min(_reconnectDelay * 1.5f, 15f);
+
+                if (!_manualDisconnect && !_isSuperseded)
+                {
+                    ConnectToLobby();
+                }
+            }
+            finally
+            {
+                _isReconnecting = false;
             }
         }
 
@@ -292,6 +368,15 @@ namespace MechChess.Multiplayer
                     break;
                 }
             }
+
+            EnqueueMainThread(() =>
+            {
+                if (!_manualDisconnect && !_isSuperseded)
+                {
+                    Debug.LogWarning("[OnlineMultiplayer] Lobby WebSocket disconnected unexpectedly. Scheduling reconnect...");
+                    _ = ScheduleLobbyReconnect();
+                }
+            });
         }
 
         private void HandleLobbyMessage(string json)
@@ -305,6 +390,36 @@ namespace MechChess.Multiplayer
                 {
                     switch (packet.type)
                     {
+                        case "pong":
+                            // Heartbeat pong received from authoritative presence server
+                            break;
+
+                        case "session_superseded":
+                            _isSuperseded = true;
+                            DisconnectLobby();
+                            if (UIManager2D.Instance != null)
+                            {
+                                UIManager2D.Instance.RecordMove($"[BẢO MẬT] {packet.message}");
+                            }
+                            OnSessionSupersededEvent?.Invoke(packet.message);
+                            break;
+
+                        case "search_error":
+                            IsSearchingMatch = false;
+                            if (UIManager2D.Instance != null)
+                            {
+                                UIManager2D.Instance.RecordMove($"[LỖI TÌM TRẬN] {packet.message}");
+                            }
+                            OnMatchmakingErrorEvent?.Invoke(packet.message);
+                            break;
+
+                        case "match_searching":
+                            if (UIManager2D.Instance != null)
+                            {
+                                UIManager2D.Instance.RecordMove($"[GHÉP TRẬN] {packet.message}");
+                            }
+                            break;
+
                         case "match_found":
                         case "duel_start":
                             IsSearchingMatch = false;
@@ -389,7 +504,12 @@ namespace MechChess.Multiplayer
             _gameWebSocket = new ClientWebSocket();
 
             string cleanHost = serverAddress.TrimEnd('/');
-            string uriString = $"{cleanHost}/ws/chess/{currentRoomId}?name={Uri.EscapeDataString(playerName)}";
+            string tokenParam = "";
+            if (UserAccountManager.Instance != null && !string.IsNullOrEmpty(UserAccountManager.Instance.AuthToken))
+            {
+                tokenParam = $"&token={Uri.EscapeDataString(UserAccountManager.Instance.AuthToken)}";
+            }
+            string uriString = $"{cleanHost}/ws/chess/{currentRoomId}?name={Uri.EscapeDataString(playerName)}{tokenParam}";
 
             if (UIManager2D.Instance != null)
             {

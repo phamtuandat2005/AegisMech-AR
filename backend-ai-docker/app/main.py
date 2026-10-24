@@ -16,15 +16,52 @@ import uuid
 import random
 import asyncio
 from typing import Optional, List, Dict, Any, Tuple
+from contextlib import asynccontextmanager
 
 # pyrefly: ignore[missing-import]
-from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request, status
+from fastapi.responses import JSONResponse
 # pyrefly: ignore[missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore[missing-import]
 from pydantic import BaseModel, Field
 # pyrefly: ignore[missing-import]
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database import get_db, init_db
+from app import crud
+from app.config import (
+    ALLOWED_ORIGINS,
+    MAX_PAYLOAD_SIZE_BYTES,
+    sanitize_db_url,
+    DATABASE_URL
+)
+from app.security import (
+    create_access_token,
+    decode_access_token,
+    get_current_player,
+    get_optional_current_player,
+    match_ticket_manager,
+    rate_limiter,
+    mask_email
+)
+from app.models import Player
+from app.schemas import (
+    LoginRequest as DBLoginRequest,
+    LoginResponse,
+    PlayerProfileResponse,
+    PlayerStatsResponse,
+    MatchHistoryResponse,
+    MatchStartRequest,
+    MatchStartResponse,
+    MatchRecordRequest,
+    MatchRecordResponse,
+    LeaderboardResponse
+)
+from app.presence import presence_manager, PlayerStatus, PresenceClient
 from PIL import Image
+# Protect against DecompressionBomb Denial-of-Service attacks
+Image.MAX_IMAGE_PIXELS = 10_000_000
 # pyrefly: ignore[missing-import]
 import numpy as np
 try:
@@ -56,19 +93,74 @@ logger = logging.getLogger("MechChessAI")
 # ---------------------------------------------------------------------------
 # FastAPI Initialization & Middleware
 # ---------------------------------------------------------------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        await init_db()
+    except Exception as e:
+        logger.error(f"[Startup] Database initialization error or fallback: {e}")
+    presence_manager.start_background_task()
+    yield
+    presence_manager.stop_background_task()
+
 app = FastAPI(
     title="3D Mech AR Chess - AI & Computer Vision Backend",
     version="1.0.0",
-    description="Deep Learning Card/Marker Recognition and Chess AI Minimax Engine."
+    description="Deep Learning Card/Marker Recognition, Supabase PostgreSQL, and Chess AI Minimax Engine.",
+    lifespan=lifespan
 )
 
+# CORS Configuration (Restricts origins and forbids wildcard with credentials)
+cors_origins = ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["http://localhost:8000", "http://127.0.0.1:8000"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Security & Rate Limiting HTTP Middleware
+# ---------------------------------------------------------------------------
+@app.middleware("http")
+async def security_and_rate_limit_middleware(request: Request, call_next):
+    # 1. Payload size check (DDoS / Memory Exhaustion prevention)
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_PAYLOAD_SIZE_BYTES:
+                return JSONResponse(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    content={"detail": f"Dung lượng request vượt quá giới hạn tối đa ({MAX_PAYLOAD_SIZE_BYTES // (1024*1024)}MB)!"}
+                )
+        except ValueError:
+            pass
+
+    # 2. Sliding Window Rate Limiting (per IP and endpoint category)
+    path = request.url.path
+    if path.startswith("/api/"):
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        if path.startswith("/api/auth/"):
+            bucket, limit = "auth", 15
+        elif path.startswith("/api/match/"):
+            bucket, limit = "match", 40
+        elif path.startswith("/api/ai/") or path == "/api/recognize-card":
+            bucket, limit = "ai", 60
+        else:
+            bucket, limit = "default", 120
+
+        allowed, remaining, retry_after = rate_limiter.is_allowed(client_ip, bucket, limit, window_sec=60)
+        if not allowed:
+            logger.warning(f"[RateLimit] IP {client_ip} exceeded limit on bucket '{bucket}' ({path})")
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": "Quá nhiều yêu cầu trong thời gian ngắn (Rate Limit Exceeded). Vui lòng thử lại sau giây lát!"},
+                headers={"Retry-After": str(retry_after)}
+            )
+
+    response = await call_next(request)
+    return response
 
 # ---------------------------------------------------------------------------
 # Pydantic Schemas
@@ -402,15 +494,27 @@ async def recognize_card(payload: CardRecognizeRequest):
     """
     start_time = time.time()
     try:
+        # Prevent oversized base64 payload attacks
+        if len(payload.image_base64) > 7_000_000:
+            raise HTTPException(
+                status_code=400,
+                detail="Dung lượng ảnh Base64 quá lớn (> 5MB)!"
+            )
         header_split = payload.image_base64.split(",")
         base64_data = header_split[-1] if len(header_split) > 1 else payload.image_base64
         image_bytes = base64.b64decode(base64_data)
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        if image.width > 4096 or image.height > 4096:
+            raise HTTPException(
+                status_code=400,
+                detail="Độ phân giải ảnh vượt quá giới hạn an toàn (tối đa 4096x4096)!"
+            )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to decode base64 image: {e}")
         raise HTTPException(
-            # pyrefly: ignore[unknown-name]
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail=f"Invalid base64 image data: {str(e)}"
         )
 
@@ -520,6 +624,11 @@ class ChessRoom:
         self.players: Dict[str, PlayerConnection] = {}
         self.created_at = time.time()
         self.moves_history: List[str] = []
+        self.current_turn: str = "white"
+
+    def reset_state(self):
+        self.moves_history.clear()
+        self.current_turn = "white"
 
     def is_full(self) -> bool:
         return len(self.players) >= 2
@@ -642,108 +751,311 @@ class AccountManager:
 account_manager = AccountManager()
 
 # ---------------------------------------------------------------------------
-# Real-time Online Lobby & Matchmaking Manager
+# Real-time Online Presence & Matchmaking Engine
 # ---------------------------------------------------------------------------
-class LobbyClient:
-    def __init__(self, websocket: WebSocket, username: str, gmail: str, elo: int = 1200):
-        self.websocket = websocket
-        self.username = username
-        self.gmail = gmail
-        self.elo = elo
-        self.status = "idle"  # "idle", "queue", "in_match"
-        self.time_control = "10 + 0"
-        self.queue_time = 0.0
-
-class LobbyManager:
-    def __init__(self):
-        self.clients: Dict[str, LobbyClient] = {}       # lower_username -> LobbyClient
-        self.matchmaking_queue: List[str] = []          # list of lower_usernames in queue
-
-    def add_client(self, websocket: WebSocket, username: str, gmail: str, elo: int):
-        lower = username.lower()
-        self.clients[lower] = LobbyClient(websocket, username, gmail, elo)
-
-    def remove_client(self, username: str):
-        lower = username.lower()
-        if lower in self.matchmaking_queue:
-            self.matchmaking_queue.remove(lower)
-        if lower in self.clients:
-            del self.clients[lower]
-
-    def add_to_queue(self, username: str, time_control: str = "10 + 0"):
-        lower = username.lower()
-        if lower not in self.clients:
-            return
-        client = self.clients[lower]
-        client.status = "queue"
-        client.time_control = time_control
-        client.queue_time = time.time()
-        if lower not in self.matchmaking_queue:
-            self.matchmaking_queue.append(lower)
-
-    def remove_from_queue(self, username: str):
-        lower = username.lower()
-        if lower in self.matchmaking_queue:
-            self.matchmaking_queue.remove(lower)
-        if lower in self.clients:
-            self.clients[lower].status = "idle"
-
-    def try_match_players(self) -> Optional[Tuple[LobbyClient, LobbyClient, str]]:
-        if len(self.matchmaking_queue) >= 2:
-            p1_key = self.matchmaking_queue.pop(0)
-            p2_key = self.matchmaking_queue.pop(0)
-            p1 = self.clients.get(p1_key)
-            p2 = self.clients.get(p2_key)
-            if p1 and p2:
-                room_id = f"MATCH_{uuid.uuid4().hex[:8].upper()}"
-                p1.status = "in_match"
-                p2.status = "in_match"
-                return p1, p2, room_id
-            if p1 and p1_key in self.clients:
-                self.matchmaking_queue.insert(0, p1_key)
-            elif p2 and p2_key in self.clients:
-                self.matchmaking_queue.insert(0, p2_key)
-        return None
-
-lobby_manager = LobbyManager()
+# lobby_manager is aliased to presence_manager for unified state management
+lobby_manager = presence_manager
 
 async def broadcast_online_players():
-    online_list = [
-        {"username": c.username, "elo": c.elo, "status": c.status}
-        for c in lobby_manager.clients.values()
-    ]
-    for c in list(lobby_manager.clients.values()):
-        try:
-            await c.websocket.send_json({
-                "type": "online_players_list",
-                "players": online_list
-            })
-        except Exception:
-            pass
+    await presence_manager.broadcast_presence()
 
-class LoginRequest(BaseModel):
-    gmail: str
-    username: Optional[str] = None
+@app.post("/api/auth/login", response_model=LoginResponse)
+async def auth_login(req: DBLoginRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        ok, msg, player = await crud.register_or_login_player(db, req.gmail, req.username)
+        if not ok or not player:
+            raise HTTPException(status_code=400, detail=msg)
 
-@app.post("/api/auth/login")
-def auth_login(req: LoginRequest):
-    success, msg, user = account_manager.register_or_login(req.gmail, req.username)
-    if not success:
+        profile = crud.format_profile_response(player)
+
+        # Synchronize in-memory AccountManager for real-time WebSocket state
+        account_manager.users[player.gmail.lower()] = {
+            "gmail": player.gmail,
+            "username": player.username,
+            "elo": profile.elo,
+            "created_at": time.time()
+        }
+        account_manager.usernames[player.username.lower()] = player.gmail.lower()
+
+        # Issue secure cryptographic JWT access token (HS256)
+        access_token = create_access_token({
+            "sub": player.username,
+            "username": player.username,
+            "gmail": player.gmail,
+            "player_id": str(player.id)
+        })
+
+        return LoginResponse(
+            success=True,
+            message=msg,
+            user=profile,
+            access_token=access_token,
+            token_type="bearer"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"[Auth] Database login fallback to memory: {e}")
+        success, msg, user = account_manager.register_or_login(req.gmail, req.username)
+        if not success:
+            raise HTTPException(status_code=400, detail=msg)
+
+        # In-memory fallback token
+        fb_token = create_access_token({
+            "sub": user.get("username", req.username),
+            "username": user.get("username", req.username),
+            "gmail": user.get("gmail", req.gmail),
+            "player_id": "offline-session"
+        })
+
+        profile = PlayerProfileResponse(
+            id=str(uuid.uuid4()),
+            gmail=user.get("gmail", req.gmail),
+            username=user.get("username", req.username or "Player"),
+            avatar_url="profile_avatar_round.png",
+            level=1,
+            exp=0,
+            max_exp=100,
+            gold=500,
+            gems=50,
+            energy=100,
+            elo=user.get("elo", 1200),
+            matches_played=0,
+            wins=0,
+            losses=0,
+            draws=0,
+            win_rate=0.0,
+            created_at=""
+        )
+
+        return LoginResponse(
+            success=True,
+            message=msg,
+            user=profile,
+            access_token=fb_token,
+            token_type="bearer"
+        )
+
+@app.get("/api/player/profile", response_model=PlayerProfileResponse)
+async def get_player_profile(
+    username: Optional[str] = None,
+    gmail: Optional[str] = None,
+    current_user: Optional[Player] = Depends(get_optional_current_player),
+    db: AsyncSession = Depends(get_db)
+):
+    player = None
+    if username:
+        player = await crud.get_player_by_username(db, username)
+    elif gmail:
+        player = await crud.get_player_by_gmail(db, gmail)
+
+    if not player:
+        clean_name = (username or "").strip()
+        if clean_name:
+            target_gmail = gmail.strip().lower() if gmail else f"{clean_name.lower()}@gmail.com"
+            ok, msg, created_p = await crud.register_or_login_player(db, target_gmail, clean_name)
+            if ok and created_p:
+                player = created_p
+        elif gmail:
+            clean_g = gmail.strip().lower()
+            derived_name = clean_g.split("@")[0]
+            ok, msg, created_p = await crud.register_or_login_player(db, clean_g, derived_name)
+            if ok and created_p:
+                player = created_p
+
+    if not player:
+        # Fallback to memory
+        lower_u = (username or "").strip().lower()
+        if lower_u and lower_u in account_manager.usernames:
+            g = account_manager.usernames[lower_u]
+            u = account_manager.users.get(g)
+            if u:
+                profile = PlayerProfileResponse(
+                    id=str(uuid.uuid4()),
+                    gmail=u.get("gmail", ""),
+                    username=u.get("username", username or "Player"),
+                    avatar_url="profile_avatar_round.png",
+                    level=1,
+                    exp=0,
+                    max_exp=100,
+                    gold=500,
+                    gems=50,
+                    energy=100,
+                    elo=u.get("elo", 1200),
+                    matches_played=0,
+                    wins=0,
+                    losses=0,
+                    draws=0,
+                    win_rate=0.0,
+                    created_at=""
+                )
+                is_owner = current_user and current_user.username.lower() == profile.username.lower()
+                if not is_owner:
+                    profile.gmail = mask_email(profile.gmail)
+                return profile
+        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ người chơi!")
+
+    profile = crud.format_profile_response(player)
+    # Protect PII: mask email if caller is not the profile owner
+    is_owner = current_user and current_user.username.lower() == profile.username.lower()
+    if not is_owner:
+        profile.gmail = mask_email(profile.gmail)
+
+    return profile
+
+@app.get("/api/player/stats", response_model=PlayerStatsResponse)
+async def get_player_stats(
+    username: str,
+    db: AsyncSession = Depends(get_db)
+):
+    player = await crud.get_player_by_username(db, username)
+    if not player:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thông tin người chơi!")
+
+    stats = player.stats
+    elo = stats.elo if stats else 1200
+    matches_played = stats.matches_played if stats else 0
+    wins = stats.wins if stats else 0
+    losses = stats.losses if stats else 0
+    draws = stats.draws if stats else 0
+    win_rate = stats.win_rate if stats else 0.0
+    win_streak = stats.win_streak if stats else 0
+    highest_elo = stats.highest_elo if stats else elo
+
+    return PlayerStatsResponse(
+        username=player.username,
+        elo=elo,
+        matches_played=matches_played,
+        wins=wins,
+        losses=losses,
+        draws=draws,
+        win_rate=win_rate,
+        win_streak=win_streak,
+        highest_elo=highest_elo
+    )
+
+@app.get("/api/player/history", response_model=MatchHistoryResponse)
+async def get_player_history(
+    username: str,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db)
+):
+    matches = await crud.get_match_history_list(db, username, limit=limit)
+    return MatchHistoryResponse(total=len(matches), matches=matches)
+
+@app.post("/api/match/start", response_model=MatchStartResponse)
+async def start_match_api(
+    req: MatchStartRequest,
+    current_player: Player = Depends(get_current_player)
+):
+    """
+    Issues a cryptographic HMAC match ticket to prevent match result spoofing,
+    replay attacks, and instant-win bot farming.
+    """
+    match_id, ticket, issued_at = match_ticket_manager.create_ticket(
+        username=current_player.username,
+        opponent=req.opponent_name or "Cyber AI",
+        is_ai=req.is_ai or False,
+        role=req.player_role or "white"
+    )
+    logger.info(f"[MatchTicket] Issued ticket for player '{current_player.username}' in match {match_id}")
+    return MatchStartResponse(
+        success=True,
+        match_id=match_id,
+        match_ticket=ticket,
+        issued_at=issued_at
+    )
+
+@app.post("/api/match/record", response_model=MatchRecordResponse)
+async def record_match_api(
+    req: MatchRecordRequest,
+    current_player: Player = Depends(get_current_player),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Records match result with strict security enforcement:
+    1. Authorization & BOLA/IDOR check: verifies Bearer token matches requested player.
+    2. Anti-Cheat: verifies match ticket integrity, prevents replays, and validates duration.
+    3. Atomically updates Elo, Gold, and Exp within a database transaction.
+    """
+    # 1. BOLA / IDOR Protection: verify token owner matches submitted username
+    if req.username.strip().lower() != current_player.username.strip().lower():
+        logger.warning(f"[Security BOLA Attempt] Player '{current_player.username}' tried to record match for '{req.username}'!")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Quyền truy cập bị từ chối (BOLA/IDOR): Bạn không được phép ghi nhận kết quả cho tài khoản '{req.username}'!"
+        )
+
+    # 2. Anti-Cheat & Replay Protection: Validate match ticket
+    if req.match_ticket:
+        valid_ticket, ticket_err = match_ticket_manager.verify_and_consume(
+            ticket_token=req.match_ticket,
+            match_id=req.match_id,
+            username=current_player.username,
+            duration_sec=req.duration_sec or 0.0,
+            moves_count=req.moves_count or 0
+        )
+        if not valid_ticket:
+            logger.warning(f"[Anti-Cheat] Match rejected for '{current_player.username}': {ticket_err}")
+            raise HTTPException(status_code=400, detail=ticket_err)
+    else:
+        # If ticket is missing, perform basic sanity check on duration and moves
+        if (req.duration_sec or 0.0) < 4.0 and (req.moves_count or 0) < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Ván cờ kết thúc bất thường (< 4 giây và 0 nước đi). Nghi vấn hack/farming!"
+            )
+
+    # 3. Transactional Match Record
+    ok, msg, res = await crud.record_match_result(db, req)
+    if not ok:
         raise HTTPException(status_code=400, detail=msg)
-    return {
-        "success": True,
-        "message": msg,
-        "user": user
-    }
+
+    # Update in-memory lobby client Elo if currently connected
+    lower_u = req.username.lower()
+    if lower_u in lobby_manager.clients:
+        lobby_manager.clients[lower_u].elo = res["new_elo"]
+    if lower_u in account_manager.usernames:
+        g = account_manager.usernames[lower_u]
+        if g in account_manager.users:
+            account_manager.users[g]["elo"] = res["new_elo"]
+
+    return MatchRecordResponse(
+        success=True,
+        message=msg,
+        **res
+    )
+
+@app.get("/api/leaderboard", response_model=LeaderboardResponse)
+async def get_leaderboard_api(
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db)
+):
+    board = await crud.get_leaderboard_list(db, limit=limit)
+    return LeaderboardResponse(total=len(board), leaderboard=board)
 
 @app.get("/api/players/online")
 def get_online_players():
     return {
-        "count": len(lobby_manager.clients),
+        "count": len(presence_manager.clients),
         "players": [
-            {"username": c.username, "elo": c.elo, "status": c.status}
-            for c in lobby_manager.clients.values()
+            {
+                "username": c.username,
+                "elo": c.elo,
+                "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+                "last_seen": int(c.last_seen),
+                "connected_at": int(c.connected_at)
+            }
+            for c in presence_manager.clients.values()
         ]
+    }
+
+@app.get("/api/matchmaking/status")
+def get_matchmaking_status():
+    return {
+        "queue_size": len(presence_manager.matchmaking_queue),
+        "queued_players": list(presence_manager.matchmaking_queue),
+        "online_count": len(presence_manager.clients)
     }
 
 @app.get("/api/players/search")
@@ -753,7 +1065,7 @@ def search_players(query: str):
     for lower_u, g in account_manager.usernames.items():
         if q in lower_u:
             user = account_manager.users.get(g, {})
-            is_online = lower_u in lobby_manager.clients
+            is_online = lower_u in presence_manager.clients
             matches.append({
                 "username": user.get("username", lower_u),
                 "elo": user.get("elo", 1200),
@@ -778,9 +1090,24 @@ def get_active_rooms():
     }
 
 @app.websocket("/ws/lobby/{username}")
-async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = ""):
-    await websocket.accept()
+async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = "", token: Optional[str] = None):
     lower_name = username.lower()
+
+    # Cryptographic JWT Token verification on WebSocket handshake
+    if token:
+        try:
+            payload = decode_access_token(token)
+            token_user = (payload.get("sub") or payload.get("username") or "").lower()
+            if token_user != lower_name:
+                logger.warning(f"[Security WS] Token mismatch: requested '{lower_name}' vs token '{token_user}'")
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
+        except Exception as e:
+            logger.warning(f"[Security WS] Invalid token on lobby connection: {e}")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+    await websocket.accept()
 
     user_info = None
     if lower_name in account_manager.usernames:
@@ -789,56 +1116,86 @@ async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = "
 
     elo = user_info.get("elo", 1200) if user_info else 1200
     display_name = user_info.get("username", username) if user_info else username
+    client_ip = websocket.client.host if websocket.client else "127.0.0.1"
 
-    lobby_manager.add_client(websocket, display_name, gmail or "", elo)
-    logger.info(f"[Lobby] Player '{display_name}' connected to online lobby.")
+    client = await presence_manager.register_client(
+        websocket=websocket,
+        username=display_name,
+        gmail=gmail or "",
+        elo=elo,
+        client_ip=client_ip
+    )
+    logger.info(f"[Lobby] Player '{display_name}' connected to online lobby. Session: {client.session_id[:8]}")
 
-    await broadcast_online_players()
+    await presence_manager.broadcast_presence()
 
     try:
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type")
 
-            if msg_type == "find_match":
+            # Heartbeat ping/pong
+            if msg_type in ("ping", "heartbeat"):
+                await presence_manager.touch_heartbeat(display_name)
+                await websocket.send_json({
+                    "type": "pong",
+                    "server_time": time.time(),
+                    "status": client.status.value
+                })
+
+            elif msg_type == "find_match":
                 tc = data.get("time_control", "10 + 0")
-                lobby_manager.add_to_queue(display_name, tc)
-                logger.info(f"[Matchmaking] '{display_name}' searching random match... (Queue size: {len(lobby_manager.matchmaking_queue)})")
-
-                match = lobby_manager.try_match_players()
-                if match:
-                    p1, p2, room_id = match
-                    if random.random() > 0.5:
-                        w, b = p1, p2
-                    else:
-                        w, b = p2, p1
-
-                    await w.websocket.send_json({
-                        "type": "match_found",
-                        "room_id": room_id,
-                        "role": "white",
-                        "opponent": b.username,
-                        "opponent_elo": b.elo,
-                        "time_control": w.time_control
+                ok, reason = await presence_manager.add_to_queue(display_name, tc)
+                if not ok:
+                    await websocket.send_json({
+                        "type": "search_error",
+                        "message": reason
                     })
-                    await b.websocket.send_json({
-                        "type": "match_found",
-                        "room_id": room_id,
-                        "role": "black",
-                        "opponent": w.username,
-                        "opponent_elo": w.elo,
-                        "time_control": w.time_control
+                else:
+                    await websocket.send_json({
+                        "type": "match_searching",
+                        "message": reason,
+                        "time_control": tc
                     })
-                    logger.info(f"[Matchmaking] Matched: {w.username} (White) vs {b.username} (Black) in room {room_id}")
+                    await presence_manager.broadcast_presence()
+
+                    match = await presence_manager.try_match_players()
+                    if match:
+                        p1, p2, room_id = match
+                        room_manager.get_or_create_room(room_id)
+                        if random.random() > 0.5:
+                            w, b = p1, p2
+                        else:
+                            w, b = p2, p1
+
+                        await w.websocket.send_json({
+                            "type": "match_found",
+                            "room_id": room_id,
+                            "role": "white",
+                            "opponent": b.username,
+                            "opponent_elo": b.elo,
+                            "time_control": w.time_control
+                        })
+                        await b.websocket.send_json({
+                            "type": "match_found",
+                            "room_id": room_id,
+                            "role": "black",
+                            "opponent": w.username,
+                            "opponent_elo": w.elo,
+                            "time_control": w.time_control
+                        })
+                        logger.info(f"[Matchmaking] Matched: {w.username} (White) vs {b.username} (Black) in room {room_id}")
+                        await presence_manager.broadcast_presence()
 
             elif msg_type == "cancel_match":
-                lobby_manager.remove_from_queue(display_name)
+                await presence_manager.remove_from_queue(display_name)
                 await websocket.send_json({"type": "match_cancelled"})
+                await presence_manager.broadcast_presence()
 
             elif msg_type == "invite_friend":
                 target_raw = data.get("target_username", "").strip()
                 target_name = target_raw.lower()
-                target_client = lobby_manager.clients.get(target_name)
+                target_client = presence_manager.clients.get(target_name)
                 if not target_client:
                     await websocket.send_json({
                         "type": "invite_error",
@@ -849,7 +1206,7 @@ async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = "
                         "type": "invite_error",
                         "message": "Bạn không thể tự mời chính mình thi đấu!"
                     })
-                elif target_client.status == "in_match":
+                elif target_client.status == PlayerStatus.IN_GAME:
                     await websocket.send_json({
                         "type": "invite_error",
                         "message": f"Người chơi '{target_client.username}' hiện đang trong trận đấu khác!"
@@ -857,6 +1214,7 @@ async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = "
                 else:
                     invite_id = uuid.uuid4().hex[:6].upper()
                     duel_room = f"DUEL_{invite_id}"
+                    room_manager.get_or_create_room(duel_room)
                     await target_client.websocket.send_json({
                         "type": "friend_invite_received",
                         "invite_id": invite_id,
@@ -876,14 +1234,17 @@ async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = "
                 accepted = data.get("accepted", False)
                 from_user = data.get("from_username", "").strip().lower()
                 duel_room = data.get("room_id")
-                from_client = lobby_manager.clients.get(from_user)
+                from_client = presence_manager.clients.get(from_user)
 
                 if accepted:
                     if from_client:
                         if random.random() > 0.5:
-                            w, b = from_client, lobby_manager.clients[lower_name]
+                            w, b = from_client, presence_manager.clients[lower_name]
                         else:
-                            w, b = lobby_manager.clients[lower_name], from_client
+                            w, b = presence_manager.clients[lower_name], from_client
+
+                        await presence_manager.set_player_in_game(w.username, duel_room)
+                        await presence_manager.set_player_in_game(b.username, duel_room)
 
                         await w.websocket.send_json({
                             "type": "duel_start",
@@ -899,6 +1260,7 @@ async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = "
                             "opponent": w.username,
                             "opponent_elo": w.elo
                         })
+                        await presence_manager.broadcast_presence()
                         logger.info(f"[FriendDuel] Challenge accepted: {w.username} (White) vs {b.username} (Black) in {duel_room}")
                 else:
                     if from_client:
@@ -909,11 +1271,11 @@ async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = "
 
     except WebSocketDisconnect:
         logger.info(f"[Lobby] Player '{display_name}' disconnected.")
-        lobby_manager.remove_client(display_name)
-        await broadcast_online_players()
+        await presence_manager.disconnect_client(display_name, session_id=client.session_id)
+        await presence_manager.broadcast_presence()
 
 @app.websocket("/ws/chess/{room_id}")
-async def chess_multiplayer_ws(websocket: WebSocket, room_id: str, name: Optional[str] = "Player"):
+async def chess_multiplayer_ws(websocket: WebSocket, room_id: str, name: Optional[str] = "Player", token: Optional[str] = None):
     await websocket.accept()
     room = room_manager.get_or_create_room(room_id)
 
@@ -927,8 +1289,19 @@ async def chess_multiplayer_ws(websocket: WebSocket, room_id: str, name: Optiona
         return
 
     player_name = name if name and name.strip() else f"Player_{role.upper()}"
+    if token:
+        try:
+            payload = decode_access_token(token)
+            token_sub = payload.get("sub") or payload.get("username")
+            if token_sub:
+                player_name = token_sub
+        except Exception as e:
+            logger.warning(f"[Security WS] Game room token warning: {e}")
+
     player_conn = PlayerConnection(websocket, role, player_name)
     room.players[role] = player_conn
+    await presence_manager.set_player_in_game(player_name, room_id)
+    await presence_manager.broadcast_presence()
 
     logger.info(f"Multiplayer: Player '{player_name}' joined room '{room_id}' as '{role.upper()}'")
 
@@ -965,7 +1338,15 @@ async def chess_multiplayer_ws(websocket: WebSocket, room_id: str, name: Optiona
             msg_type = data.get("type")
 
             if msg_type == "move":
-                # Forward move to opponent
+                # Strict Turn Order Enforcement: prevent move injection / turn hijacking
+                if room.current_turn != role:
+                    logger.warning(f"[Security Turn] Out-of-turn move attempt by '{player_name}' ({role}). Current turn: {room.current_turn}")
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": f"Chưa đến lượt của bạn! Lượt đi hiện tại là: {room.current_turn.upper()}"
+                    })
+                    continue
+
                 opponent_role = "black" if role == "white" else "white"
                 opponent = room.players.get(opponent_role)
                 if opponent:
@@ -974,11 +1355,13 @@ async def chess_multiplayer_ws(websocket: WebSocket, room_id: str, name: Optiona
                         "from": data.get("from"),
                         "to": data.get("to"),
                         "notation": data.get("notation"),
-                        "active_turn": data.get("active_turn", opponent_role)
+                        "active_turn": opponent_role
                     })
                 room.moves_history.append(data.get("notation", ""))
+                room.current_turn = opponent_role
 
             elif msg_type == "reset":
+                room.reset_state()
                 # Broadcast match reset
                 for p in list(room.players.values()):
                     try:
@@ -988,7 +1371,6 @@ async def chess_multiplayer_ws(websocket: WebSocket, room_id: str, name: Optiona
                         })
                     except Exception:
                         pass
-                room.moves_history.clear()
 
             elif msg_type == "chat":
                 for p in list(room.players.values()):
@@ -1005,6 +1387,8 @@ async def chess_multiplayer_ws(websocket: WebSocket, room_id: str, name: Optiona
     except WebSocketDisconnect:
         logger.info(f"Multiplayer: Player '{player_name}' ({role.upper()}) disconnected from room '{room_id}'")
         room_manager.remove_player(room_id, role)
+        await presence_manager.set_player_finished_game(player_name)
+        await presence_manager.broadcast_presence()
         # Notify remaining opponent
         opponent_role = "black" if role == "white" else "white"
         if room_id in room_manager.rooms:

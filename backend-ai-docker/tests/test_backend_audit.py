@@ -4,7 +4,7 @@ import json
 import time
 
 # Ensure backend-ai-docker is in path
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 def run_audit():
     print("=" * 65)
@@ -21,7 +21,7 @@ def run_audit():
             print(f"   {idx:02d}: {cls_info['name']} (Command: {cls_info['command']}, Piece: {cls_info['piece']})")
 
         checkpoint_files = [
-            f for f in os.listdir(os.path.join(os.path.dirname(__file__), "app"))
+            f for f in os.listdir(os.path.join(os.path.dirname(__file__), "..", "app"))
             if f.endswith((".pth", ".pt", ".onnx", ".h5", ".bin"))
         ]
         
@@ -37,7 +37,7 @@ def run_audit():
     # 2. Test Account Manager Persistence & Validation
     try:
         from app.main import AccountManager
-        test_db = os.path.join(os.path.dirname(__file__), "app", "test_users_db.json")
+        test_db = os.path.join(os.path.dirname(__file__), "..", "app", "test_users_db.json")
         if os.path.exists(test_db):
             os.remove(test_db)
 

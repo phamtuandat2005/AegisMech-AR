@@ -134,7 +134,20 @@ backend-ai-docker/app/users_db.json
 # Test execution output logs
 Assets/Scripts/Editor/TestResults_*.txt*
 backend-ai-docker/tests/test_results_*.txt
+backend-ai-docker/test_results_*.txt
 scratch/*
 # Local secrets and keys
 adafruit_key.txt
 *.key
+.env
+*.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+skills-lock.json
+.claude/
+agent/
+.agents/
+skills-lock.json    
