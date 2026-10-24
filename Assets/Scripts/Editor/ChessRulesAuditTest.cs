@@ -114,21 +114,6 @@ namespace MechChess.EditorTests
             }
         }
 
-        [InitializeOnLoadMethod]
-        private static void AutoRunOnLoad()
-        {
-            EditorApplication.delayCall += () =>
-            {
-                try
-                {
-                    RunAllChessRulesTests();
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError("AutoRunOnLoad Error: " + ex.Message);
-                }
-            };
-        }
 
         private static void ClearBoard(ChessBoard3DManager board)
         {

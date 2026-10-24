@@ -546,6 +546,7 @@ namespace MechChess.UI
             if (MainMenu2D.Instance != null && MainMenu2D.Instance.IsMenuVisible())
             {
                 SetHUDVisible(false);
+                _isTimerRunning = false;
             }
         }
 

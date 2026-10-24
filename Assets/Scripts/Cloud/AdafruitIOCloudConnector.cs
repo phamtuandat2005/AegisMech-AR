@@ -33,7 +33,7 @@ namespace MechChess.Cloud
 
         [Header("Adafruit IO Credentials")]
         [Tooltip("Enter your Adafruit IO Username")]
-        public string aioUsername = "YOUR_AIO_USERNAME";
+        public string aioUsername = "phamtuandat";
 
         [Tooltip("Enter your Adafruit IO Active Key")]
         public string aioKey = "YOUR_AIO_KEY";
@@ -55,6 +55,25 @@ namespace MechChess.Cloud
         {
             if (Instance == null) Instance = this;
             else Destroy(gameObject);
+
+            // Load key locally from untracked adafruit_key.txt or PlayerPrefs
+            if (string.IsNullOrEmpty(aioKey) || aioKey == "YOUR_AIO_KEY")
+            {
+                try
+                {
+                    string localKeyPath = System.IO.Path.Combine(Application.dataPath, "..", "adafruit_key.txt");
+                    if (System.IO.File.Exists(localKeyPath))
+                    {
+                        aioKey = System.IO.File.ReadAllText(localKeyPath).Trim();
+                    }
+                    else
+                    {
+                        string savedKey = PlayerPrefs.GetString("AIO_KEY", "");
+                        if (!string.IsNullOrEmpty(savedKey)) aioKey = savedKey;
+                    }
+                }
+                catch { }
+            }
         }
 
         private void Start()

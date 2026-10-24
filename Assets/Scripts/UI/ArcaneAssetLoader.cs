@@ -72,6 +72,15 @@ namespace MechChess.UI
         }
 
         /// <summary>
+        /// Clears all cached sprites and procedural textures to force reload from disk.
+        /// </summary>
+        public static void ClearCache()
+        {
+            _spriteCache.Clear();
+            _proceduralCache.Clear();
+        }
+
+        /// <summary>
         /// Antialiased rounded rectangle with glassmorphic fill and radiant neon/gold border.
         /// Uses 4x supersampling for crisp edges, then creates a 9-slice sprite for pixel-perfect scaling.
         /// </summary>
