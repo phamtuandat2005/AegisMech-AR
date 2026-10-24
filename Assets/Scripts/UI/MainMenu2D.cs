@@ -38,6 +38,7 @@ namespace MechChess.UI
             if (_rect == null) return;
             StopAllCoroutines();
             StartCoroutine(AnimateScale(hoverScale, 0.08f));
+            AegisAudioManager.PlayButtonHover();
         }
 
         public void OnPointerExit(PointerEventData eventData)
@@ -52,6 +53,7 @@ namespace MechChess.UI
             if (_rect == null) return;
             StopAllCoroutines();
             StartCoroutine(AnimateScale(clickScale, 0.04f));
+            AegisAudioManager.PlayButtonClick();
         }
 
         public void OnPointerUp(PointerEventData eventData)
@@ -288,6 +290,7 @@ namespace MechChess.UI
             else { Destroy(this); return; }
 
             _isInGameMatch = false;
+            AegisAudioManager.EnsureInitialized();
             AegisLocalization.LoadSavedLanguage();
             AegisLocalization.OnLanguageChanged += OnLanguageChanged;
 
@@ -581,6 +584,7 @@ namespace MechChess.UI
 
         public void CloseAllModals()
         {
+            bool anyOpen = IsAnyModalOpen();
             if (_aiDifficultyModal != null) _aiDifficultyModal.SetActive(false);
             if (_settingsModal != null) _settingsModal.SetActive(false);
             if (_tutorialModal != null) _tutorialModal.SetActive(false);
@@ -594,6 +598,7 @@ namespace MechChess.UI
             if (_matchmakingModal != null) _matchmakingModal.SetActive(false);
             if (_friendModal != null) _friendModal.SetActive(false);
             if (_challengeModal != null) _challengeModal.SetActive(false);
+            if (anyOpen) AegisAudioManager.PlayModalClose();
         }
 
         // =========================================================================
@@ -755,6 +760,7 @@ namespace MechChess.UI
 
         private IEnumerator RunSplashSequence()
         {
+            AegisAudioManager.PlayStartupJingle();
             float duration = 1.8f;
             float elapsed = 0f;
             float maxFillWidth = 698f;
@@ -2197,6 +2203,7 @@ namespace MechChess.UI
 
         private void SwitchSettingsTab(int tabIndex)
         {
+            if (_selectedSettingsTab != tabIndex) AegisAudioManager.PlayTabSwitch();
             _selectedSettingsTab = tabIndex;
             Sprite activeSprite = ArcaneAssetLoader.LoadArcaneSprite("settings_tab_active.png");
 
@@ -2264,14 +2271,14 @@ namespace MechChess.UI
                 PlayerPrefs.SetString("aegis.fx", val);
             });
 
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Nhạc nền", "Music"), true, yStart - 2 * step, font, on =>
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Nhạc nền", "Music"), AegisAudioManager.IsMusicEnabled(), yStart - 2 * step, font, on =>
             {
-                PlayerPrefs.SetInt("aegis.music", on ? 1 : 0);
+                AegisAudioManager.SetMusicEnabled(on);
             });
 
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh", "SFX"), true, yStart - 3 * step, font, on =>
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh", "SFX"), AegisAudioManager.IsSFXEnabled(), yStart - 3 * step, font, on =>
             {
-                PlayerPrefs.SetInt("aegis.sfx", on ? 1 : 0);
+                AegisAudioManager.SetSFXEnabled(on);
             });
 
             CreateModernToggleRow(panel.transform, AegisLocalization.T("Rung", "Vibration"), true, yStart - 4 * step, font, on =>
@@ -2822,6 +2829,7 @@ namespace MechChess.UI
 
         private void SwitchTutorialTab(TutorialTabType tab)
         {
+            if (_selectedTutorialTab != tab) AegisAudioManager.PlayTabSwitch();
             _selectedTutorialTab = tab;
             _currentTutorialPage = 0;
             UpdateTutorialUI();
@@ -2831,6 +2839,7 @@ namespace MechChess.UI
         {
             if (_currentTutorialPage > 0)
             {
+                AegisAudioManager.PlayButtonClick();
                 _currentTutorialPage--;
                 UpdateTutorialUI();
             }
@@ -2841,6 +2850,7 @@ namespace MechChess.UI
             int total = TutorialRepository.GetPageCount(_selectedTutorialTab);
             if (_currentTutorialPage < total - 1)
             {
+                AegisAudioManager.PlayButtonClick();
                 _currentTutorialPage++;
                 UpdateTutorialUI();
             }
@@ -2936,62 +2946,12 @@ namespace MechChess.UI
                 }
             }
 
-            // Clear old piece overlay markers
+            // Clear old piece overlay markers (pieces are now rendered with crisp anti-aliasing directly in the board diagram)
             if (_tutorialPieceOverlay != null)
             {
                 for (int i = _tutorialPieceOverlay.childCount - 1; i >= 0; i--)
                 {
                     Destroy(_tutorialPieceOverlay.GetChild(i).gameObject);
-                }
-
-                // If not AR, render piece symbols on the board
-                if (_selectedTutorialTab != TutorialTabType.AR && page.pieces != null)
-                {
-                    float squarePx = 360f / 8f; // 45px per tile
-                    Font pieceFont = font ?? _tutorialTitleTxt?.font ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                    foreach (var p in page.pieces)
-                    {
-                        GameObject pObj = new GameObject($"Piece_{p.file}_{p.rank}");
-                        pObj.transform.SetParent(_tutorialPieceOverlay, false);
-
-                        RectTransform prt = pObj.AddComponent<RectTransform>();
-                        float px = (p.file - 3.5f) * squarePx;
-                        float py = (p.rank - 3.5f) * squarePx;
-                        prt.anchoredPosition = new Vector2(px, py);
-                        prt.sizeDelta = new Vector2(squarePx, squarePx);
-
-                        // 1. Piece Medallion Token Background
-                        GameObject tokenBgObj = new GameObject("TokenBg");
-                        tokenBgObj.transform.SetParent(pObj.transform, false);
-                        Image tokenImg = tokenBgObj.AddComponent<Image>();
-                        tokenImg.sprite = ArcaneAssetLoader.GetPieceTokenSprite(p.isWhite, 56);
-                        RectTransform tRt = tokenBgObj.GetComponent<RectTransform>();
-                        tRt.anchoredPosition = Vector2.zero;
-                        tRt.sizeDelta = new Vector2(36f, 36f);
-
-                        // 2. Clear Standard Roman Chess Letter (P, N, B, R, Q, K)
-                        GameObject letterObj = new GameObject("PieceLetter");
-                        letterObj.transform.SetParent(tokenBgObj.transform, false);
-                        Text pt = letterObj.AddComponent<Text>();
-                        pt.text = GetPieceLetter(p.symbol);
-                        pt.font = pieceFont;
-                        pt.fontSize = 22;
-                        pt.fontStyle = FontStyle.Bold;
-                        pt.alignment = TextAnchor.MiddleCenter;
-                        pt.color = p.isWhite ? new Color(0.12f, 0.10f, 0.08f, 1f) : new Color(1.0f, 0.96f, 0.88f, 1f);
-
-                        Outline outline = letterObj.AddComponent<Outline>();
-                        outline.effectColor = p.isWhite 
-                            ? new Color(1f, 0.92f, 0.70f, 0.85f) 
-                            : new Color(0.55f, 0.08f, 0.12f, 0.95f);
-                        outline.effectDistance = new Vector2(1f, -1f);
-
-                        RectTransform lRt = letterObj.GetComponent<RectTransform>();
-                        lRt.anchorMin = Vector2.zero;
-                        lRt.anchorMax = Vector2.one;
-                        lRt.offsetMin = Vector2.zero;
-                        lRt.offsetMax = Vector2.zero;
-                    }
                 }
             }
 
@@ -3043,21 +3003,25 @@ namespace MechChess.UI
             }
         }
 
-        private string GetPieceLetter(string symbol)
+        private PieceType GetPieceTypeFromSymbol(string symbol)
         {
-            if (string.IsNullOrEmpty(symbol)) return "P";
+            if (string.IsNullOrEmpty(symbol)) return PieceType.Pawn;
             switch (symbol)
             {
-                case "♔": case "♚": return "K";
-                case "♕": case "♛": return "Q";
-                case "♖": case "♜": return "R";
-                case "♗": case "♝": return "B";
-                case "♘": case "♞": return "N";
-                case "♙": case "♟": return "P";
+                case "♔": case "♚": case "K": case "k": return PieceType.King;
+                case "♕": case "♛": case "Q": case "q": return PieceType.Queen;
+                case "♖": case "♜": case "R": case "r": return PieceType.Rook;
+                case "♗": case "♝": case "B": case "b": return PieceType.Bishop;
+                case "♘": case "♞": case "N": case "n": return PieceType.Knight;
+                case "♙": case "♟": case "P": case "p": return PieceType.Pawn;
                 default:
                     char c = symbol[0];
-                    if (char.IsLetter(c)) return char.ToUpperInvariant(c).ToString();
-                    return symbol;
+                    if (c == 'K' || c == 'k') return PieceType.King;
+                    if (c == 'Q' || c == 'q') return PieceType.Queen;
+                    if (c == 'R' || c == 'r') return PieceType.Rook;
+                    if (c == 'B' || c == 'b') return PieceType.Bishop;
+                    if (c == 'N' || c == 'n') return PieceType.Knight;
+                    return PieceType.Pawn;
             }
         }
 
@@ -3432,6 +3396,7 @@ namespace MechChess.UI
 
         private void SwitchShopTab(int tabIndex)
         {
+            if (_selectedShopTab != tabIndex) AegisAudioManager.PlayTabSwitch();
             _selectedShopTab = tabIndex;
             Sprite activeSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_active.png");
             Sprite inactiveSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_inactive.png");
@@ -3626,7 +3591,11 @@ namespace MechChess.UI
             if (_screenMainMenu != null) _screenMainMenu.SetActive(false);
             if (_screenModeSelect != null) _screenModeSelect.SetActive(false);
             if (_screenSplash != null) _screenSplash.SetActive(false);
-            if (_pauseModal != null) _pauseModal.SetActive(true);
+            if (_pauseModal != null)
+            {
+                _pauseModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
+            }
         }
 
         private void ReturnToMainMenuFromPause()
@@ -4355,6 +4324,7 @@ namespace MechChess.UI
 
         private void SwitchProfileTab(int tabIndex)
         {
+            if (_selectedProfileTab != tabIndex) AegisAudioManager.PlayTabSwitch();
             _selectedProfileTab = tabIndex;
             Sprite activeSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_tab_active.png");
             Sprite inactiveSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_tab_inactive.png");
@@ -4380,7 +4350,11 @@ namespace MechChess.UI
 
         public void ShowProfileDetailsModal()
         {
-            if (_profileModal != null) _profileModal.SetActive(true);
+            if (_profileModal != null)
+            {
+                _profileModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
+            }
         }
 
         public void OpenProfileModal()
@@ -4494,7 +4468,11 @@ namespace MechChess.UI
 
         public void OpenLearnScreen()
         {
-            if (_learnScreenModal != null) _learnScreenModal.SetActive(true);
+            if (_learnScreenModal != null)
+            {
+                _learnScreenModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
+            }
         }
 
         // =========================================================================
@@ -4564,7 +4542,11 @@ namespace MechChess.UI
             if (_confirmTitleTxt != null) _confirmTitleTxt.text = title;
             if (_confirmBodyTxt != null) _confirmBodyTxt.text = body;
             _onConfirmAction = onConfirm;
-            if (_confirmDialogModal != null) _confirmDialogModal.SetActive(true);
+            if (_confirmDialogModal != null)
+            {
+                _confirmDialogModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
+            }
         }
 
         // =========================================================================
@@ -4604,6 +4586,7 @@ namespace MechChess.UI
         public void ShowToast(string message, ToastType type = ToastType.Info)
         {
             if (_toastContainer == null) return;
+            AegisAudioManager.PlayToast();
             StopCoroutine(nameof(AnimateToastCoroutine));
             StartCoroutine(AnimateToastCoroutine(message, type));
         }
@@ -4663,6 +4646,7 @@ namespace MechChess.UI
                 if (_loginUsernameInput != null) _loginUsernameInput.text = "";
                 if (_loginErrorTxt != null) _loginErrorTxt.text = "";
                 _loginModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
             }
         }
 
@@ -4767,6 +4751,7 @@ namespace MechChess.UI
             if (_matchmakingTimerCoroutine != null) StopCoroutine(_matchmakingTimerCoroutine);
             _matchmakingTimerCoroutine = StartCoroutine(AnimateMatchmakingTimer());
             _matchmakingModal.SetActive(true);
+            AegisAudioManager.PlayModalOpen();
         }
 
         private IEnumerator AnimateMatchmakingTimer()
@@ -4874,6 +4859,7 @@ namespace MechChess.UI
                 UpdateOnlinePlayersUI(OnlineMultiplayerManager.Instance.CachedOnlinePlayers);
             }
             _friendModal.SetActive(true);
+            AegisAudioManager.PlayModalOpen();
         }
 
         private void BuildFriendModal(Transform parent, Font font)
@@ -5222,6 +5208,7 @@ namespace MechChess.UI
 
         public void CloseModal(GameObject modal)
         {
+            if (modal != null && modal.activeSelf) AegisAudioManager.PlayModalClose();
             if (modal != null) modal.SetActive(false);
 
             if (_isInGameMatch)
@@ -5256,7 +5243,11 @@ namespace MechChess.UI
         {
             CloseAllModals();
             if (!_isInGameMatch) EnsureBaseScreenActive();
-            if (_aiDifficultyModal != null) _aiDifficultyModal.SetActive(true);
+            if (_aiDifficultyModal != null)
+            {
+                _aiDifficultyModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
+            }
         }
 
         public void OpenSettingsModal()
@@ -5284,6 +5275,7 @@ namespace MechChess.UI
             if (_settingsModal != null)
             {
                 _settingsModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
                 SwitchSettingsTab(0);
             }
         }
@@ -5295,6 +5287,7 @@ namespace MechChess.UI
             if (_tutorialModal != null)
             {
                 _tutorialModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
                 UpdateTutorialUI();
             }
         }
@@ -5303,7 +5296,11 @@ namespace MechChess.UI
         {
             CloseAllModals();
             if (!_isInGameMatch) EnsureBaseScreenActive();
-            if (_shopModal != null) _shopModal.SetActive(true);
+            if (_shopModal != null)
+            {
+                _shopModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
+            }
         }
 
         public void UpdateUserProfileUI()

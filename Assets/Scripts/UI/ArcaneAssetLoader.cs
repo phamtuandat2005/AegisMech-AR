@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using MechChess.ProceduralMech;
 
 namespace MechChess.UI
 {
@@ -290,6 +291,545 @@ namespace MechChess.UI
             return s;
         }
 
+        private static readonly Dictionary<string, Texture2D> _pieceTextureCache = new Dictionary<string, Texture2D>();
+
+        /// <summary>
+        /// Converts standard Unicode chess symbols or letters to PieceType enum.
+        /// </summary>
+        public static PieceType GetPieceTypeFromSymbol(string symbol)
+        {
+            if (string.IsNullOrEmpty(symbol)) return PieceType.Pawn;
+            switch (symbol)
+            {
+                case "♔": case "♚": case "K": case "k": return PieceType.King;
+                case "♕": case "♛": case "Q": case "q": return PieceType.Queen;
+                case "♖": case "♜": case "R": case "r": return PieceType.Rook;
+                case "♗": case "♝": case "B": case "b": return PieceType.Bishop;
+                case "♘": case "♞": case "N": case "n": return PieceType.Knight;
+                case "♙": case "♟": case "P": case "p": return PieceType.Pawn;
+                default:
+                    char c = symbol[0];
+                    if (c == 'K' || c == 'k') return PieceType.King;
+                    if (c == 'Q' || c == 'q') return PieceType.Queen;
+                    if (c == 'R' || c == 'r') return PieceType.Rook;
+                    if (c == 'B' || c == 'b') return PieceType.Bishop;
+                    if (c == 'N' || c == 'n') return PieceType.Knight;
+                    return PieceType.Pawn;
+            }
+        }
+
+        /// <summary>
+        /// Loads or generates a standard 2D chess piece Texture2D (always readable RGBA32).
+        /// Prioritizes disk byte loading (always readable in Editor/player), then Resources, then procedural silhouette.
+        /// </summary>
+        public static Texture2D GetChessPiece2DTexture(PieceType type, bool isWhite, int size = 128)
+        {
+            string colorKey = isWhite ? "white" : "black";
+            string typeKey = type.ToString().ToLower();
+            string cacheKey = $"Chess2DTex_{colorKey}_{typeKey}_{size}";
+
+            if (_pieceTextureCache.TryGetValue(cacheKey, out Texture2D cached) && cached != null)
+                return cached;
+
+            // 1. Try direct file byte loading from disk (fastest, full fidelity 32-bit RGBA, 100% readable)
+            try
+            {
+                string diskPath1 = Path.Combine(Application.dataPath, "Resources", "Textures", "ArcaneUI", "Chess2D", $"chess_2d_{colorKey}_{typeKey}.png");
+                string diskPath2 = Path.Combine(Application.dataPath, "..", "Assets", "Resources", "Textures", "ArcaneUI", "Chess2D", $"chess_2d_{colorKey}_{typeKey}.png");
+                string fullPath = null;
+                if (File.Exists(diskPath1)) fullPath = diskPath1;
+                else if (File.Exists(diskPath2)) fullPath = diskPath2;
+
+                if (!string.IsNullOrEmpty(fullPath))
+                {
+                    byte[] bytes = File.ReadAllBytes(fullPath);
+                    Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                    if (diskTex.LoadImage(bytes))
+                    {
+                        diskTex.wrapMode = TextureWrapMode.Clamp;
+                        diskTex.filterMode = FilterMode.Bilinear;
+                        _pieceTextureCache[cacheKey] = diskTex;
+                        return diskTex;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ArcaneAssetLoader] Could not load piece {cacheKey} from disk: {ex.Message}");
+            }
+
+            // 2. Try Resources.Load as Texture2D (only if isReadable)
+            try
+            {
+                string resPath = $"Textures/ArcaneUI/Chess2D/chess_2d_{colorKey}_{typeKey}";
+                Texture2D resTex = Resources.Load<Texture2D>(resPath);
+                if (resTex != null && resTex.isReadable)
+                {
+                    _pieceTextureCache[cacheKey] = resTex;
+                    return resTex;
+                }
+            }
+            catch { }
+
+            // 3. Fallback to procedural vector silhouette texture (guaranteed 100% readable RGBA32)
+            Texture2D procTex = GenerateProceduralPieceTexture(type, isWhite, Mathf.Max(size, 128));
+            _pieceTextureCache[cacheKey] = procTex;
+            return procTex;
+        }
+
+        /// <summary>
+        /// Loads or generates a standard 2D Dark Fantasy chess piece sprite (Pawn, Knight, Bishop, Rook, Queen, King).
+        /// White: Royal Ivory with Antique Gold rim. Black: Obsidian Slate with Blood Red Ruby rim.
+        /// </summary>
+        public static Sprite GetChessPiece2DSprite(PieceType type, bool isWhite, int size = 64)
+        {
+            string colorKey = isWhite ? "white" : "black";
+            string typeKey = type.ToString().ToLower();
+            string cacheKey = $"Chess2D_{colorKey}_{typeKey}_{size}";
+
+            if (_proceduralCache.TryGetValue(cacheKey, out Sprite cached) && cached != null)
+                return cached;
+
+            Texture2D tex = GetChessPiece2DTexture(type, isWhite, size);
+            if (tex != null)
+            {
+                Sprite s = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                _proceduralCache[cacheKey] = s;
+                return s;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Generates a high-quality procedural 2D chess piece texture with recognizable silhouette.
+        /// Each piece type (King, Queen, Rook, Bishop, Knight, Pawn) has a distinct profile.
+        /// White pieces: Ivory body with gold outline. Black pieces: Dark body with crimson outline.
+        /// </summary>
+        public static Texture2D GenerateProceduralPieceTexture(PieceType type, bool isWhite, int size = 128)
+        {
+            string key = $"ProceduralPieceTex_{type}_{isWhite}_{size}";
+            if (_pieceTextureCache.TryGetValue(key, out Texture2D cached) && cached != null) return cached;
+
+            int ss = Mathf.Max(64, size);
+            Texture2D tex = new Texture2D(ss, ss, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            // Color palette
+            Color fillColor = isWhite
+                ? new Color(0.96f, 0.93f, 0.85f, 1f)   // Ivory cream
+                : new Color(0.15f, 0.17f, 0.22f, 1f);   // Dark charcoal
+            Color outlineColor = isWhite
+                ? new Color(0.72f, 0.58f, 0.32f, 1f)    // Antique Gold
+                : new Color(0.65f, 0.16f, 0.20f, 1f);   // Crimson Ruby
+            Color highlightColor = isWhite
+                ? new Color(1.0f, 0.98f, 0.94f, 1f)     // Bright ivory highlight
+                : new Color(0.28f, 0.30f, 0.38f, 1f);   // Lighter slate highlight
+            Color shadowColor = isWhite
+                ? new Color(0.70f, 0.65f, 0.55f, 1f)    // Warm shadow
+                : new Color(0.06f, 0.07f, 0.10f, 1f);   // Deep shadow
+
+            Color[] colors = new Color[ss * ss];
+            // Initialize transparent
+            for (int i = 0; i < colors.Length; i++) colors[i] = Color.clear;
+
+            // Get silhouette points for this piece type (normalized 0..1 coordinates)
+            Vector2[] silhouette = GetPieceSilhouettePoints(type);
+
+            // Render the piece silhouette with outline
+            float outlineThickness = ss * 0.035f; // ~3.5% of size
+
+            for (int y = 0; y < ss; y++)
+            {
+                float ny = (float)y / ss;
+                for (int x = 0; x < ss; x++)
+                {
+                    float nx = (float)x / ss;
+                    float distToEdge = DistanceToPolygon(nx, ny, silhouette);
+                    bool inside = IsInsidePolygon(nx, ny, silhouette);
+
+                    float outlinePx = outlineThickness / ss;
+                    float aaPx = 1.5f / ss; // Anti-alias edge
+
+                    if (inside)
+                    {
+                        if (distToEdge < outlinePx)
+                        {
+                            // Outline region
+                            float t = Mathf.Clamp01(distToEdge / outlinePx);
+                            colors[y * ss + x] = Color.Lerp(outlineColor, fillColor, t * 0.3f);
+                        }
+                        else
+                        {
+                            // Interior: apply subtle gradient for 3D look
+                            float gradY = 1.0f - ny; // top = brighter
+                            float shade = Mathf.Clamp01(gradY * 0.7f + 0.3f);
+                            Color baseC = Color.Lerp(shadowColor, fillColor, shade);
+                            // Side highlight (subtle left-side light)
+                            if (nx < 0.45f)
+                            {
+                                float highlightT = Mathf.Clamp01((0.45f - nx) / 0.2f) * 0.25f;
+                                baseC = Color.Lerp(baseC, highlightColor, highlightT);
+                            }
+                            colors[y * ss + x] = baseC;
+                        }
+                    }
+                    else if (distToEdge < aaPx)
+                    {
+                        // Anti-aliased edge
+                        float alpha = Mathf.Clamp01(1.0f - distToEdge / aaPx);
+                        Color c = outlineColor;
+                        c.a = alpha;
+                        colors[y * ss + x] = c;
+                    }
+                }
+            }
+
+            // Add piece-specific details (cross for King, crown points for Queen, etc.)
+            AddPieceDetails(colors, ss, type, isWhite, outlineColor, highlightColor);
+
+            tex.SetPixels(colors);
+            tex.Apply();
+
+            _pieceTextureCache[key] = tex;
+            return tex;
+        }
+
+        private static Sprite GenerateProceduralPieceSprite(PieceType type, bool isWhite, int size = 128)
+        {
+            string key = $"ProceduralPiece_{type}_{isWhite}_{size}";
+            if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            Texture2D tex = GenerateProceduralPieceTexture(type, isWhite, size);
+            Sprite s = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+            _proceduralCache[key] = s;
+            return s;
+        }
+
+        /// <summary>
+        /// Returns normalized silhouette polygon points (0..1) for each chess piece type.
+        /// Origin is bottom-left (0,0), top-right is (1,1).
+        /// </summary>
+        private static Vector2[] GetPieceSilhouettePoints(PieceType type)
+        {
+            switch (type)
+            {
+                case PieceType.King:
+                    // King: Tall body with cross on top
+                    return new Vector2[]
+                    {
+                        // Base platform
+                        new Vector2(0.22f, 0.08f), new Vector2(0.78f, 0.08f),
+                        new Vector2(0.78f, 0.15f), new Vector2(0.72f, 0.15f),
+                        // Body
+                        new Vector2(0.68f, 0.22f), new Vector2(0.64f, 0.40f),
+                        // Collar/neck narrowing
+                        new Vector2(0.62f, 0.50f), new Vector2(0.58f, 0.55f),
+                        // Crown rim
+                        new Vector2(0.63f, 0.60f), new Vector2(0.64f, 0.65f),
+                        // Cross arm right
+                        new Vector2(0.62f, 0.72f), new Vector2(0.66f, 0.72f),
+                        new Vector2(0.66f, 0.78f), new Vector2(0.62f, 0.78f),
+                        // Cross top
+                        new Vector2(0.56f, 0.78f), new Vector2(0.56f, 0.92f),
+                        new Vector2(0.44f, 0.92f), new Vector2(0.44f, 0.78f),
+                        // Cross arm left
+                        new Vector2(0.38f, 0.78f), new Vector2(0.34f, 0.78f),
+                        new Vector2(0.34f, 0.72f), new Vector2(0.38f, 0.72f),
+                        // Crown rim left
+                        new Vector2(0.36f, 0.65f), new Vector2(0.37f, 0.60f),
+                        // Collar left
+                        new Vector2(0.42f, 0.55f), new Vector2(0.38f, 0.50f),
+                        // Body left
+                        new Vector2(0.36f, 0.40f), new Vector2(0.32f, 0.22f),
+                        new Vector2(0.28f, 0.15f), new Vector2(0.22f, 0.15f),
+                    };
+
+                case PieceType.Queen:
+                    // Queen: Crown with 5 points on top
+                    return new Vector2[]
+                    {
+                        // Base
+                        new Vector2(0.20f, 0.08f), new Vector2(0.80f, 0.08f),
+                        new Vector2(0.80f, 0.15f), new Vector2(0.73f, 0.15f),
+                        // Body
+                        new Vector2(0.68f, 0.25f), new Vector2(0.65f, 0.42f),
+                        new Vector2(0.60f, 0.52f),
+                        // Crown right
+                        new Vector2(0.66f, 0.58f),
+                        // Crown points (5 prongs)
+                        new Vector2(0.72f, 0.60f), new Vector2(0.68f, 0.75f), // right point
+                        new Vector2(0.62f, 0.65f), new Vector2(0.58f, 0.82f), // mid-right point
+                        new Vector2(0.54f, 0.68f), new Vector2(0.50f, 0.90f), // center point (tallest)
+                        new Vector2(0.46f, 0.68f), new Vector2(0.42f, 0.82f), // mid-left point
+                        new Vector2(0.38f, 0.65f), new Vector2(0.32f, 0.75f), // left point
+                        new Vector2(0.28f, 0.60f),
+                        // Crown left
+                        new Vector2(0.34f, 0.58f),
+                        new Vector2(0.40f, 0.52f),
+                        // Body left
+                        new Vector2(0.35f, 0.42f), new Vector2(0.32f, 0.25f),
+                        new Vector2(0.27f, 0.15f), new Vector2(0.20f, 0.15f),
+                    };
+
+                case PieceType.Rook:
+                    // Rook: Castle tower with battlements
+                    return new Vector2[]
+                    {
+                        // Base
+                        new Vector2(0.20f, 0.08f), new Vector2(0.80f, 0.08f),
+                        new Vector2(0.80f, 0.16f), new Vector2(0.72f, 0.16f),
+                        // Body - straight walls
+                        new Vector2(0.68f, 0.28f), new Vector2(0.66f, 0.56f),
+                        // Battlement top right
+                        new Vector2(0.68f, 0.60f), new Vector2(0.68f, 0.62f),
+                        // Crenellations (battlements)
+                        new Vector2(0.70f, 0.62f), new Vector2(0.70f, 0.82f), // right merlon
+                        new Vector2(0.62f, 0.82f), new Vector2(0.62f, 0.70f), // crenel
+                        new Vector2(0.56f, 0.70f), new Vector2(0.56f, 0.86f), // center-right merlon
+                        new Vector2(0.44f, 0.86f), new Vector2(0.44f, 0.70f), // crenel
+                        new Vector2(0.38f, 0.70f), new Vector2(0.38f, 0.82f), // left merlon
+                        new Vector2(0.30f, 0.82f), new Vector2(0.30f, 0.62f),
+                        // Battlement top left
+                        new Vector2(0.32f, 0.62f), new Vector2(0.32f, 0.60f),
+                        // Body left
+                        new Vector2(0.34f, 0.56f), new Vector2(0.32f, 0.28f),
+                        new Vector2(0.28f, 0.16f), new Vector2(0.20f, 0.16f),
+                    };
+
+                case PieceType.Bishop:
+                    // Bishop: Pointed mitre hat with notch
+                    return new Vector2[]
+                    {
+                        // Base
+                        new Vector2(0.22f, 0.08f), new Vector2(0.78f, 0.08f),
+                        new Vector2(0.78f, 0.15f), new Vector2(0.70f, 0.15f),
+                        // Body
+                        new Vector2(0.66f, 0.25f), new Vector2(0.63f, 0.38f),
+                        // Collar
+                        new Vector2(0.60f, 0.45f), new Vector2(0.57f, 0.50f),
+                        // Mitre right side
+                        new Vector2(0.62f, 0.55f), new Vector2(0.60f, 0.62f),
+                        // Notch right
+                        new Vector2(0.57f, 0.68f),
+                        // Pointed top
+                        new Vector2(0.53f, 0.78f), new Vector2(0.50f, 0.88f),
+                        // Small ball on top
+                        new Vector2(0.47f, 0.88f),
+                        // Pointed top left
+                        new Vector2(0.43f, 0.68f),
+                        // Notch left
+                        new Vector2(0.40f, 0.62f), new Vector2(0.38f, 0.55f),
+                        // Collar left
+                        new Vector2(0.43f, 0.50f), new Vector2(0.40f, 0.45f),
+                        // Body left
+                        new Vector2(0.37f, 0.38f), new Vector2(0.34f, 0.25f),
+                        new Vector2(0.30f, 0.15f), new Vector2(0.22f, 0.15f),
+                    };
+
+                case PieceType.Knight:
+                    // Knight: Horse head profile facing left
+                    return new Vector2[]
+                    {
+                        // Base
+                        new Vector2(0.18f, 0.08f), new Vector2(0.82f, 0.08f),
+                        new Vector2(0.82f, 0.15f), new Vector2(0.72f, 0.15f),
+                        // Neck (back of horse)
+                        new Vector2(0.70f, 0.25f), new Vector2(0.68f, 0.40f),
+                        new Vector2(0.66f, 0.55f),
+                        // Ear right
+                        new Vector2(0.64f, 0.72f), new Vector2(0.58f, 0.88f),
+                        // Ear notch
+                        new Vector2(0.52f, 0.80f),
+                        // Ear left  
+                        new Vector2(0.46f, 0.90f), new Vector2(0.42f, 0.82f),
+                        // Forehead / top of head
+                        new Vector2(0.38f, 0.76f), new Vector2(0.32f, 0.72f),
+                        // Nose / muzzle
+                        new Vector2(0.24f, 0.68f), new Vector2(0.20f, 0.62f),
+                        new Vector2(0.18f, 0.56f),
+                        // Mouth / chin line
+                        new Vector2(0.22f, 0.52f), new Vector2(0.28f, 0.50f),
+                        // Jaw
+                        new Vector2(0.32f, 0.46f), new Vector2(0.34f, 0.40f),
+                        // Chest / front of neck
+                        new Vector2(0.30f, 0.30f), new Vector2(0.28f, 0.15f),
+                        new Vector2(0.18f, 0.15f),
+                    };
+
+                case PieceType.Pawn:
+                default:
+                    // Pawn: Simple rounded top with narrow neck
+                    return new Vector2[]
+                    {
+                        // Base
+                        new Vector2(0.25f, 0.08f), new Vector2(0.75f, 0.08f),
+                        new Vector2(0.75f, 0.15f), new Vector2(0.68f, 0.15f),
+                        // Body lower
+                        new Vector2(0.64f, 0.25f), new Vector2(0.60f, 0.35f),
+                        // Neck narrowing
+                        new Vector2(0.56f, 0.42f), new Vector2(0.54f, 0.48f),
+                        // Head (circular top) - right side
+                        new Vector2(0.60f, 0.54f), new Vector2(0.64f, 0.62f),
+                        new Vector2(0.65f, 0.70f), new Vector2(0.64f, 0.78f),
+                        new Vector2(0.60f, 0.84f),
+                        // Head top
+                        new Vector2(0.54f, 0.88f), new Vector2(0.46f, 0.88f),
+                        // Head left side
+                        new Vector2(0.40f, 0.84f), new Vector2(0.36f, 0.78f),
+                        new Vector2(0.35f, 0.70f), new Vector2(0.36f, 0.62f),
+                        new Vector2(0.40f, 0.54f),
+                        // Neck left
+                        new Vector2(0.46f, 0.48f), new Vector2(0.44f, 0.42f),
+                        // Body left
+                        new Vector2(0.40f, 0.35f), new Vector2(0.36f, 0.25f),
+                        new Vector2(0.32f, 0.15f), new Vector2(0.25f, 0.15f),
+                    };
+            }
+        }
+
+        /// <summary>
+        /// Tests if a point (px,py) in normalized coords is inside a polygon defined by vertices.
+        /// Uses ray casting algorithm.
+        /// </summary>
+        private static bool IsInsidePolygon(float px, float py, Vector2[] poly)
+        {
+            bool inside = false;
+            int n = poly.Length;
+            for (int i = 0, j = n - 1; i < n; j = i++)
+            {
+                float yi = poly[i].y, yj = poly[j].y;
+                float xi = poly[i].x, xj = poly[j].x;
+                if (((yi > py) != (yj > py)) &&
+                    (px < (xj - xi) * (py - yi) / (yj - yi) + xi))
+                {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
+        /// <summary>
+        /// Computes minimum distance from point to polygon edge (normalized coords).
+        /// </summary>
+        private static float DistanceToPolygon(float px, float py, Vector2[] poly)
+        {
+            float minDist = float.MaxValue;
+            int n = poly.Length;
+            for (int i = 0, j = n - 1; i < n; j = i++)
+            {
+                float dist = DistanceToSegment(px, py, poly[j].x, poly[j].y, poly[i].x, poly[i].y);
+                if (dist < minDist) minDist = dist;
+            }
+            return minDist;
+        }
+
+        /// <summary>
+        /// Distance from point (px,py) to line segment (ax,ay)-(bx,by).
+        /// </summary>
+        private static float DistanceToSegment(float px, float py, float ax, float ay, float bx, float by)
+        {
+            float dx = bx - ax, dy = by - ay;
+            float lenSq = dx * dx + dy * dy;
+            if (lenSq < 1e-10f) return Mathf.Sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+            float t = Mathf.Clamp01(((px - ax) * dx + (py - ay) * dy) / lenSq);
+            float closestX = ax + t * dx;
+            float closestY = ay + t * dy;
+            float ex = px - closestX, ey = py - closestY;
+            return Mathf.Sqrt(ex * ex + ey * ey);
+        }
+
+        /// <summary>
+        /// Adds piece-specific accent details (small circle on King's cross, small dots on Queen's crown tips, etc.)
+        /// </summary>
+        private static void AddPieceDetails(Color[] colors, int size, PieceType type, bool isWhite, Color outlineColor, Color highlightColor)
+        {
+            // Small decorative dot at crown tips or cross top
+            switch (type)
+            {
+                case PieceType.King:
+                    // Small circle at cross intersection
+                    DrawCircle(colors, size, 0.50f, 0.75f, 0.025f, outlineColor);
+                    break;
+                case PieceType.Queen:
+                    // Small circles at crown tips
+                    DrawCircle(colors, size, 0.50f, 0.90f, 0.022f, outlineColor);
+                    DrawCircle(colors, size, 0.58f, 0.82f, 0.018f, outlineColor);
+                    DrawCircle(colors, size, 0.42f, 0.82f, 0.018f, outlineColor);
+                    DrawCircle(colors, size, 0.68f, 0.75f, 0.016f, outlineColor);
+                    DrawCircle(colors, size, 0.32f, 0.75f, 0.016f, outlineColor);
+                    break;
+                case PieceType.Bishop:
+                    // Diagonal slit/notch on the mitre
+                    DrawLine(colors, size, 0.44f, 0.60f, 0.56f, 0.72f, 0.015f, outlineColor);
+                    // Small ball on top
+                    DrawCircle(colors, size, 0.50f, 0.90f, 0.028f, outlineColor);
+                    break;
+                case PieceType.Knight:
+                    // Eye
+                    DrawCircle(colors, size, 0.38f, 0.66f, 0.022f, outlineColor);
+                    break;
+                case PieceType.Pawn:
+                    // No extra details needed
+                    break;
+                case PieceType.Rook:
+                    // No extra details needed - battlements are enough
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Draws a filled circle on the pixel array at normalized position.
+        /// </summary>
+        private static void DrawCircle(Color[] colors, int size, float cx, float cy, float radius, Color color)
+        {
+            int minX = Mathf.Max(0, (int)((cx - radius) * size) - 1);
+            int maxX = Mathf.Min(size - 1, (int)((cx + radius) * size) + 1);
+            int minY = Mathf.Max(0, (int)((cy - radius) * size) - 1);
+            int maxY = Mathf.Min(size - 1, (int)((cy + radius) * size) + 1);
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    float nx = (float)x / size;
+                    float ny = (float)y / size;
+                    float dist = Mathf.Sqrt((nx - cx) * (nx - cx) + (ny - cy) * (ny - cy));
+                    if (dist < radius)
+                    {
+                        float aa = Mathf.Clamp01((radius - dist) / (1.5f / size));
+                        colors[y * size + x] = Color.Lerp(colors[y * size + x], color, aa);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Draws a line segment on the pixel array between two normalized positions.
+        /// </summary>
+        private static void DrawLine(Color[] colors, int size, float x1, float y1, float x2, float y2, float thickness, Color color)
+        {
+            int margin = (int)(thickness * size) + 2;
+            int minX = Mathf.Max(0, (int)(Mathf.Min(x1, x2) * size) - margin);
+            int maxX = Mathf.Min(size - 1, (int)(Mathf.Max(x1, x2) * size) + margin);
+            int minY = Mathf.Max(0, (int)(Mathf.Min(y1, y2) * size) - margin);
+            int maxY = Mathf.Min(size - 1, (int)(Mathf.Max(y1, y2) * size) + margin);
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    float nx = (float)x / size;
+                    float ny = (float)y / size;
+                    float dist = DistanceToSegment(nx, ny, x1, y1, x2, y2);
+                    if (dist < thickness)
+                    {
+                        float aa = Mathf.Clamp01((thickness - dist) / (1.5f / size));
+                        colors[y * size + x] = Color.Lerp(colors[y * size + x], color, aa);
+                    }
+                }
+            }
+        }
+
         /// <summary>
         /// Procedural 2D Chessboard diagram texture with highlighted squares for Tutorial & Learn screens.
         /// </summary>
@@ -397,7 +937,7 @@ namespace MechChess.UI
                         sqColor = Color.Lerp(sqColor, colMove, isDot ? 0.95f : 0.55f);
                     }
 
-                    // Render chess piece medallion token directly on the board square
+                    // Ground pedestal shadow under pieces (subtle, doesn't obscure the tile)
                     if (pieces != null)
                     {
                         for (int pIdx = 0; pIdx < pieces.Count; pIdx++)
@@ -405,26 +945,13 @@ namespace MechChess.UI
                             var p = pieces[pIdx];
                             if (p.file == file && p.rank == rank)
                             {
-                                float distCenter = Vector2.Distance(new Vector2(normX, normY), new Vector2(0.5f, 0.5f));
-                                if (distCenter <= 0.36f)
+                                float dx = normX - 0.5f;
+                                float dy = (normY - 0.22f) / 0.55f;
+                                float dist = dx * dx + dy * dy;
+                                if (dist < 0.10f)
                                 {
-                                    if (distCenter >= 0.31f)
-                                    {
-                                        // Outer metallic rim (Antique Gold for White, Blood Red for Black)
-                                        sqColor = p.isWhite ? colSelected : colCapture;
-                                    }
-                                    else if (distCenter <= 0.11f)
-                                    {
-                                        // Central heraldic jewel
-                                        sqColor = p.isWhite ? colSpecial : new Color(0.95f, 0.30f, 0.35f, 1f);
-                                    }
-                                    else
-                                    {
-                                        // Piece body fill
-                                        sqColor = p.isWhite 
-                                            ? new Color(0.96f, 0.94f, 0.88f, 1f) 
-                                            : new Color(0.10f, 0.14f, 0.19f, 1f);
-                                    }
+                                    float shadowA = Mathf.Clamp01((0.10f - dist) / 0.10f) * 0.35f;
+                                    sqColor = Color.Lerp(sqColor, new Color(0.04f, 0.06f, 0.08f, 1f), shadowA);
                                 }
                                 break;
                             }
@@ -446,6 +973,58 @@ namespace MechChess.UI
                     }
 
                     colors[y * ss + x] = sqColor;
+                }
+            }
+
+            // Blit chess pieces directly into the chessboard texture
+            if (pieces != null && pieces.Count > 0)
+            {
+                int piecePx = (int)(squarePx * 0.86f);
+                int marginX = (squarePx - piecePx) / 2;
+                int marginY = (squarePx - piecePx) / 2;
+
+                for (int pIdx = 0; pIdx < pieces.Count; pIdx++)
+                {
+                    var p = pieces[pIdx];
+                    if (p.file < 0 || p.file >= 8 || p.rank < 0 || p.rank >= 8) continue;
+
+                    PieceType pType = GetPieceTypeFromSymbol(p.symbol);
+                    Texture2D pTex = GetChessPiece2DTexture(pType, p.isWhite, piecePx);
+                    if (pTex == null) continue;
+
+                    int originX = p.file * squarePx + marginX;
+                    int originY = p.rank * squarePx + marginY;
+
+                    for (int py = 0; py < piecePx; py++)
+                    {
+                        float v = (float)py / Mathf.Max(1, piecePx - 1);
+                        int by = originY + py;
+                        if (by < 0 || by >= ss) continue;
+
+                        for (int px = 0; px < piecePx; px++)
+                        {
+                            float u = (float)px / Mathf.Max(1, piecePx - 1);
+                            int bx = originX + px;
+                            if (bx < 0 || bx >= ss) continue;
+
+                            try
+                            {
+                                Color src = pTex.GetPixelBilinear(u, v);
+                                if (src.a > 0.01f)
+                                {
+                                    int idx = by * ss + bx;
+                                    Color dst = colors[idx];
+                                    Color blended = Color.Lerp(dst, src, src.a);
+                                    blended.a = 1.0f;
+                                    colors[idx] = blended;
+                                }
+                            }
+                            catch
+                            {
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 
