@@ -19,10 +19,12 @@
 
 ## 📑 MỤC LỤC
 1. [Tổng Quan Dự Án & Các Điểm Đột Phá Công Nghệ](#1-tổng-quan-dự-án--các-điểm-đột-phá-công-nghệ)
-2. [Sơ Đồ Kiến Trúc Hệ Thống Toàn Diện & Sinh Động (System Architecture)](#2-sơ-đồ-kiến-trúc-hệ-thống-toàn-diện--sinh-động)
-   - [2.1. Sơ Đồ Khối Kiến Trúc Phân Tầng (Layered Block Architecture)](#21-sơ-đồ-khối-kiến-trúc-phân-tầng-hệ-thống-layered-block-architecture)
-   - [2.2. Sơ Đồ Trình Tự Vận Hành Thời Gian Thực (Interactive Sequence Diagram)](#22-sơ-đồ-trình-tự-tương-tác-vận-hành-thời-gian-thực-interactive-runtime-sequence)
-   - [2.3. Bảng Ma Trận Giao Thức Truyền Dẫn (Realtime Protocols Matrix)](#23-bảng-ma-trận-giao-thức-truyền-dẫn--băng-thông-realtime-protocols-matrix)
+2. [Sơ Đồ Kiến Trúc Hệ Thống Toàn Diện & Minh Họa Trực Quan](#2-sơ-đồ-kiến-trúc-hệ-thống-toàn-diện--minh-họa-trực-quan)
+   - [2.1. Bản Đồ Sinh Thái Công Nghệ Trực Quan Với Logo (Ecosystem Brand Logos)](#21-bản-đồ-sinh-thái-công-nghệ-trực-quan-với-logo-thương-hiệu-ecosystem-brand-logos)
+   - [2.2. Sơ Đồ Kết Nối Đa Tầng Trực Quan (Cross-Tier Visual Flow with Logos)](#22-sơ-đồ-kết-nối-đa-tầng-trực-quan-cross-tier-visual-flow-with-logos)
+   - [2.3. Sơ Đồ Khối Kiến Trúc Phân Tầng (Layered Block Architecture)](#23-sơ-đồ-khối-kiến-trúc-phân-tầng-hệ-thống-layered-block-architecture)
+   - [2.4. Sơ Đồ Trình Tự Vận Hành Thời Gian Thực (Interactive Sequence Diagram)](#24-sơ-đồ-trình-tự-tương-tác-vận-hành-thời-gian-thực-interactive-runtime-sequence)
+   - [2.5. Bảng Ma Trận Giao Thức Truyền Dẫn (Realtime Protocols Matrix)](#25-bảng-ma-trận-giao-thức-truyền-dẫn--băng-thông-realtime-protocols-matrix)
 3. [Cấu Trúc Thư Mục Toàn Diện Dự Án](#3-cấu-trúc-thư-mục-toàn-diện-dự-án)
 4. [Bảng Phân Tích Chi Tiết 15 Màn Hình Giao Diện (Arcane Dark Fantasy & Sci-Fi UI)](#4-bảng-phân-tích-chi-tiết-15-màn-hình-giao-diện)
 5. [Chi Tiết Kỹ Thuật Đạt Điểm Tuyệt Đối (Rubric Checklist 100/100)](#5-chi-tiết-kỹ-thuật-đạt-điểm-tuyệt-đối)
@@ -44,17 +46,59 @@
 
 **3D Mech AR Chess** là nền tảng game chiến thuật cờ vua thế hệ mới, giao thoa giữa không gian cơ khí tương lai (Sci-Fi Cyber Mechs) và nghệ thuật ma pháp kỳ ảo cổ điển (Arcane Dark Fantasy). Dự án chuyển hóa 64 ô cờ truyền thống thành một đấu trường tương tác thực tế ảo tăng cường (AR) đa nền tảng, tích hợp mạng nơ-ron nhận diện thị giác máy tính và đấu mạng đồng bộ thời gian thực.
 
-```
-                           ⚔️ 3D MECH AR CHESS ECOSYSTEM ⚔️
-                           
-   [📱 Unity AR Client] <======== WebSocket ========> [🐳 FastAPI AI Server]
-       (Android & PC)                                    (PyTorch & Minimax)
-             ||                                                  ||
-      Adafruit IO REST                                   SQLAlchemy 2.0 Async
-             ||                                                  ||
-   [☁️ Adafruit IO Cloud]                              [🗄️ Supabase PostgreSQL]
-   (Telemetry & Remote EMP)                           (Users, Stats, Match Logs)
-```
+<div align="center">
+  <table border="0">
+    <tr align="center">
+      <td width="25%">
+        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/unity/unity-original.svg" width="56" height="56" alt="Unity" /><br/>
+        <b>Unity Client (3D/AR)</b><br/>
+        <sub>PC & Android ARM64</sub>
+      </td>
+      <td width="8%">
+        <img src="https://img.shields.io/badge/WSS-00F0FF?style=flat-square" /><br/>
+        ◄════►
+      </td>
+      <td width="25%">
+        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original.svg" width="46" height="46" alt="Docker" />&nbsp;
+        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/fastapi/fastapi-original.svg" width="46" height="46" alt="FastAPI" /><br/>
+        <b>FastAPI AI Server</b><br/>
+        <sub>PyTorch & Minimax Engine</sub>
+      </td>
+      <td width="8%">
+        <img src="https://img.shields.io/badge/asyncpg-3ECF8E?style=flat-square" /><br/>
+        ◄════►
+      </td>
+      <td width="34%">
+        <img src="https://raw.githubusercontent.com/supabase/supabase/master/packages/common/assets/images/supabase-logo-icon.png" width="56" height="56" alt="Supabase" /><br/>
+        <b>Supabase PostgreSQL</b><br/>
+        <sub>Cloud DB, Stats & Matches</sub>
+      </td>
+    </tr>
+    <tr align="center">
+      <td>
+        ▲&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▲<br/>
+        ║&nbsp;<b>REST Polling</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;║&nbsp;<b>Telemetry</b><br/>
+        ▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br/>
+        <img src="https://img.shields.io/badge/Adafruit%20IO-Cloud%20IoT-black?style=for-the-badge&logo=adafruit&logoColor=white" height="28" alt="Adafruit IO" /><br/>
+        <sub>4 Up Feeds + 1 Down Feed (EMP)</sub>
+      </td>
+      <td></td>
+      <td>
+        ▲<br/>
+        ║&nbsp;<b>Deep Learning</b><br/>
+        ▼<br/>
+        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/pytorch/pytorch-original.svg" width="42" height="42" alt="PyTorch" /><br/>
+        <sub>MobileNetV3 Vision CNN</sub>
+      </td>
+      <td></td>
+      <td>
+        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" width="36" height="36" alt="PostgreSQL" />&nbsp;
+        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/sqlalchemy/sqlalchemy-original.svg" width="36" height="36" alt="SQLAlchemy" /><br/>
+        <sub>SQLAlchemy 2.0 Async + Alembic</sub>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ### Các đột phá công nghệ nổi bật:
 1. **100% Procedural 3D Mechs & Hologram Standees:** Toàn bộ 32 quân cờ chiến đấu được kiến tạo theo thời gian thực (Procedural Mesh Generation) qua thuật toán C# thuần túy từ các khối hình học cơ bản kết hợp vật liệu URP PBR Metallic và rãnh phát quang Neon Emission (Cyan Neon & Crimson Neon). **Tuyệt đối không nhập bất kỳ file mô hình 3D (.fbx, .obj, .blend) dựng sẵn từ ngoài**.
@@ -71,13 +115,92 @@
 
 ---
 
-## 2. SƠ ĐỒ KIẾN TRÚC HỆ THỐNG TOÀN DIỆN & SINH ĐỘNG
+## 2. SƠ ĐỒ KIẾN TRÚC HỆ THỐNG TOÀN DIỆN & MINH HỌA TRỰC QUAN
 
 Hệ thống được thiết kế theo mô hình phân tầng hướng dịch vụ (Multi-Tier Service-Oriented Architecture), kết hợp song song giữa kiến trúc **Event-Driven Client** trong Unity và **Asynchronous Microservices** trong Docker, giao tiếp qua WebSockets thời gian thực và đám mây Supabase / Adafruit IO.
 
 ---
 
-### 2.1. Sơ Đồ Khối Kiến Trúc Phân Tầng Hệ Thống (Layered Block Architecture)
+### 2.1. Bản Đồ Sinh Thái Công Nghệ Trực Quan Với Logo Thương Hiệu (Ecosystem Brand Logos)
+
+<div align="center">
+
+| Trụ Cột Kiến Trúc | Logo Nền Tảng | Nền Tảng & Công Nghệ | Vai Trò & Chức Năng Kỹ Thuật Cốt Lõi |
+| :--- | :---: | :--- | :--- |
+| **🎮 Client 3D & AR** | <a href="https://unity.com"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/unity/unity-original.svg" width="56" height="56" alt="Unity Engine" /></a><br/><a href="https://learn.microsoft.com/en-us/dotnet/csharp/"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/csharp/csharp-original.svg" width="28" height="28" alt="C#" /></a>&nbsp;<a href="https://developer.android.com"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/android/android-original.svg" width="28" height="28" alt="Android" /></a> | **Unity 6000 LTS (URP 17.3)**<br/>• C# 100% Procedural Mechs<br/>• AR Foundation 6.3 (ARCore / ARKit)<br/>• Android ARM64 IL2CPP | • Kiến tạo 100% 32 quân cờ cơ khí 3D qua thuật toán C# (`ProceduralMechFactory.cs`).<br/>• Bộ luật FIDE F01-F12 hoàn chỉnh: Nhập thành, Bắt tốt qua đường, Phong cấp, FEN.<br/>• Minigame 2D vật lý phá ấn ma pháp (`CombatMinigame2D.cs`) đếm ngược 5 giây.<br/>• Giao diện Arcane Dark Fantasy 15 màn hình, âm thanh đa tầng & song ngữ tức thì. |
+| **🐳 Backend & Microservices** | <a href="https://www.docker.com"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original.svg" width="56" height="56" alt="Docker" /></a><br/><a href="https://fastapi.tiangolo.com"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/fastapi/fastapi-original.svg" width="34" height="34" alt="FastAPI" /></a>&nbsp;<a href="https://www.python.org"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" width="30" height="30" alt="Python" /></a> | **Docker Containerization**<br/>• FastAPI ASGI High-Throughput<br/>• WebSockets (Lobby & Game Rooms)<br/>• Security Gateway (JWT + HMAC) | • Đóng gói môi trường Python 3.10-slim tối ưu hóa suy luận CPU.<br/>• Quản lý phòng đấu WebSocket thời gian thực (Sảnh chờ Lobby & Bàn cờ trực tuyến).<br/>• Cổng an ninh chống gian lận: Vé trận đấu HMAC, Giới hạn tần suất & Che giấu PII. |
+| **🧠 Trí Tuệ Nhân Tạo** | <a href="https://pytorch.org"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/pytorch/pytorch-original.svg" width="56" height="56" alt="PyTorch" /></a><br/><img src="https://img.shields.io/badge/MobileNetV3-EE4C2C?style=flat-square&logo=pytorch&logoColor=white" height="20" /> | **PyTorch 2.2 Deep Learning**<br/>• MobileNetV3 CNN Vision<br/>• Minimax Engine + Alpha-Beta<br/>• Piece-Square Tables (PST) | • Nhận diện thẻ bài chiến thuật từ camera/webcam (Base64 Tensor 224x224 RGB).<br/>• Trả về độ tin cậy Confidence Score > 75% và tọa độ nước đi tương ứng.<br/>• Động cơ Minimax Alpha-Beta tìm nước cờ thông minh theo 4 nấc Elo (800 - 2000). |
+| **🗄️ CSDL Đám Mây** | <a href="https://supabase.com"><img src="https://raw.githubusercontent.com/supabase/supabase/master/packages/common/assets/images/supabase-logo-icon.png" width="56" height="56" alt="Supabase Cloud" /></a><br/><a href="https://www.postgresql.org"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" width="34" height="34" alt="PostgreSQL" /></a>&nbsp;<a href="https://www.sqlalchemy.org"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/sqlalchemy/sqlalchemy-original.svg" width="34" height="34" alt="SQLAlchemy" /></a> | **Supabase PostgreSQL**<br/>• Connection Pooling (Port 6543)<br/>• SQLAlchemy 2.0 Async (`asyncpg`)<br/>• Alembic Database Migrations | • Lưu trữ bền vững tài khoản người chơi (`players`), chỉ số (`player_stats`) và lịch sử (`match_history`).<br/>• Đồng bộ điểm xếp hạng Elo, tỷ lệ thắng thua, kinh nghiệm (EXP) và tiền tệ.<br/>• Cung cấp API Bảng xếp hạng Leaderboard & Fallback SQLite cục bộ (`aiosqlite`). |
+| **☁️ Điện Toán Đám Mây IoT** | <a href="https://io.adafruit.com"><img src="https://img.shields.io/badge/Adafruit%20IO-000000?style=for-the-badge&logo=adafruit&logoColor=white" height="40" alt="Adafruit IO" /></a><br/><img src="https://img.shields.io/badge/MQTT%20%7C%20REST-Telemetry-FF6F00?style=flat-square" height="20" /> | **Adafruit IO Cloud Platform**<br/>• 4 Upstream Telemetry Feeds<br/>• 1 Downstream Command Feed<br/>• Secure Key Loader (`adafruit_key.txt`) | • Viễn thám trực tiếp: Đếm số hiệp, Trạng thái bàn cờ, Ký hiệu nước cờ, Độ tin cậy AI.<br/>• Lắng nghe lệnh điều khiển từ xa: Nhận lệnh `RESET` và `EMP_STRIKE`.<br/>• Tự động nạp khóa bí mật từ file cục bộ `adafruit_key.txt`, an toàn tuyệt đối. |
+
+</div>
+
+---
+
+### 2.2. Sơ Đồ Kết Nối Đa Tầng Trực Quan (Cross-Tier Visual Flow with Logos)
+
+<div align="center">
+  <table border="0" width="100%">
+    <tr align="center">
+      <td width="28%">
+        <a href="https://unity.com"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/unity/unity-original.svg" width="60" height="60" alt="Unity Engine" /></a><br/>
+        <b>Unity Client (AR/3D)</b><br/>
+        <small><code>C# Procedural Engine • URP Lit</code></small>
+      </td>
+      <td width="18%">
+        <img src="https://img.shields.io/badge/WSS%20%7C%20REST-00F0FF?style=for-the-badge" height="26" /><br/>
+        ═════════════►<br/>
+        ◄═════════════<br/>
+        <small><i>Realtime Move & Telemetry</i></small>
+      </td>
+      <td width="28%">
+        <a href="https://www.docker.com"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original.svg" width="56" height="56" alt="Docker Container" /></a>&nbsp;
+        <a href="https://fastapi.tiangolo.com"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/fastapi/fastapi-original.svg" width="56" height="56" alt="FastAPI" /></a><br/>
+        <b>Docker FastAPI (:8000)</b><br/>
+        <small><code>ASGI Server • WebSockets • Anti-Cheat</code></small>
+      </td>
+      <td width="18%">
+        <img src="https://img.shields.io/badge/asyncpg%20Pool-3ECF8E?style=for-the-badge" height="26" /><br/>
+        ═════════════►<br/>
+        ◄═════════════<br/>
+        <small><i>Port 6543 / SSL Encrypted</i></small>
+      </td>
+      <td width="28%">
+        <a href="https://supabase.com"><img src="https://raw.githubusercontent.com/supabase/supabase/master/packages/common/assets/images/supabase-logo-icon.png" width="60" height="60" alt="Supabase PostgreSQL" /></a><br/>
+        <b>Supabase Cloud</b><br/>
+        <small><code>PostgreSQL • Elo • Matches</code></small>
+      </td>
+    </tr>
+    <tr align="center">
+      <td colspan="2">
+        ▲&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▲<br/>
+        ║&nbsp;<b>REST Polling (1.5s)</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;║&nbsp;<b>POST Telemetry</b><br/>
+        ▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br/>
+        <a href="https://io.adafruit.com"><img src="https://img.shields.io/badge/Adafruit%20IO-Cloud%20IoT-black?style=for-the-badge&logo=adafruit&logoColor=white" height="32" alt="Adafruit IO" /></a><br/>
+        <b>Adafruit IO Cloud Platform</b><br/>
+        <small><code>4 Upstream Feeds & 1 Downstream Feed (RESET/EMP)</code></small>
+      </td>
+      <td>
+        ▲<br/>
+        ║&nbsp;<b>Inference Call</b><br/>
+        ▼<br/>
+        <a href="https://pytorch.org"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/pytorch/pytorch-original.svg" width="56" height="56" alt="PyTorch Deep Learning" /></a><br/>
+        <b>PyTorch AI Core</b><br/>
+        <small><code>MobileNetV3 Vision & Minimax Engine</code></small>
+      </td>
+      <td colspan="2">
+        <a href="https://www.postgresql.org"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" width="40" height="40" alt="PostgreSQL" /></a>&nbsp;&nbsp;
+        <a href="https://www.sqlalchemy.org"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/sqlalchemy/sqlalchemy-original.svg" width="40" height="40" alt="SQLAlchemy ORM" /></a><br/>
+        <b>Relational Engine & ORM</b><br/>
+        <small><code>SQLAlchemy 2.0 Async • Alembic Migrations</code></small>
+      </td>
+    </tr>
+  </table>
+</div>
+
+---
+
+### 2.3. Sơ Đồ Khối Kiến Trúc Phân Tầng Hệ Thống (Layered Block Architecture)
 
 ```mermaid
 flowchart TB
@@ -228,7 +351,7 @@ flowchart TB
 
 ---
 
-### 2.2. Sơ Đồ Trình Tự Tương Tác Vận Hành Thời Gian Thực (Interactive Runtime Sequence)
+### 2.4. Sơ Đồ Trình Tự Tương Tác Vận Hành Thời Gian Thực (Interactive Runtime Sequence)
 
 Sơ đồ dưới đây mô tả chi tiết chu trình sống động của **4 luồng nghiệp vụ cốt lõi** trong cùng một ván cờ:
 
@@ -324,7 +447,7 @@ sequenceDiagram
 
 ---
 
-### 2.3. Bảng Ma Trận Giao Thức Truyền Dẫn & Băng Thông (Realtime Protocols Matrix)
+### 2.5. Bảng Ma Trận Giao Thức Truyền Dẫn & Băng Thông (Realtime Protocols Matrix)
 
 | Kênh Giao Tiếp | Giao Thức / Port | Chiều Dữ Liệu | Mục Đích Sử Dụng | Độ Trễ Mục Tiêu |
 | :--- | :---: | :---: | :--- | :---: |
@@ -457,6 +580,13 @@ Giao diện người dùng được thiết kế tỉ mỉ theo phong cách **Ar
 ## 5. CHI TIẾT KỸ THUẬT ĐẠT ĐIỂM TUYỆT ĐỐI (RUBRIC CHECKLIST 100/100)
 
 ### Tiêu chí 1: Unity 2D & 3D Implementation (20/20)
+<p align="left">
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/unity/unity-original.svg" width="28" height="28" alt="Unity" valign="middle" />&nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/csharp/csharp-original.svg" width="26" height="26" alt="C#" valign="middle" />&nbsp;
+  <img src="https://img.shields.io/badge/URP-17.3.0%20PBR%20Lit-blue?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/Mesh-100%25%20Procedural-00F0FF?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/2D%20Physics-Rigidbody2D-green?style=flat-square" valign="middle" />
+</p>
 
 #### 1. Kiến tạo Mô hình Mech 3D Thuần Thuật Toán (`ProceduralMechFactory.cs`):
 - **Không dùng file mô hình 3D bên ngoài**, toàn bộ 32 quân cờ được cấu tạo bằng code C# qua việc kết hợp các khối hình học cơ bản (`MeshRenderer`, `PrimitiveType.Cube`, `Cylinder`, `Capsule`, `Sphere`):
@@ -492,6 +622,13 @@ Giao diện người dùng được thiết kế tỉ mỉ theo phong cách **Ar
 ---
 
 ### Tiêu chí 2: AR Implementation & Deep Learning (20/20)
+<p align="left">
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/pytorch/pytorch-original.svg" width="28" height="28" alt="PyTorch" valign="middle" />&nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/google/google-original.svg" width="26" height="26" alt="Google ARCore" valign="middle" />&nbsp;
+  <img src="https://img.shields.io/badge/AR%20Foundation-6.3.5%20(ARCore%20%7C%20ARKit)-3ECF8E?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/Deep%20Learning-MobileNetV3%20CNN-EE4C2C?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/AI%20Engine-Minimax%20Alpha--Beta-00F0FF?style=flat-square" valign="middle" />
+</p>
 
 #### 1. Hệ Thống AR Lai Đa Năng (`HybridARController.cs`):
 - **Chế độ AR Foundation:** Tương thích hoàn toàn chuẩn ARCore (Android) và ARKit (iOS). Ứng dụng sử dụng `ARRaycastManager` và `ARPlaneManager` nhận diện các mặt bàn/sàn phẳng ngoài đời thực, cho phép người dùng chạm để neo bàn cờ 3D vào không gian thực tế với tỷ lệ chính xác.
@@ -511,6 +648,12 @@ Giao diện người dùng được thiết kế tỉ mỉ theo phong cách **Ar
 ---
 
 ### Tiêu chí 3: Mobile Deployment (20/20)
+<p align="left">
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/android/android-original.svg" width="30" height="30" alt="Android" valign="middle" />&nbsp;
+  <img src="https://img.shields.io/badge/Android-ARM64%20IL2CPP-3DDC84?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/Target%20SDK-34%20(Android%2014)-green?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/Controls-Multi--Touch%20%26%20Orbit-blue?style=flat-square" valign="middle" />
+</p>
 
 #### 1. Hệ Thống Điều Khiển Cảm Ứng Đa Điểm (`MobileTouchInput.cs`):
 - **Single Tap (Chạm 1 ngón):** Bắn tia Raycast từ màn hình cảm ứng vào không gian 3D để chọn quân cờ, hiển thị các ô di chuyển hợp lệ hoặc chạm ô đích để ra lệnh đi quân.
@@ -528,6 +671,12 @@ Giao diện người dùng được thiết kế tỉ mỉ theo phong cách **Ar
 ---
 
 ### Tiêu chí 4: IO Cloud Integration (20/20)
+<p align="left">
+  <img src="https://img.shields.io/badge/Adafruit%20IO-Platform-black?style=for-the-badge&logo=adafruit&logoColor=white" height="24" valign="middle" />&nbsp;
+  <img src="https://img.shields.io/badge/Feeds-4%20Upstream%20%2B%201%20Downstream-orange?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/Security-adafruit__key.txt%20Protected-brightgreen?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/Commands-RESET%20%7C%20EMP__STRIKE-red?style=flat-square" valign="middle" />
+</p>
 
 #### Đồng Bộ Đám Mây Hai Chiều với Nền Tảng Adafruit IO (`AdafruitIOCloudConnector.cs`):
 - **Cơ chế nạp khóa an toàn:** Tự động nạp Active Key từ tệp `adafruit_key.txt` đặt tại thư mục gốc (tệp này được `.gitignore` bảo vệ, không bao giờ lộ lên kho mã nguồn) hoặc từ `PlayerPrefs`. Tên tài khoản mặc định `phamtuandat` hoặc có thể tùy biến linh hoạt trong Inspector.
@@ -544,6 +693,13 @@ Giao diện người dùng được thiết kế tỉ mỉ theo phong cách **Ar
 ---
 
 ### Tiêu chí 5: Docker Containerization (20/20)
+<p align="left">
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original.svg" width="28" height="28" alt="Docker" valign="middle" />&nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/fastapi/fastapi-original.svg" width="28" height="28" alt="FastAPI" valign="middle" />&nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" width="26" height="26" alt="Python" valign="middle" />&nbsp;
+  <img src="https://img.shields.io/badge/Docker-Python%203.10--slim-2496ED?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/Network-mech--chess--network-blue?style=flat-square" valign="middle" />
+</p>
 
 #### Đóng Gói Toàn Diện Dịch Vụ AI & Backend Trong Docker (`backend-ai-docker/`):
 - **`Dockerfile` Tối Ưu Hóa:**
@@ -562,6 +718,14 @@ Giao diện người dùng được thiết kế tỉ mỉ theo phong cách **Ar
 ---
 
 ### Tính Năng Nâng Cao: CSDL Đám Mây Supabase, Bảo Mật Chống Gian Lận, Âm Thanh Đa Tầng & Song Ngữ
+<p align="left">
+  <img src="https://raw.githubusercontent.com/supabase/supabase/master/packages/common/assets/images/supabase-logo-icon.png" width="28" height="28" alt="Supabase" valign="middle" />&nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" width="28" height="28" alt="PostgreSQL" valign="middle" />&nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/sqlalchemy/sqlalchemy-original.svg" width="28" height="28" alt="SQLAlchemy" valign="middle" />&nbsp;
+  <img src="https://img.shields.io/badge/Supabase-Connection%20Pooler%20:6543-3ECF8E?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/Security-JWT%20%2B%20HMAC%20Tickets-blueviolet?style=flat-square" valign="middle" />
+  <img src="https://img.shields.io/badge/Audio-Procedural%20Synthesis%20Synth-purple?style=flat-square" valign="middle" />
+</p>
 
 #### 1. Hệ Thống CSDL Đám Mây Supabase PostgreSQL & ORM SQLAlchemy 2.0:
 - **Tầng dữ liệu hướng tương lai:** Thay vì chỉ lưu JSON tĩnh, toàn bộ hệ thống tài khoản, điểm số và lịch sử ván đấu được quản lý bằng **SQLAlchemy 2.0** bất đồng bộ (`asyncpg`):
