@@ -117,6 +117,14 @@
 
 ## 2. SƠ ĐỒ KIẾN TRÚC HỆ THỐNG TOÀN DIỆN & MINH HỌA TRỰC QUAN
 
+<p align="center">
+  <a href="docs/system_architecture.svg">
+    <img src="docs/system_architecture.svg" alt="AegisMech AR Master System Architecture" width="100%" />
+  </a>
+  <br/>
+  <em><b>Hình 2.0:</b> Sơ đồ kiến trúc toàn diện hệ sinh thái AegisMech AR — Thiết kế trực quan với logo thương hiệu chính thức (Unity LTS, Docker, PyTorch, Supabase PostgreSQL, Adafruit IO, Android ARM64, FastAPI).</em>
+</p>
+
 Hệ thống được thiết kế theo mô hình phân tầng hướng dịch vụ (Multi-Tier Service-Oriented Architecture), kết hợp song song giữa kiến trúc **Event-Driven Client** trong Unity và **Asynchronous Microservices** trong Docker, giao tiếp qua WebSockets thời gian thực và đám mây Supabase / Adafruit IO.
 
 ---
@@ -201,6 +209,17 @@ Hệ thống được thiết kế theo mô hình phân tầng hướng dịch v
 ---
 
 ### 2.3. Sơ Đồ Khối Kiến Trúc Phân Tầng Hệ Thống (Layered Block Architecture)
+
+<p align="center">
+  <a href="docs/system_architecture.svg">
+    <img src="docs/system_architecture.svg" alt="AegisMech AR Layered System Architecture" width="100%" />
+  </a>
+  <br/>
+  <em><b>Hình 2.3:</b> Cấu trúc phân khối kiến trúc chi tiết từng thành phần — Tầng Client Unity 6000 LTS (Lõi Game 3D, Giao diện Arcane Dark Fantasy 15 màn hình, AR Foundation & Mobile ARM64), Tầng Docker Backend (:8000), CSDL Supabase PostgreSQL Cloud (Port 6543) và Nền tảng IoT Adafruit IO.</em>
+</p>
+
+<details>
+<summary><b>🔍 Nhấn vào đây để xem mã nguồn sơ đồ phân tầng (Mermaid Flowchart Code)</b></summary>
 
 ```mermaid
 flowchart TB
@@ -348,6 +367,7 @@ flowchart TB
     DownstreamFeeds == "REST Polling (1.5s)" ==> AIOConnector
     AIOConnector ==>|"Kích hoạt Bão Từ EMP / Đặt lại ván đấu"| Board3D
 ```
+</details>
 
 ---
 
