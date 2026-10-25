@@ -19,7 +19,10 @@
 
 ## 📑 MỤC LỤC
 1. [Tổng Quan Dự Án & Các Điểm Đột Phá Công Nghệ](#1-tổng-quan-dự-án--các-điểm-đột-phá-công-nghệ)
-2. [Sơ Đồ Kiến Trúc Hệ Thống Toàn Diện (System Architecture)](#2-sơ-đồ-kiến-trúc-hệ-thống-toàn-diện)
+2. [Sơ Đồ Kiến Trúc Hệ Thống Toàn Diện & Sinh Động (System Architecture)](#2-sơ-đồ-kiến-trúc-hệ-thống-toàn-diện--sinh-động)
+   - [2.1. Sơ Đồ Khối Kiến Trúc Phân Tầng (Layered Block Architecture)](#21-sơ-đồ-khối-kiến-trúc-phân-tầng-hệ-thống-layered-block-architecture)
+   - [2.2. Sơ Đồ Trình Tự Vận Hành Thời Gian Thực (Interactive Sequence Diagram)](#22-sơ-đồ-trình-tự-tương-tác-vận-hành-thời-gian-thực-interactive-runtime-sequence)
+   - [2.3. Bảng Ma Trận Giao Thức Truyền Dẫn (Realtime Protocols Matrix)](#23-bảng-ma-trận-giao-thức-truyền-dẫn--băng-thông-realtime-protocols-matrix)
 3. [Cấu Trúc Thư Mục Toàn Diện Dự Án](#3-cấu-trúc-thư-mục-toàn-diện-dự-án)
 4. [Bảng Phân Tích Chi Tiết 15 Màn Hình Giao Diện (Arcane Dark Fantasy & Sci-Fi UI)](#4-bảng-phân-tích-chi-tiết-15-màn-hình-giao-diện)
 5. [Chi Tiết Kỹ Thuật Đạt Điểm Tuyệt Đối (Rubric Checklist 100/100)](#5-chi-tiết-kỹ-thuật-đạt-điểm-tuyệt-đối)
@@ -68,95 +71,270 @@
 
 ---
 
-## 2. SƠ ĐỒ KIẾN TRÚC HỆ THỐNG TOÀN DIỆN
+## 2. SƠ ĐỒ KIẾN TRÚC HỆ THỐNG TOÀN DIỆN & SINH ĐỘNG
+
+Hệ thống được thiết kế theo mô hình phân tầng hướng dịch vụ (Multi-Tier Service-Oriented Architecture), kết hợp song song giữa kiến trúc **Event-Driven Client** trong Unity và **Asynchronous Microservices** trong Docker, giao tiếp qua WebSockets thời gian thực và đám mây Supabase / Adafruit IO.
+
+---
+
+### 2.1. Sơ Đồ Khối Kiến Trúc Phân Tầng Hệ Thống (Layered Block Architecture)
 
 ```mermaid
-graph TD
-    subgraph Client_Unity["🎮 UNITY CLIENT (PC & ANDROID)"]
-        subgraph Mod_Core["Core Architecture & Bootstrapper"]
-            Bootstrapper["MechGameBootstrapper.cs<br/>(Auto Scene Zero-Wiring)"]
-            Board3D["ChessBoard3DManager.cs<br/>(F01-F12 Rules, FEN, AI Levels)"]
-            Factory["ProceduralMechFactory.cs<br/>(6 Procedural Mechs, URP Emission)"]
-            Animator["MechPieceAnimator.cs<br/>(3D Blade Attack, Hover, Disintegrate)"]
-            Minigame2D["CombatMinigame2D.cs<br/>(Rigidbody2D Rune Ward Shatter)"]
+flowchart TB
+    %% =========================================================================
+    %% STYLING CLASSES (Arcane Dark Fantasy & High-Tech Neon Palette)
+    %% =========================================================================
+    classDef clientCore fill:#0f172a,stroke:#00f0ff,stroke-width:2.5px,color:#f8fafc;
+    classDef clientUI fill:#1e1b4b,stroke:#c084fc,stroke-width:2px,color:#f8fafc;
+    classDef clientAR fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#f8fafc;
+    classDef clientAudio fill:#3b0764,stroke:#e879f9,stroke-width:2px,color:#f8fafc;
+    classDef backendApp fill:#082f49,stroke:#38bdf8,stroke-width:2.5px,color:#f8fafc;
+    classDef aiEngine fill:#4c0519,stroke:#f43f5e,stroke-width:2.5px,color:#f8fafc;
+    classDef databaseNode fill:#022c22,stroke:#10b981,stroke-width:2.5px,color:#f8fafc;
+    classDef cloudIoT fill:#451a03,stroke:#f59e0b,stroke-width:2.5px,color:#f8fafc;
+    classDef secGate fill:#2e1065,stroke:#a78bfa,stroke-width:2px,color:#f8fafc;
+    classDef ioNode fill:#1e293b,stroke:#94a3b8,stroke-dasharray: 5 5,color:#f8fafc;
+
+    %% =========================================================================
+    %% CLIENT SUBSYSTEM: UNITY 6000 LTS (PC & ANDROID)
+    %% =========================================================================
+    subgraph Unity_Client["🎮 TẦNG CLIENT: UNITY 6000.3 LTS (PC & ANDROID ARM64)"]
+        subgraph Sub_Core["⚡ Khối Lõi Game & Dựng Hình 3D"]
+            Bootstrapper(["🚀 MechGameBootstrapper.cs<br/>[Zero-Wiring Auto Init]"]):::clientCore
+            Board3D["♟️ ChessBoard3DManager.cs<br/>[Luật F01-F12 • FEN Engine • AI Control]"]:::clientCore
+            Factory[["🏭 ProceduralMechFactory.cs<br/>[100% C# Primitive Mesh • URP Lit Neon]"]]:::clientCore
+            Animator["⚔️ MechPieceAnimator.cs<br/>[Chém Kiếm 3D 0.7s • Tan Rã • EMP Shake]"]:::clientCore
+            Minigame2D[["⚡ CombatMinigame2D.cs<br/>[Rigidbody2D • Ấn Chú Ma Pháp 5 Giây]"]]:::clientCore
+            Standee["🛡️ HologramStandeeBillboard.cs<br/>[Xoay 2.5D Hướng Theo Camera]"]:::clientCore
         end
 
-        subgraph Mod_UI["Arcane Dark Fantasy UI (15 Screens)"]
-            MainMenu["MainMenu2D.cs<br/>(15 Screens, Navigation, Modals)"]
-            HUD2D["UIManager2D.cs<br/>(Cyber Chamfered HUD, Timers, History)"]
-            AssetLoader["ArcaneAssetLoader.cs<br/>(Procedural Sprites & HD Textures)"]
-            AudioMgr["AegisAudioManager.cs<br/>(Multi-Tier Audio & Synth Fallback)"]
-            LocMgr["AegisLocalization.cs<br/>(Instant Bilingual VI / EN Engine)"]
-            TutorialModel["TutorialDataModel.cs<br/>(4 Tabs, 20 Pages Interactive Diagrams)"]
+        subgraph Sub_UI["🔮 Khối Giao Diện Arcane Dark Fantasy (15 Màn Hình)"]
+            MainMenu["🏰 MainMenu2D.cs<br/>[15 Màn Hình • Navigation • Modals • Toasts]"]:::clientUI
+            HUD2D["📟 UIManager2D.cs<br/>[Cyber 9-Sliced HUD • Đồng Hồ • Ngăn Kéo]"]:::clientUI
+            AssetLoader["🎨 ArcaneAssetLoader.cs<br/>[HD Textures • Procedural Sprites Fallback]"]:::clientUI
+            AudioMgr["🎵 AegisAudioManager.cs<br/>[Đa Tầng: WAV • In-Memory Procedural Synth]"]:::clientAudio
+            LocMgr["🌐 AegisLocalization.cs<br/>[Chuyển Đổi Song Ngữ Tức Thì VI ⇄ EN]"]:::clientUI
+            TutorialModel["📖 TutorialDataModel.cs<br/>[4 Tabs • 20 Trang • Sơ Đồ Cờ 2D Động]"]:::clientUI
         end
 
-        subgraph Mod_AR_Mobile["AR & Mobile Controls"]
-            ARController["HybridARController.cs<br/>(AR Foundation + WebCam Fallback)"]
-            TouchInput["MobileTouchInput.cs<br/>(Tap, 360° Orbit Swipe, Pinch Zoom)"]
-            BuildConfig["MobileBuildConfigurator.cs<br/>(1-Click Android IL2CPP ARM64 APK)"]
+        subgraph Sub_AR_Mobile["📱 Khối Thực Tế Tăng Cường & Di Động"]
+            ARController["📷 HybridARController.cs<br/>[AR Foundation Plane Raycast ⇄ Webcam Fallback]"]:::clientAR
+            TouchInput["👆 MobileTouchInput.cs<br/>[Tap Chọn Ô • Vuốt 360° Quán Tính • Pinch Zoom]"]:::clientAR
+            BuildConfig["📦 MobileBuildConfigurator.cs<br/>[1-Click Android IL2CPP ARM64 APK]"]:::clientAR
         end
 
-        subgraph Mod_Net["Networking & Cloud Clients"]
-            AccountMgr["UserAccountManager.cs<br/>(Gmail Login, JWT Auth, Elo Sync)"]
-            NetMgr["OnlineMultiplayerManager.cs<br/>(WebSocket Matchmaking & Live Moves)"]
-            AIO["AdafruitIOCloudConnector.cs<br/>(REST Uplink 4 Feeds + EMP Downlink)"]
+        subgraph Sub_Net_Client["📡 Khối Truyền Thông & Xác Thực Cục Bộ"]
+            AccountMgr["👤 UserAccountManager.cs<br/>[Gmail Auth • JWT Token Storage • Elo Sync]"]:::clientCore
+            NetMgr["🌐 OnlineMultiplayerManager.cs<br/>[WebSocket Sảnh Đấu • Ghép Trận • Đồng Bộ Ô Cờ]"]:::clientCore
+            AIOConnector["☁️ AdafruitIOCloudConnector.cs<br/>[Nạp Key adafruit_key.txt • 4 Up + 1 Down Feed]"]:::cloudIoT
         end
     end
 
-    subgraph Backend_Docker["🐳 BACKEND AI, MULTIPLAYER & SECURITY (:8000)"]
-        FastAPI["FastAPI ASGI Server (main.py)"]
-        SecurityEngine["Security & Anti-Cheat (security.py)<br/>(JWT HS256, HMAC Match Tickets, Rate Limiter)"]
-        DL_Model["PyTorch Deep Learning<br/>(MobileNetV3 Card Recognition)"]
-        Chess_Engine["Minimax Alpha-Beta Engine<br/>(4 Difficulty Levels, PST Evaluator)"]
-        Lobby_WS["WebSocket Lobby Router (/ws/lobby/{user})<br/>(Realtime Presence & Friend Matchmaking)"]
-        Match_WS["WebSocket Chess Room (/ws/chess/{room_id})<br/>(Move Verification & Turn Sync)"]
-        DatabaseEngine["SQLAlchemy 2.0 Async (database.py + crud.py)<br/>(Connection Pooling, Migrations, Failover)"]
+    %% =========================================================================
+    %% BACKEND SUBSYSTEM: FASTAPI & DOCKER (:8000)
+    %% =========================================================================
+    subgraph Backend_Docker["🐳 TẦNG BACKEND AI & WEBSOCKET: DOCKER CONTAINER (:8000)"]
+        FastAPI_App(["⚡ FastAPI Core Engine (main.py)<br/>[Uvicorn ASGI Server • High-Throughput]"]):::backendApp
+        
+        subgraph Sub_Security["🛡️ Cổng An Ninh & Chống Gian Lận (security.py)"]
+            JWTGate["🔑 JWT Authentication<br/>[Mã Hóa HS256 • TTL 7 Ngày]"]:::secGate
+            TicketEngine["🎫 Anti-Cheat Ticket System<br/>[HMAC Match Verification • Chống Replay]"]:::secGate
+            RateLimiter["⏱️ Sliding-Window Rate Limiter<br/>[120 Req/Phút • Max Payload 10MB]"]:::secGate
+            PIIMask["🎭 PII Data Masking<br/>[Bảo Vệ Email nguyen***@gmail.com]"]:::secGate
+        end
+
+        subgraph Sub_AI["🧠 Trí Tuệ Nhân Tạo & Thị Giác Máy Tính"]
+            MobileNetV3{{"👁️ PyTorch MobileNetV3 CNN<br/>[Nhận Diện Thẻ Bài Chiến Thuật Base64]"}}:::aiEngine
+            MinimaxEngine{{"♟️ Minimax Alpha-Beta Engine<br/>[4 Cấp Độ 800-2000 Elo • Bảng Điểm PST]"}}:::aiEngine
+        end
+
+        subgraph Sub_Realtime["🌐 Quản Lý Thời Gian Thực & Sảnh Đấu (presence.py)"]
+            LobbyRouter(["📢 Lobby WebSocket Router<br/>[/ws/lobby/{username} • Presence & Invites]"]):::backendApp
+            ChessRouter(["⚔️ Chess Match WebSocket Router<br/>[/ws/chess/{room_id} • Move Verification]"]):::backendApp
+        end
+
+        subgraph Sub_ORM["🗃️ Tầng Dữ Liệu Bất Đồng Bộ (database.py + crud.py)"]
+            SQLAlchemyEngine["⚙️ SQLAlchemy 2.0 Async Engine<br/>[Connection Pool • Fallback SQLite Cục Bộ]"]:::backendApp
+            AlembicMigrate["📜 Alembic Migrations<br/>[Quản Lý Phiên Bản Bảng Tự Động]"]:::backendApp
+        end
     end
 
-    subgraph Cloud_Storage["🗄️ SUPABASE POSTGRESQL CLOUD"]
-        Table_Players["Table 'players'<br/>(UUID, Gmail, Username, Level, Currencies)"]
-        Table_Stats["Table 'player_stats'<br/>(Elo Rating, Wins, Losses, Streaks)"]
-        Table_Matches["Table 'match_history'<br/>(Match Code, Opponents, Duration, Elo Change)"]
+    %% =========================================================================
+    %% CLOUD & DATABASE ECOSYSTEM
+    %% =========================================================================
+    subgraph Cloud_Supabase["🗄️ CƠ SỞ DỮ LIỆU ĐÁM MÂY SUPABASE POSTGRESQL"]
+        direction TB
+        Pooler["⚡ Supabase Connection Pooling (Port 6543 / asyncpg)"]:::databaseNode
+        Table_P[("👤 Table 'players'<br/>[UUID • Gmail • Username • Level • Currencies]")]:::databaseNode
+        Table_S[("📊 Table 'player_stats'<br/>[Elo Rating • Wins • Losses • Win Streak]")]:::databaseNode
+        Table_M[("📜 Table 'match_history'<br/>[Match Code • Duration • PGN • Elo +/-]")]:::databaseNode
     end
 
-    subgraph Cloud_IO["☁️ ADAFRUIT IO PLATFORM"]
-        Feeds_Up["Upstream Feeds:<br/>• turn-counter<br/>• ai-confidence<br/>• board-status<br/>• last-move"]
-        Feeds_Down["Downstream Feed:<br/>• remote-command<br/>(RESET / EMP_STRIKE)"]
+    subgraph Cloud_Adafruit["☁️ NỀN TẢNG ĐIỆN TOÁN ĐÁM MÂY IOT ADAFRUIT IO"]
+        direction TB
+        UpstreamFeeds[/"📤 Upstream Feeds (Telemetry):<br/>• turn-counter (Hiệp đấu)<br/>• ai-confidence (Độ tin cậy %)<br/>• board-status (Trạng thái ván cờ)<br/>• last-move (Nước đi mới nhất)"/]:::cloudIoT
+        DownstreamFeeds[/"📥 Downstream Feed (Lệnh Từ Xa):<br/>• remote-command<br/>(Nhận lệnh RESET / EMP_STRIKE)"/]:::cloudIoT
     end
 
-    %% Internal Client Flow
-    Bootstrapper --> Board3D
-    Bootstrapper --> MainMenu
-    Factory --> Board3D
-    Board3D --> Animator
-    Board3D -- "On Capture" --> Minigame2D
-    Minigame2D -- "Confirm Kill" --> Board3D
-    TouchInput --> Board3D
-    MainMenu <--> Board3D
-    MainMenu <--> AudioMgr
-    MainMenu <--> LocMgr
-    MainMenu <--> TutorialModel
-    MainMenu <--> NetMgr
+    %% =========================================================================
+    %% INTERNAL CLIENT WIRING
+    %% =========================================================================
+    Bootstrapper ==>|"1. Khởi tạo Zero-Wiring"| Board3D
+    Bootstrapper ==>|"2. Tạo Canvas & HUD"| MainMenu
+    Factory -->|"Lắp ráp 32 quân Mech"| Board3D
+    Board3D -->|"Cập nhật góc nhìn 2.5D"| Standee
+    Board3D -->|"Kích hoạt đòn đánh"| Animator
+    Board3D == "Ăn quân: Kích hoạt" ==> Minigame2D
+    Minigame2D == "Phá ấn thành công" ==> Animator
+    TouchInput -->|"Raycast chạm / Vuốt xoay"| Board3D
+    MainMenu <-->|"Âm thanh sự kiện"| AudioMgr
+    MainMenu <-->|"Chuyển đổi VI/EN"| LocMgr
+    MainMenu <-->|"Trích xuất bài học"| TutorialModel
+    MainMenu <-->|"Điều phối ván đấu"| Board3D
+    MainMenu <-->|"Nạp hồ sơ & Elo"| AccountMgr
 
-    %% AI & AR Flow
-    ARController -- "Base64 Image" --> DL_Model
-    Board3D -- "FEN & Difficulty" --> Chess_Engine
-    Chess_Engine -- "Best Move JSON" --> Board3D
+    %% =========================================================================
+    %% CROSS-TIER COMMUNICATIONS & PROTOCOLS
+    %% =========================================================================
+    %% AR & Deep Learning Loop
+    ARController -.->|"1. Base64 Snapshot Camera"| FastAPI_App
+    FastAPI_App -->|"Chuẩn hóa Tensor 224x224"| MobileNetV3
+    MobileNetV3 -->|"Trả về Card Name & Tọa độ"| Board3D
+    Board3D -.->|"2. Chuỗi FEN & Độ sâu"| MinimaxEngine
+    MinimaxEngine -.->|"3. Nước cờ AI tối ưu (JSON)"| Board3D
 
-    %% Online Multiplayer & Auth Flow
-    AccountMgr <--> SecurityEngine
-    SecurityEngine <--> DatabaseEngine
-    DatabaseEngine <--> Cloud_Storage
-    NetMgr <--> Lobby_WS
-    NetMgr <--> Match_WS
-    Match_WS -- "Synchronize Moves" --> Board3D
+    %% Security & Auth Gateway Flow
+    AccountMgr <== "HTTPS /api/auth/login" ==> FastAPI_App
+    FastAPI_App --> Sub_Security
+    Sub_Security --> Sub_ORM
 
-    %% Cloud IoT Flow
-    Board3D -- "Match Telemetry" --> AIO
-    AIO -- "POST Data" --> Feeds_Up
-    Feeds_Down -- "Poll Remote Command" --> AIO
-    AIO -- "Trigger Reset / EMP Shock" --> Board3D
+    %% Real-time WebSockets
+    NetMgr <== "WSS /ws/lobby/{user}<br/>(Presence & Ghép trận)" ==> LobbyRouter
+    NetMgr <== "WSS /ws/chess/{room_id}<br/>(Đồng bộ nước cờ & Giờ đấu)" ==> ChessRouter
+    ChessRouter -->|"Xác thực lượt & áp dụng"| Board3D
+
+    %% Database Cloud Sync
+    Sub_ORM <== "TCP AsyncPG Pooler (Port 6543)" ==> Pooler
+    Pooler --> Table_P
+    Pooler --> Table_S
+    Pooler --> Table_M
+
+    %% IoT Cloud Telemetry & Remote Control
+    Board3D -->|"Viễn thám ván cờ"| AIOConnector
+    AIOConnector == "HTTPS POST Feeds" ==> UpstreamFeeds
+    DownstreamFeeds == "REST Polling (1.5s)" ==> AIOConnector
+    AIOConnector ==>|"Kích hoạt Bão Từ EMP / Đặt lại ván đấu"| Board3D
 ```
+
+---
+
+### 2.2. Sơ Đồ Trình Tự Tương Tác Vận Hành Thời Gian Thực (Interactive Runtime Sequence)
+
+Sơ đồ dưới đây mô tả chi tiết chu trình sống động của **4 luồng nghiệp vụ cốt lõi** trong cùng một ván cờ:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player as 🎮 Người Chơi (Client)
+    participant Unity as 📱 Unity 3D Engine
+    participant Security as 🛡️ Security Gateway
+    participant Backend as 🐳 FastAPI Server (:8000)
+    participant AI as 🧠 PyTorch & Minimax
+    participant DB as 🗄️ Supabase PostgreSQL
+    participant IoT as ☁️ Adafruit IO Cloud
+
+    %% ------------------------------------------------------------------------
+    %% GIAI ĐOẠN 1: ĐĂNG NHẬP VÀ XÁC THỰC BẢO MẬT
+    %% ------------------------------------------------------------------------
+    rect rgb(15, 23, 42)
+        Note over Player, DB: 🔐 GIAI ĐOẠN 1: ĐĂNG NHẬP TÀI KHOẢN & CẤP MÃ JWT BẢO MẬT
+        Player->>Unity: Nhập Gmail (vd: player@gmail.com) & Username
+        Unity->>Security: POST /api/auth/login { gmail, username }
+        Security->>Security: Kiểm tra regex Gmail & Rate Limiting IP
+        Security->>DB: Query/Insert Player & PlayerStats
+        DB-->>Security: Trả về thông tin Player, Level, Elo (1200)
+        Security->>Security: Ký mã JWT HS256 Token
+        Security-->>Unity: 200 OK: { access_token, user_profile }
+        Unity->>Player: Hiển thị Profile, Huy hiệu Rank, Vàng, Ngọc & Sound Jingle
+    end
+
+    %% ------------------------------------------------------------------------
+    %% GIAI ĐOẠN 2: QUÉT THẺ BÀI AR & AI SUY LUẬN
+    %% ------------------------------------------------------------------------
+    rect rgb(6, 78, 59)
+        Note over Player, AI: 👁️ GIAI ĐOẠN 2: THỊ GIÁC MÁY TÍNH AR & AI MINIMAX SUY LUẬN
+        Player->>Unity: Nhấn "SCAN TACTICAL CARD (AI)"
+        Unity->>Unity: Chụp ảnh từ Camera/Webcam -> Chuyển thành Base64
+        Unity->>Backend: POST /api/recognize-card { image_base64 }
+        Backend->>AI: MobileNetV3 CNN Infer Tensor (224x224 RGB)
+        AI-->>Backend: Card: "Center Bastion Advance", Confidence: 94.2%
+        Backend-->>Unity: Trả về thẻ bài nhận dạng & Nước cờ đề xuất
+        Unity->>AI: POST /api/ai-move { fen, depth: 3 }
+        AI->>AI: Minimax Alpha-Beta Pruning + PST Evaluation
+        AI-->>Unity: Best Move: "b8c6", Score: +1.4
+    end
+
+    %% ------------------------------------------------------------------------
+    %% GIAI ĐOẠN 3: GIAO CHIẾN ĂN QUÂN 3D & HACK GIÁP 2D
+    %% ------------------------------------------------------------------------
+    rect rgb(76, 5, 25)
+        Note over Player, Unity: ⚔️ GIAI ĐOẠN 3: GIAO CHIẾN ĂN QUÂN 3D & MINIGAME 2D RIGIDBODY
+        Player->>Unity: Di chuyển quân Tượng trắng ăn Mã đen (c4 x f7)
+        Unity->>Unity: Kích hoạt CombatMinigame2D: Hiện terminal ấn chú ma pháp
+        Player->>Unity: Điều khiển tia sáng vượt chướng ngại vật Rigidbody2D (5s)
+        alt Phá ấn thành công (Trong 5 giây)
+            Unity->>Unity: Kích hoạt đòn kết liễu kiếm năng lượng 3D (0.7s)
+            Unity->>Unity: PlayCaptureDestruction: Bột nổ tia lửa & Quân địch vỡ vụn
+        else Hết thời gian 5 giây
+            Unity->>Unity: Hoàn tất nước ăn thông thường (không kích hoạt bạo kích)
+        end
+    end
+
+    %% ------------------------------------------------------------------------
+    %% GIAI ĐOẠN 4: ĐỒNG BỘ TELEMETRY & NHẬN LỆNH IOT
+    %% ------------------------------------------------------------------------
+    rect rgb(69, 26, 3)
+        Note over Unity, IoT: ☁️ GIAI ĐOẠN 4: ĐIỆN TOÁN ĐÁM MÂY IOT ADAFRUIT (UPLINK / DOWNLINK)
+        Unity->>IoT: POST /feeds/turn-counter (Lượt thứ: 14)
+        Unity->>IoT: POST /feeds/last-move ("Bxf7+ Check")
+        Unity->>IoT: POST /feeds/board-status ("White Advantage")
+        IoT-->>Unity: 200 OK (Dashboard giám sát cập nhật tức thì)
+        
+        opt Giảng viên / Ban Giám Khảo bấm nút trên Dashboard Adafruit IO
+            IoT->>IoT: Ghi giá trị "EMP_STRIKE" vào feed 'remote-command'
+            Unity->>IoT: Polling GET /feeds/remote-command
+            IoT-->>Unity: Trả về lệnh: "EMP_STRIKE"
+            Unity->>Player: Rung lắc màn hình, phóng điện từ giật toàn bộ quân cờ 3D!
+        end
+    end
+
+    %% ------------------------------------------------------------------------
+    %% GIAI ĐOẠN 5: KẾT THÚC VÁN ĐẤU & CẬP NHẬT ELO BẢO MẬT
+    %% ------------------------------------------------------------------------
+    rect rgb(30, 27, 75)
+        Note over Player, DB: 🏆 GIAI ĐOẠN 5: XÁC THỰC VÉ TRẬN ĐẤU & LƯU CSDL SUPABASE
+        Unity->>Security: POST /api/match/record { match_ticket, result: "win", moves: 28 }
+        Security->>Security: Xác minh HMAC Token vé đấu & Chống gian lận thời gian
+        Security->>DB: Cập nhật Elo (+25 điểm), Tăng Exp, Thưởng Vàng
+        DB-->>Security: Trả về Elo mới: 1225, Level Up: True
+        Security-->>Unity: 200 OK: MatchRecordResponse
+        Unity->>Player: Hiện màn hình Kết Quả Victory Knight, Thăng Cấp & Cộng Elo
+    end
+```
+
+---
+
+### 2.3. Bảng Ma Trận Giao Thức Truyền Dẫn & Băng Thông (Realtime Protocols Matrix)
+
+| Kênh Giao Tiếp | Giao Thức / Port | Chiều Dữ Liệu | Mục Đích Sử Dụng | Độ Trễ Mục Tiêu |
+| :--- | :---: | :---: | :--- | :---: |
+| **Lobby Presence** | `WebSocket (WSS)` / `8000` | Hai chiều (Full-Duplex) | Đồng bộ trạng thái Online, hàng đợi ghép trận Elo, thông báo mời bạn | `< 30ms` |
+| **Chess Match Room** | `WebSocket (WSS)` / `8000` | Hai chiều (Full-Duplex) | Gửi nhận tọa độ nước cờ, kiểm tra tính hợp lệ và đếm ngược đồng hồ | `< 20ms` |
+| **AI Vision & Inference** | `HTTP/2 REST` / `8000` | Client -> Server | Gửi chuỗi ảnh Base64 và FEN để MobileNetV3 và Minimax phân tích | `< 150ms` |
+| **Supabase Data Layer** | `PostgreSQL via asyncpg` / `6543` | Server <-> Cloud DB | Quản lý bảng `players`, `player_stats`, `match_history` qua Pooler | `< 60ms` |
+| **IoT Cloud Uplink** | `HTTP REST API` / `443` | Client -> Adafruit IO | Gửi vi sai 4 feed: lượt đấu, độ tin cậy AI, nước cờ, trạng thái cờ | `Định kỳ theo lượt` |
+| **IoT Cloud Downlink** | `HTTP REST Polling` / `443` | Adafruit IO -> Client | Lắng nghe lệnh từ xa của Giảng viên (`RESET` / `EMP_STRIKE`) | `Chu kỳ 1.5s` |
+| **In-Memory Audio** | `Direct Audio Memory` | Nội bộ Unity | Bộ tổng hợp sóng sin/arpeggio dự phòng (Procedural Synthesis) | `0ms (Tức thì)` |
 
 ---
 
