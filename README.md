@@ -143,79 +143,14 @@ Hệ thống được thiết kế theo mô hình phân tầng hướng dịch v
 
 </div>
 
----
-
-### 2.2. Sơ Đồ Kết Nối Đa Tầng Trực Quan (Cross-Tier Visual Flow with Logos)
-
-<div align="center">
-  <table border="0" width="100%">
-    <tr align="center">
-      <td width="28%">
-        <a href="https://unity.com"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/unity/unity-original.svg" width="60" height="60" alt="Unity Engine" /></a><br/>
-        <b>Unity Client (AR/3D)</b><br/>
-        <small><code>C# Procedural Engine • URP Lit</code></small>
-      </td>
-      <td width="18%">
-        <img src="https://img.shields.io/badge/WSS%20%7C%20REST-00F0FF?style=for-the-badge" height="26" /><br/>
-        ═════════════►<br/>
-        ◄═════════════<br/>
-        <small><i>Realtime Move & Telemetry</i></small>
-      </td>
-      <td width="28%">
-        <a href="https://www.docker.com"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original.svg" width="56" height="56" alt="Docker Container" /></a>&nbsp;
-        <a href="https://fastapi.tiangolo.com"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/fastapi/fastapi-original.svg" width="56" height="56" alt="FastAPI" /></a><br/>
-        <b>Docker FastAPI (:8000)</b><br/>
-        <small><code>ASGI Server • WebSockets • Anti-Cheat</code></small>
-      </td>
-      <td width="18%">
-        <img src="https://img.shields.io/badge/asyncpg%20Pool-3ECF8E?style=for-the-badge" height="26" /><br/>
-        ═════════════►<br/>
-        ◄═════════════<br/>
-        <small><i>Port 6543 / SSL Encrypted</i></small>
-      </td>
-      <td width="28%">
-        <a href="https://supabase.com"><img src="https://raw.githubusercontent.com/supabase/supabase/master/packages/common/assets/images/supabase-logo-icon.png" width="60" height="60" alt="Supabase PostgreSQL" /></a><br/>
-        <b>Supabase Cloud</b><br/>
-        <small><code>PostgreSQL • Elo • Matches</code></small>
-      </td>
-    </tr>
-    <tr align="center">
-      <td colspan="2">
-        ▲&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▲<br/>
-        ║&nbsp;<b>REST Polling (1.5s)</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;║&nbsp;<b>POST Telemetry</b><br/>
-        ▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br/>
-        <a href="https://io.adafruit.com"><img src="https://img.shields.io/badge/Adafruit%20IO-Cloud%20IoT-black?style=for-the-badge&logo=adafruit&logoColor=white" height="32" alt="Adafruit IO" /></a><br/>
-        <b>Adafruit IO Cloud Platform</b><br/>
-        <small><code>4 Upstream Feeds & 1 Downstream Feed (RESET/EMP)</code></small>
-      </td>
-      <td>
-        ▲<br/>
-        ║&nbsp;<b>Inference Call</b><br/>
-        ▼<br/>
-        <a href="https://pytorch.org"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/pytorch/pytorch-original.svg" width="56" height="56" alt="PyTorch Deep Learning" /></a><br/>
-        <b>PyTorch AI Core</b><br/>
-        <small><code>MobileNetV3 Vision & Minimax Engine</code></small>
-      </td>
-      <td colspan="2">
-        <a href="https://www.postgresql.org"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" width="40" height="40" alt="PostgreSQL" /></a>&nbsp;&nbsp;
-        <a href="https://www.sqlalchemy.org"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/sqlalchemy/sqlalchemy-original.svg" width="40" height="40" alt="SQLAlchemy ORM" /></a><br/>
-        <b>Relational Engine & ORM</b><br/>
-        <small><code>SQLAlchemy 2.0 Async • Alembic Migrations</code></small>
-      </td>
-    </tr>
-  </table>
-</div>
-
----
-
-### 2.3. Sơ Đồ Khối Kiến Trúc Phân Tầng Hệ Thống (Layered Block Architecture)
+### 2.2. Sơ Đồ Khối Kiến Trúc Phân Tầng Hệ Thống (Layered Block Architecture)
 
 <p align="center">
   <a href="docs/system_architecture.svg">
     <img src="docs/system_architecture.svg" alt="AegisMech AR Layered System Architecture" width="100%" />
   </a>
   <br/>
-  <em><b>Hình 2.3:</b> Cấu trúc phân khối kiến trúc chi tiết từng thành phần — Tầng Client Unity 6000 LTS (Lõi Game 3D, Giao diện Arcane Dark Fantasy 15 màn hình, AR Foundation & Mobile ARM64), Tầng Docker Backend (:8000), CSDL Supabase PostgreSQL Cloud (Port 6543) và Nền tảng IoT Adafruit IO.</em>
+  <em><b>Hình 2.2:</b> Cấu trúc phân khối kiến trúc chi tiết từng thành phần — Tầng Client Unity 6000 LTS (Lõi Game 3D, Giao diện Arcane Dark Fantasy 15 màn hình, AR Foundation & Mobile ARM64), Tầng Docker Backend (:8000), CSDL Supabase PostgreSQL Cloud (Port 6543) và Nền tảng IoT Adafruit IO.</em>
 </p>
 
 <details>
@@ -371,103 +306,7 @@ flowchart TB
 
 ---
 
-### 2.4. Sơ Đồ Trình Tự Tương Tác Vận Hành Thời Gian Thực (Interactive Runtime Sequence)
-
-Sơ đồ dưới đây mô tả chi tiết chu trình sống động của **4 luồng nghiệp vụ cốt lõi** trong cùng một ván cờ:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Player as 🎮 Người Chơi (Client)
-    participant Unity as 📱 Unity 3D Engine
-    participant Security as 🛡️ Security Gateway
-    participant Backend as 🐳 FastAPI Server (:8000)
-    participant AI as 🧠 PyTorch & Minimax
-    participant DB as 🗄️ Supabase PostgreSQL
-    participant IoT as ☁️ Adafruit IO Cloud
-
-    %% ------------------------------------------------------------------------
-    %% GIAI ĐOẠN 1: ĐĂNG NHẬP VÀ XÁC THỰC BẢO MẬT
-    %% ------------------------------------------------------------------------
-    rect rgb(15, 23, 42)
-        Note over Player, DB: 🔐 GIAI ĐOẠN 1: ĐĂNG NHẬP TÀI KHOẢN & CẤP MÃ JWT BẢO MẬT
-        Player->>Unity: Nhập Gmail (vd: player@gmail.com) & Username
-        Unity->>Security: POST /api/auth/login { gmail, username }
-        Security->>Security: Kiểm tra regex Gmail & Rate Limiting IP
-        Security->>DB: Query/Insert Player & PlayerStats
-        DB-->>Security: Trả về thông tin Player, Level, Elo (1200)
-        Security->>Security: Ký mã JWT HS256 Token
-        Security-->>Unity: 200 OK: { access_token, user_profile }
-        Unity->>Player: Hiển thị Profile, Huy hiệu Rank, Vàng, Ngọc & Sound Jingle
-    end
-
-    %% ------------------------------------------------------------------------
-    %% GIAI ĐOẠN 2: QUÉT THẺ BÀI AR & AI SUY LUẬN
-    %% ------------------------------------------------------------------------
-    rect rgb(6, 78, 59)
-        Note over Player, AI: 👁️ GIAI ĐOẠN 2: THỊ GIÁC MÁY TÍNH AR & AI MINIMAX SUY LUẬN
-        Player->>Unity: Nhấn "SCAN TACTICAL CARD (AI)"
-        Unity->>Unity: Chụp ảnh từ Camera/Webcam -> Chuyển thành Base64
-        Unity->>Backend: POST /api/recognize-card { image_base64 }
-        Backend->>AI: MobileNetV3 CNN Infer Tensor (224x224 RGB)
-        AI-->>Backend: Card: "Center Bastion Advance", Confidence: 94.2%
-        Backend-->>Unity: Trả về thẻ bài nhận dạng & Nước cờ đề xuất
-        Unity->>AI: POST /api/ai-move { fen, depth: 3 }
-        AI->>AI: Minimax Alpha-Beta Pruning + PST Evaluation
-        AI-->>Unity: Best Move: "b8c6", Score: +1.4
-    end
-
-    %% ------------------------------------------------------------------------
-    %% GIAI ĐOẠN 3: GIAO CHIẾN ĂN QUÂN 3D & HACK GIÁP 2D
-    %% ------------------------------------------------------------------------
-    rect rgb(76, 5, 25)
-        Note over Player, Unity: ⚔️ GIAI ĐOẠN 3: GIAO CHIẾN ĂN QUÂN 3D & MINIGAME 2D RIGIDBODY
-        Player->>Unity: Di chuyển quân Tượng trắng ăn Mã đen (c4 x f7)
-        Unity->>Unity: Kích hoạt CombatMinigame2D: Hiện terminal ấn chú ma pháp
-        Player->>Unity: Điều khiển tia sáng vượt chướng ngại vật Rigidbody2D (5s)
-        alt Phá ấn thành công (Trong 5 giây)
-            Unity->>Unity: Kích hoạt đòn kết liễu kiếm năng lượng 3D (0.7s)
-            Unity->>Unity: PlayCaptureDestruction: Bột nổ tia lửa & Quân địch vỡ vụn
-        else Hết thời gian 5 giây
-            Unity->>Unity: Hoàn tất nước ăn thông thường (không kích hoạt bạo kích)
-        end
-    end
-
-    %% ------------------------------------------------------------------------
-    %% GIAI ĐOẠN 4: ĐỒNG BỘ TELEMETRY & NHẬN LỆNH IOT
-    %% ------------------------------------------------------------------------
-    rect rgb(69, 26, 3)
-        Note over Unity, IoT: ☁️ GIAI ĐOẠN 4: ĐIỆN TOÁN ĐÁM MÂY IOT ADAFRUIT (UPLINK / DOWNLINK)
-        Unity->>IoT: POST /feeds/turn-counter (Lượt thứ: 14)
-        Unity->>IoT: POST /feeds/last-move ("Bxf7+ Check")
-        Unity->>IoT: POST /feeds/board-status ("White Advantage")
-        IoT-->>Unity: 200 OK (Dashboard giám sát cập nhật tức thì)
-        
-        opt Giảng viên / Ban Giám Khảo bấm nút trên Dashboard Adafruit IO
-            IoT->>IoT: Ghi giá trị "EMP_STRIKE" vào feed 'remote-command'
-            Unity->>IoT: Polling GET /feeds/remote-command
-            IoT-->>Unity: Trả về lệnh: "EMP_STRIKE"
-            Unity->>Player: Rung lắc màn hình, phóng điện từ giật toàn bộ quân cờ 3D!
-        end
-    end
-
-    %% ------------------------------------------------------------------------
-    %% GIAI ĐOẠN 5: KẾT THÚC VÁN ĐẤU & CẬP NHẬT ELO BẢO MẬT
-    %% ------------------------------------------------------------------------
-    rect rgb(30, 27, 75)
-        Note over Player, DB: 🏆 GIAI ĐOẠN 5: XÁC THỰC VÉ TRẬN ĐẤU & LƯU CSDL SUPABASE
-        Unity->>Security: POST /api/match/record { match_ticket, result: "win", moves: 28 }
-        Security->>Security: Xác minh HMAC Token vé đấu & Chống gian lận thời gian
-        Security->>DB: Cập nhật Elo (+25 điểm), Tăng Exp, Thưởng Vàng
-        DB-->>Security: Trả về Elo mới: 1225, Level Up: True
-        Security-->>Unity: 200 OK: MatchRecordResponse
-        Unity->>Player: Hiện màn hình Kết Quả Victory Knight, Thăng Cấp & Cộng Elo
-    end
-```
-
----
-
-### 2.5. Bảng Ma Trận Giao Thức Truyền Dẫn & Băng Thông (Realtime Protocols Matrix)
+### 2.3. Bảng Ma Trận Giao Thức Truyền Dẫn & Băng Thông (Realtime Protocols Matrix)
 
 | Kênh Giao Tiếp | Giao Thức / Port | Chiều Dữ Liệu | Mục Đích Sử Dụng | Độ Trễ Mục Tiêu |
 | :--- | :---: | :---: | :--- | :---: |
