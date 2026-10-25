@@ -117,18 +117,6 @@
 
 ## 2. SƠ ĐỒ KIẾN TRÚC HỆ THỐNG TOÀN DIỆN & MINH HỌA TRỰC QUAN
 
-<p align="center">
-  <a href="docs/system_architecture.svg">
-    <img src="docs/system_architecture.svg" alt="AegisMech AR Master System Architecture" width="100%" />
-  </a>
-  <br/>
-  <em><b>Hình 2.0:</b> Sơ đồ kiến trúc toàn diện hệ sinh thái AegisMech AR — Thiết kế trực quan với logo thương hiệu chính thức (Unity LTS, Docker, PyTorch, Supabase PostgreSQL, Adafruit IO, Android ARM64, FastAPI).</em>
-</p>
-
-Hệ thống được thiết kế theo mô hình phân tầng hướng dịch vụ (Multi-Tier Service-Oriented Architecture), kết hợp song song giữa kiến trúc **Event-Driven Client** trong Unity và **Asynchronous Microservices** trong Docker, giao tiếp qua WebSockets thời gian thực và đám mây Supabase / Adafruit IO.
-
----
-
 ### 2.1. Bản Đồ Sinh Thái Công Nghệ Trực Quan Với Logo Thương Hiệu (Ecosystem Brand Logos)
 
 <div align="center">
