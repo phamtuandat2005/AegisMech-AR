@@ -641,6 +641,19 @@ Dự án tích hợp 3 bộ kiểm thử tự động toàn diện bao quát t�
 
 ## 7. HƯỚNG DẪN CÀI ĐẶT & KHỞI CHẠY NHANH
 
+> [!IMPORTANT]
+> **LƯU Ý QUAN TRỌNG KHI TẢI DỰ ÁN TỪ GITHUB (GIT LFS):**
+> Dự án sử dụng **Git LFS** (`.gitattributes`) để lưu trữ các tài nguyên nhị phân (hình ảnh texture, âm thanh).
+> - **Nếu tải bằng Git Clone:** Cần cài đặt Git LFS và chạy lệnh kéo tài nguyên:
+>   ```bash
+>   git clone https://github.com/phamtuandat2005/AegisMech-AR.git
+>   cd "AegisMech AR"
+>   git lfs install
+>   git lfs pull
+>   ```
+> - **Nếu tải bằng nút "Download ZIP" trên GitHub:** GitHub sẽ **không** tự đóng gói các file Git LFS thật mà chỉ chứa các file con trỏ văn bản ~130 bytes. Khi mở Unity sẽ báo lỗi `EXR error: Failed to parse EXR version info`.
+>   *Khắc phục:* Mở terminal tại thư mục vừa giải nén và gõ `git lfs pull`, hoặc clone lại theo lệnh Git ở trên.
+
 ### Cách 1: Khởi Chạy Backend AI & CSDL bằng Docker (Khuyên Dùng)
 1. Cài đặt và bật **Docker Desktop** trên máy tính.
 2. Mở thư mục `backend-ai-docker`:

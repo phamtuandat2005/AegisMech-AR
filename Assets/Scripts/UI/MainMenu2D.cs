@@ -2212,10 +2212,10 @@ namespace MechChess.UI
 
             GameObject backIconObj = new GameObject("BackIcon");
             backIconObj.transform.SetParent(backBtnObj.transform, false);
-            Image backIconImg = backIconObj.AddComponent<Image>();
             Sprite backSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_back.png");
             if (backSprite != null)
             {
+                Image backIconImg = backIconObj.AddComponent<Image>();
                 backIconImg.sprite = backSprite;
                 backIconImg.color = ColCyanGlow;
             }
@@ -2252,10 +2252,10 @@ namespace MechChess.UI
 
             GameObject cogIconObj = new GameObject("CogIcon");
             cogIconObj.transform.SetParent(cogBtnObj.transform, false);
-            Image cogIconImg = cogIconObj.AddComponent<Image>();
             Sprite setSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_settings.png");
             if (setSprite != null)
             {
+                Image cogIconImg = cogIconObj.AddComponent<Image>();
                 cogIconImg.sprite = setSprite;
                 cogIconImg.color = ColCyanGlow;
             }
@@ -3880,10 +3880,10 @@ namespace MechChess.UI
 
             GameObject backIconObj = new GameObject("BackIcon");
             backIconObj.transform.SetParent(backBtnObj.transform, false);
-            Image backIconImg = backIconObj.AddComponent<Image>();
             Sprite backSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_back.png");
             if (backSprite != null)
             {
+                Image backIconImg = backIconObj.AddComponent<Image>();
                 backIconImg.sprite = backSprite;
                 backIconImg.color = ColCyanGlow;
             }

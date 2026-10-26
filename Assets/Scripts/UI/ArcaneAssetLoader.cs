@@ -52,6 +52,18 @@ namespace MechChess.UI
                 try
                 {
                     byte[] bytes = File.ReadAllBytes(fullPath);
+
+                    // Detect Git LFS pointer files (~130 bytes starting with 'version https://git-lfs')
+                    if (bytes.Length > 0 && bytes.Length < 300)
+                    {
+                        string header = System.Text.Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, 32));
+                        if (header.StartsWith("version https://git-lfs"))
+                        {
+                            Debug.LogWarning($"[ArcaneAssetLoader] File '{fileName}' is a Git LFS pointer, not a real image! Run 'git lfs pull' to download actual assets.");
+                            return null;
+                        }
+                    }
+
                     Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
                     if (tex.LoadImage(bytes))
                     {
