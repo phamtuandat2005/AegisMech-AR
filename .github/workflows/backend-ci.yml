@@ -59,7 +59,7 @@ jobs:
         working-directory: backend-ai-docker
         env:
           APP_ENV: test
-          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+          DATABASE_URL: "sqlite+aiosqlite:///./test_ci.db"
           JWT_SECRET_KEY: test_secret_key_ci_environment_only_minimum_length_32
         run: |
           pytest -v -m "not integration" --junitxml=backend-test-results.xml
@@ -81,7 +81,7 @@ jobs:
             --name backend-healthcheck-test \
             -p 8000:8000 \
             -e APP_ENV=test \
-            -e DATABASE_URL=sqlite+aiosqlite:///:memory: \
+            -e DATABASE_URL="sqlite+aiosqlite:///./test_ci.db" \
             -e JWT_SECRET_KEY=test_secret_key_ci_environment_only_minimum_length_32 \
             aegismech-backend:ci
 

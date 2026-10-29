@@ -24,6 +24,9 @@ if sys.platform == "win32":
 
 # pyrefly: ignore[missing-import]
 import websockets
+import pytest
+
+pytestmark = pytest.mark.integration
 
 TEST_PORT = 8009
 BASE_HTTP_URL = f"http://127.0.0.1:{TEST_PORT}"

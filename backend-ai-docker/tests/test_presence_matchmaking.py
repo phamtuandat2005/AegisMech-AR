@@ -42,6 +42,9 @@ from app.security import create_access_token
 
 # pyrefly: ignore[missing-import]
 import websockets
+import pytest
+
+pytestmark = pytest.mark.integration
 
 TEST_PORT = 8011
 BASE_HTTP_URL = f"http://127.0.0.1:{TEST_PORT}"
