@@ -77,3 +77,4 @@ jobs:
             TestResults/*.xml
             *.log
           retention-days: 14
+
