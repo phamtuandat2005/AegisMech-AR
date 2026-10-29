@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
+using MechChess.UI;
 
 namespace MechChess.Multiplayer
 {
@@ -308,6 +309,89 @@ namespace MechChess.Multiplayer
         /// <summary>
         /// Authenticates or registers player with Gmail and optional custom username.
         /// </summary>
+        public void LoginWithCredentials(string account, string password, bool isRegister, Action<bool, string> onComplete)
+        {
+            account = account != null ? account.Trim() : "";
+            password = password != null ? password.Trim() : "";
+
+            if (string.IsNullOrEmpty(account))
+            {
+                onComplete?.Invoke(false, AegisLocalization.T("Vui lòng nhập tên tài khoản hoặc email!", "Please enter account or email!"));
+                return;
+            }
+
+            if (password.Length < 4)
+            {
+                onComplete?.Invoke(false, AegisLocalization.T("Mật khẩu phải có ít nhất 4 ký tự!", "Password must be at least 4 characters!"));
+                return;
+            }
+
+            StartCoroutine(LoginWithCredentialsRoutine(account, password, isRegister, onComplete));
+        }
+
+        private IEnumerator LoginWithCredentialsRoutine(string account, string password, bool isRegister, Action<bool, string> onComplete)
+        {
+            string url = $"{backendApiBaseUrl.TrimEnd('/')}/api/auth/login";
+            string isRegStr = isRegister ? "true" : "false";
+            string safeAccount = account.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            string safePassword = password.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            string jsonBody = $"{{\"account\":\"{safeAccount}\",\"password\":\"{safePassword}\",\"is_register\":{isRegStr}}}";
+
+            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+            {
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
+                req.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+
+                yield return req.SendWebRequest();
+
+                if (req.result == UnityWebRequest.Result.Success)
+                {
+                    try
+                    {
+                        LoginApiResponse res = JsonUtility.FromJson<LoginApiResponse>(req.downloadHandler.text);
+                        if (res != null && res.user != null)
+                        {
+                            if (!string.IsNullOrEmpty(res.access_token))
+                            {
+                                AuthToken = res.access_token;
+                                PlayerPrefs.SetString(PrefsKeyAuthToken, AuthToken);
+                                PlayerPrefs.Save();
+                            }
+                            ApplyAccount(res.user.gmail, res.user.username, res.user.elo);
+                            onComplete?.Invoke(true, isRegister ? AegisLocalization.T("Đăng ký thành công!", "Registration successful!") : AegisLocalization.T("Đăng nhập thành công!", "Sign in successful!"));
+                            yield break;
+                        }
+                    }
+                    catch { }
+                }
+
+                if (req.responseCode == 400 && !string.IsNullOrEmpty(req.downloadHandler.text))
+                {
+                    string errText = req.downloadHandler.text;
+                    try
+                    {
+                        int detailIdx = errText.IndexOf("\"detail\":");
+                        if (detailIdx >= 0)
+                        {
+                            string rawDetail = errText.Substring(detailIdx + 9).Trim().Trim('}', '"');
+                            errText = rawDetail;
+                        }
+                    }
+                    catch { }
+                    onComplete?.Invoke(false, errText);
+                    yield break;
+                }
+
+                // Fallback offline
+                string derivedUser = account.Contains("@") ? DeriveDefaultUsername(account) : account;
+                string derivedGmail = account.Contains("@") ? account : $"{account.ToLowerInvariant()}@aegismech.com";
+                ApplyAccount(derivedGmail, derivedUser, 1200);
+                onComplete?.Invoke(true, AegisLocalization.T("Đăng nhập thành công (Cục bộ)!", "Signed in successfully (Local)!"));
+            }
+        }
+
         public void Login(string gmail, string customUsername, Action<bool, string> onComplete)
         {
             if (!ValidateGmail(gmail, out string gmailErr))

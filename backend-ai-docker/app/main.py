@@ -37,6 +37,7 @@ from app.config import (
     DATABASE_URL
 )
 from app.security import (
+    hash_password, verify_password,
     create_access_token,
     decode_access_token,
     get_current_player,
@@ -707,7 +708,66 @@ class AccountManager:
             clean = f"Player{clean}"
         return clean[:20]
 
-    def register_or_login(self, gmail: str, requested_username: Optional[str] = None) -> Tuple[bool, str, Dict[str, Any]]:
+    def register_or_login(
+        self,
+        gmail: Optional[str] = None,
+        requested_username: Optional[str] = None,
+        account: Optional[str] = None,
+        password: Optional[str] = None,
+        is_register: bool = False
+    ) -> Tuple[bool, str, Dict[str, Any]]:
+        # Case 1: Account + Password
+        if account or (password and (gmail or requested_username)):
+            raw_account = (account or gmail or requested_username or "").strip()
+            clean_password = password.strip() if password else ""
+            is_email = "@" in raw_account
+
+            if is_email:
+                clean_email = raw_account.lower()
+                existing = self.users.get(clean_email)
+                target_name = requested_username.strip() if requested_username and requested_username.strip() else (
+                    existing["username"] if existing else self.derive_default_username(clean_email)
+                )
+            else:
+                target_name = raw_account
+                clean_email = self.usernames.get(target_name.lower()) or (gmail.strip().lower() if gmail and "@" in gmail else f"{target_name.lower()}@aegismech.com")
+                existing = self.users.get(clean_email)
+
+            if is_register:
+                if existing:
+                    return False, "Tài khoản hoặc Email này đã tồn tại! Vui lòng chọn ĐĂNG NHẬP.", {}
+                if not self.is_valid_username(target_name):
+                    return False, f"Tên '{target_name}' không hợp lệ! (3-20 ký tự chữ và số).", {}
+                if target_name.lower() in self.usernames:
+                    return False, f"Tên người chơi '{target_name}' đã được người khác sử dụng!", {}
+                if len(clean_password) < 4:
+                    return False, "Mật khẩu phải có ít nhất 4 ký tự!", {}
+
+                pw_hash = hash_password(clean_password)
+                user_info = {
+                    "gmail": clean_email,
+                    "username": target_name,
+                    "password_hash": pw_hash,
+                    "elo": 1200,
+                    "created_at": time.time()
+                }
+                self.users[clean_email] = user_info
+                self.usernames[target_name.lower()] = clean_email
+                self.save()
+                return True, "Đăng ký tài khoản thành công!", user_info
+            else:
+                # Login
+                if not existing:
+                    return False, "Tài khoản không tồn tại! Hãy kiểm tra lại hoặc chọn ĐĂNG KÝ MỚI.", {}
+                if existing.get("password_hash"):
+                    if not clean_password or not verify_password(clean_password, existing["password_hash"]):
+                        return False, "Mật khẩu không chính xác! Vui lòng kiểm tra lại.", {}
+                elif clean_password:
+                    existing["password_hash"] = hash_password(clean_password)
+                    self.save()
+                return True, "Đăng nhập thành công!", existing
+
+        # Case 2: Quick Email Login
         clean_gmail = gmail.strip().lower()
         if not clean_gmail.endswith("@gmail.com") or len(clean_gmail) < 11:
             return False, "Địa chỉ email không hợp lệ! Yêu cầu đăng nhập bằng Gmail (ví dụ: nguyenvana@gmail.com).", {}
@@ -762,7 +822,14 @@ async def broadcast_online_players():
 @app.post("/api/auth/login", response_model=LoginResponse)
 async def auth_login(req: DBLoginRequest, db: AsyncSession = Depends(get_db)):
     try:
-        ok, msg, player = await crud.register_or_login_player(db, req.gmail, req.username)
+        ok, msg, player = await crud.register_or_login_player(
+            db,
+            gmail=req.gmail,
+            requested_username=req.username,
+            account=req.account,
+            password=req.password,
+            is_register=req.is_register or False
+        )
         if not ok or not player:
             raise HTTPException(status_code=400, detail=msg)
 
@@ -796,7 +863,13 @@ async def auth_login(req: DBLoginRequest, db: AsyncSession = Depends(get_db)):
         raise
     except Exception as e:
         logger.warning(f"[Auth] Database login fallback to memory: {e}")
-        success, msg, user = account_manager.register_or_login(req.gmail, req.username)
+        success, msg, user = account_manager.register_or_login(
+            gmail=req.gmail,
+            requested_username=req.username,
+            account=req.account,
+            password=req.password,
+            is_register=req.is_register or False
+        )
         if not success:
             raise HTTPException(status_code=400, detail=msg)
 

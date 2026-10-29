@@ -39,6 +39,33 @@ logger = logging.getLogger("MechChessSecurity")
 # HTTP Bearer scheme
 security_scheme = HTTPBearer(auto_error=False)
 
+import secrets
+
+def hash_password(password: str) -> str:
+    """
+    Hashes a password using PBKDF2-HMAC-SHA256 with a unique random salt (100,000 rounds).
+    Returns string in format: 'salt:hex_hash'
+    """
+    if not password:
+        return ""
+    salt = secrets.token_hex(16)
+    h = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
+    return f"{salt}:{h.hex()}"
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """
+    Verifies a plain password against the stored 'salt:hex_hash'.
+    Uses constant-time comparison to prevent timing attacks.
+    """
+    if not password or not stored_hash or ":" not in stored_hash:
+        return False
+    try:
+        salt, h_hex = stored_hash.split(":", 1)
+        h = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
+        return secrets.compare_digest(h.hex(), h_hex)
+    except Exception:
+        return False
+
 # ---------------------------------------------------------------------------
 # 1. JWT Authentication
 # ---------------------------------------------------------------------------

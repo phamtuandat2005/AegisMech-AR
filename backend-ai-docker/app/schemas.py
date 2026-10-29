@@ -7,8 +7,11 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 class LoginRequest(BaseModel):
-    gmail: str = Field(..., description="Gmail address of player (e.g. player@gmail.com)")
+    account: Optional[str] = Field(None, description="Username or Email for login")
+    password: Optional[str] = Field(None, description="Password for account authentication")
+    gmail: Optional[str] = Field(None, description="Gmail address of player (e.g. player@gmail.com)")
     username: Optional[str] = Field(None, description="Optional custom alphanumeric username (3-20 chars)")
+    is_register: Optional[bool] = Field(False, description="Whether to register a new account")
 
 class PlayerProfileResponse(BaseModel):
     id: str

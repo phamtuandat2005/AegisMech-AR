@@ -33,6 +33,9 @@ class Player(Base):
     username: Mapped[str] = mapped_column(
         String(50), unique=True, index=True, nullable=False
     )
+    password_hash: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )
     avatar_url: Mapped[str] = mapped_column(
         String(255), default="profile_avatar_round.png", nullable=False
     )

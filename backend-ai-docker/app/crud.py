@@ -13,6 +13,7 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 
 from app.models import Player, PlayerStats, MatchHistory
+from app.security import hash_password, verify_password
 from app.schemas import (
     PlayerProfileResponse, PlayerStatsResponse, MatchHistoryItemResponse,
     MatchRecordRequest, MatchRecordResponse, LeaderboardItemResponse
@@ -43,36 +44,119 @@ async def get_player_by_username(session: AsyncSession, username: str) -> Option
     return res.scalar_one_or_none()
 
 async def register_or_login_player(
-    session: AsyncSession, gmail: str, requested_username: Optional[str] = None
+    session: AsyncSession,
+    gmail: Optional[str] = None,
+    requested_username: Optional[str] = None,
+    account: Optional[str] = None,
+    password: Optional[str] = None,
+    is_register: bool = False
 ) -> Tuple[bool, str, Optional[Player]]:
-    clean_gmail = gmail.strip().lower()
-    if not clean_gmail.endswith("@gmail.com") or len(clean_gmail) < 11:
-        return False, "Địa chỉ email không hợp lệ! Yêu cầu đăng nhập bằng Gmail (@gmail.com).", None
+    # Case 1: Account (Username or Email) + Password provided
+    if account or (password and (gmail or requested_username)):
+        raw_account = (account or gmail or requested_username or "").strip()
+        if not raw_account:
+            return False, "Vui lòng nhập tên tài khoản hoặc email!", None
+
+        clean_password = password.strip() if password else ""
+
+        is_email = "@" in raw_account
+        if is_email:
+            clean_email = raw_account.lower()
+            existing_player = await get_player_by_gmail(session, clean_email)
+            target_username = requested_username.strip() if requested_username and requested_username.strip() else (
+                existing_player.username if existing_player else derive_default_username(clean_email)
+            )
+        else:
+            target_username = raw_account
+            existing_player = await get_player_by_username(session, target_username)
+            clean_email = existing_player.gmail if existing_player else (
+                gmail.strip().lower() if gmail and "@" in gmail else f"{target_username.lower()}@aegismech.com"
+            )
+
+        if is_register:
+            if existing_player:
+                return False, "Tài khoản hoặc Email này đã tồn tại! Vui lòng chọn ĐĂNG NHẬP.", None
+
+            if not is_valid_username(target_username):
+                return False, f"Tên '{target_username}' không hợp lệ! Chỉ gồm chữ cái, chữ số (3-20 ký tự, ví dụ: PhamVaA, DatIT, SiuVipPro).", None
+
+            owner = await get_player_by_username(session, target_username)
+            if owner:
+                return False, f"Tên người chơi '{target_username}' đã có người sử dụng! Vui lòng chọn tên khác.", None
+
+            if len(clean_password) < 4:
+                return False, "Mật khẩu phải có ít nhất 4 ký tự!", None
+
+            pw_hash = hash_password(clean_password)
+            new_player = Player(
+                gmail=clean_email,
+                username=target_username,
+                password_hash=pw_hash,
+                level=1,
+                exp=0,
+                gold=500,
+                gems=50,
+                energy=100
+            )
+            session.add(new_player)
+            await session.flush()
+
+            new_stats = PlayerStats(
+                player_id=new_player.id,
+                elo=1200,
+                matches_played=0,
+                wins=0,
+                losses=0,
+                draws=0,
+                highest_elo=1200
+            )
+            session.add(new_stats)
+            new_player.stats = new_stats
+
+            await session.commit()
+            await session.refresh(new_player)
+            return True, "Đăng ký tài khoản thành công!", new_player
+
+        else:
+            # Login Mode
+            if not existing_player:
+                return False, "Tài khoản không tồn tại! Hãy kiểm tra lại hoặc bấm ĐĂNG KÝ MỚI.", None
+
+            if existing_player.password_hash:
+                if not clean_password or not verify_password(clean_password, existing_player.password_hash):
+                    return False, "Mật khẩu không chính xác! Vui lòng kiểm tra lại.", None
+            else:
+                # Existing account from before password feature
+                if clean_password:
+                    existing_player.password_hash = hash_password(clean_password)
+                    await session.commit()
+
+            # Ensure stats exist
+            if not existing_player.stats:
+                stats = PlayerStats(player_id=existing_player.id, elo=1200)
+                session.add(stats)
+                existing_player.stats = stats
+                await session.commit()
+
+            return True, "Đăng nhập thành công!", existing_player
+
+    # Case 2: Quick Email Login (Liên Quân / Google Play Style)
+    clean_gmail = (gmail or "").strip().lower()
+    if not clean_gmail or "@" not in clean_gmail:
+        return False, "Địa chỉ email không hợp lệ! Vui lòng nhập địa chỉ email hợp lệ.", None
 
     existing_player = await get_player_by_gmail(session, clean_gmail)
-
-    target_name = requested_username.strip() if requested_username and requested_username.strip() else None
-
-    if not target_name:
-        if existing_player:
-            target_name = existing_player.username
-        else:
-            target_name = derive_default_username(clean_gmail)
-
-    if not is_valid_username(target_name):
-        return False, f"Tên '{target_name}' không hợp lệ! Chỉ gồm chữ cái, chữ số (3-20 ký tự, ví dụ: PhamVaA, DatIT, SiuVipPro).", None
-
-    # Check if requested username is taken by another account
-    username_owner = await get_player_by_username(session, target_name)
-    if username_owner and username_owner.gmail.lower() != clean_gmail:
-        return False, f"Tên người chơi '{target_name}' đã được người khác sử dụng! Vui lòng chọn tên khác.", None
-
     if existing_player:
-        if existing_player.username != target_name:
-            existing_player.username = target_name
-            existing_player.updated_at = datetime.now(timezone.utc)
-        
-        # Ensure stats exist
+        if existing_player.password_hash:
+            return False, "Tài khoản này đã được cài mật khẩu bảo vệ! Vui lòng chuyển sang tab Tài khoản & Mật khẩu để đăng nhập.", None
+
+        target_name = requested_username.strip() if requested_username and requested_username.strip() else existing_player.username
+        if is_valid_username(target_name) and target_name != existing_player.username:
+            owner = await get_player_by_username(session, target_name)
+            if not owner or owner.id == existing_player.id:
+                existing_player.username = target_name
+                existing_player.updated_at = datetime.now(timezone.utc)
+
         if not existing_player.stats:
             stats = PlayerStats(player_id=existing_player.id, elo=1200)
             session.add(stats)
@@ -82,10 +166,19 @@ async def register_or_login_player(
         await session.refresh(existing_player)
         return True, "Đăng nhập thành công!", existing_player
 
-    # New Player Registration
+    # New Player via Quick Email
+    target_name = requested_username.strip() if requested_username and requested_username.strip() else derive_default_username(clean_gmail)
+    if not is_valid_username(target_name):
+        target_name = derive_default_username(clean_gmail)
+
+    owner = await get_player_by_username(session, target_name)
+    if owner:
+        target_name = f"{target_name[:15]}{uuid.uuid4().hex[:4]}"
+
     new_player = Player(
         gmail=clean_gmail,
         username=target_name,
+        password_hash=None,
         level=1,
         exp=0,
         gold=500,
@@ -109,7 +202,7 @@ async def register_or_login_player(
 
     await session.commit()
     await session.refresh(new_player)
-    return True, "Đăng ký tài khoản thành công!", new_player
+    return True, "Đăng nhập thành công!", new_player
 
 def format_profile_response(player: Player) -> PlayerProfileResponse:
     stats = player.stats

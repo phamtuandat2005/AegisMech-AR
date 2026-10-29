@@ -114,6 +114,18 @@ async def init_db():
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            from sqlalchemy import text
+            try:
+                if not IS_SQLITE:
+                    await conn.execute(text("ALTER TABLE players ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);"))
+                else:
+                    # SQLite: check if column exists
+                    col_check = await conn.execute(text("PRAGMA table_info(players)"))
+                    cols = [row[1] for row in col_check.fetchall()]
+                    if "password_hash" not in cols:
+                        await conn.execute(text("ALTER TABLE players ADD COLUMN password_hash VARCHAR(255);"))
+            except Exception as alt_err:
+                logger.warning(f"[Database] Schema auto-upgrade notification: {alt_err}")
         logger.info(f"[Database] Tables verified and created on {target_info}.")
 
         # Run legacy migration
