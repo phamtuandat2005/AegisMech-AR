@@ -84,29 +84,7 @@ namespace MechChess
             }
             catch { }
 
-#if UNITY_EDITOR
-            // In Unity Editor, launch directly into 3D match so developer immediately sees the board, mechs, and arena
-            controller.AddComponent<EditorDirectMatchLauncher>();
-#endif
-
-            Debug.Log("[MechChess Bootstrap] All Subsystems and EventSystem successfully initialized!");
+            Debug.Log("[MechChess Bootstrap] All Subsystems and EventSystem successfully initialized! Presenting Main Menu.");
         }
     }
-
-#if UNITY_EDITOR
-    internal class EditorDirectMatchLauncher : MonoBehaviour
-    {
-        private System.Collections.IEnumerator Start()
-        {
-            yield return null; // Wait 1 frame for MainMenu2D and ChessBoard3DManager Start()
-
-            var menu = GetComponent<MainMenu2D>();
-            if (menu != null)
-            {
-                Debug.Log("[MechChess Bootstrap] Editor Auto-Launcher: Entering 3D match directly!");
-                menu.LaunchGame(MainMenu2D.GameLaunchMode.VersusAI);
-            }
-        }
-    }
-#endif
 }

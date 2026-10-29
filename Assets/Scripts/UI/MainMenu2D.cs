@@ -18,6 +18,32 @@ namespace MechChess.UI
     }
 
     /// <summary>
+    /// Distinguishes between dragging to scroll horizontally and clicking to select a game mode card.
+    /// </summary>
+    public class ModeCardClickFilter : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+    {
+        private Vector2 _downPos;
+        private float _downTime;
+        public Action onClick;
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            _downPos = eventData.position;
+            _downTime = Time.unscaledTime;
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            float dist = Vector2.Distance(_downPos, eventData.position);
+            float duration = Time.unscaledTime - _downTime;
+            if (dist < 18f && duration < 0.65f && !eventData.dragging)
+            {
+                onClick?.Invoke();
+            }
+        }
+    }
+
+    /// <summary>
     /// Interactive button effect for Arcane Sci-Fi UI elements with smooth scale, hover highlight, and click punch.
     /// </summary>
     public class MenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler
@@ -87,6 +113,7 @@ namespace MechChess.UI
     /// Screen 5: Cài đặt (Settings modal with 5 category tabs and toggles)
     /// Screen 6: Hướng dẫn (Tutorial modal with 2D board diagram & numbered steps)
     /// Screen 7: Cửa hàng (Shop modal with 4 chess piece skins and currency)
+    /// Screen 8: Bộ Sưu Tập (Collection modal with 4 categories, 18 collectables, armory inspector & equip system)
     /// Screen 10: Tạm dừng (Pause modal)
     /// Screen 11: Kết quả trận đấu (Result screen with Victory Knight, player stats, action CTAs)
     /// Screen 12: Hồ sơ người chơi (Profile modal with rank stats, match history, account settings)
@@ -146,6 +173,66 @@ namespace MechChess.UI
         private readonly Image[] _leaderboardTabBgs = new Image[3];
         private readonly Text[] _leaderboardTabTexts = new Text[3];
 
+        // Screen 8: Collection State & References
+        private GameObject _collectionModal;
+        private int _selectedCollectionTab = 0; // 0: Quân Cờ, 1: Skin, 2: Bàn Cờ, 3: Hiệu Ứng
+        private readonly Image[] _collectionTabBgs = new Image[4];
+        private readonly Text[] _collectionTabTexts = new Text[4];
+        private readonly GameObject[] _collectionCategoryContainers = new GameObject[4];
+        private Text _collectionGoldTxt;
+        private Text _collectionProgressTxt;
+        private RectTransform _collectionProgressBarFill;
+
+        // Collection Inspector references
+        private CollectionItemData _inspectedItem;
+        private Image _inspectImg;
+        private Text _inspectTitle;
+        private Text _inspectRarity;
+        private Text _inspectType;
+        private Text _inspectDesc;
+        private Text _inspectPerks;
+        private GameObject _inspectEquipBtnObj;
+        private Image _inspectEquipBtnBg;
+        private Text _inspectEquipBtnTxt;
+        private Button _inspectEquipBtn;
+
+        // Player preference keys for equipped cosmetics
+        public const string PrefsEquippedSkin = "AegisMech_Equipped_Skin";
+        public const string PrefsEquippedBoard = "AegisMech_Equipped_Board";
+        public const string PrefsEquippedEffect = "AegisMech_Equipped_Effect";
+
+        public static string EquippedSkin => PlayerPrefs.GetString(PrefsEquippedSkin, "Knight of Light");
+        public static string EquippedBoard => PlayerPrefs.GetString(PrefsEquippedBoard, "Spirit Blossom Arena");
+        public static string EquippedEffect => PlayerPrefs.GetString(PrefsEquippedEffect, "Arcane Lightning");
+
+        private class CollectionItemData
+        {
+            public string id;
+            public string nameVi;
+            public string nameEn;
+            public int category; // 0: Piece, 1: Skin, 2: Board, 3: Effect
+            public string rarity;
+            public Color rarityColor;
+            public string typeVi;
+            public string typeEn;
+            public string descVi;
+            public string descEn;
+            public string perksVi;
+            public string perksEn;
+            public string spriteName;
+            public PieceType? pieceType;
+            public bool isOwned;
+            public string prefsKey;
+
+            // Runtime UI references
+            public GameObject cardObj;
+            public Text statusText;
+            public Image statusBg;
+            public Image borderImg;
+        }
+
+        private readonly List<CollectionItemData> _allCollectionItems = new List<CollectionItemData>();
+
         // Toast & Tooltip Container
         private GameObject _toastContainer;
         private GameObject _tooltipCard;
@@ -166,6 +253,14 @@ namespace MechChess.UI
         private Text _profileModalExpComp;
         private RectTransform _profileModalExpFillRt;
         private Text _profileModalEloComp;
+        private Text _profileModalSubPvpLabel;
+        private Text _profileModalPvpWinsComp;
+        private Text _profileModalPvpLossesComp;
+        private Text _profileModalPvpDrawsComp;
+        private Text _profileModalRankTierComp;
+        private Text _profileModalAiWinsComp;
+        private Text _profileModalAiLossesComp;
+        private Text _profileModalAiDrawsComp;
         private Text _profileModalWinsComp;
         private Text _profileModalLossesComp;
         private Text _profileModalDrawsComp;
@@ -193,6 +288,13 @@ namespace MechChess.UI
         // Mode Select State (5 feature cards: AI, Online PvP, 2P, AR, Learn)
         private int _selectedModeCardIndex = 0;
         private readonly Image[] _modeCardFrameBgs = new Image[5];
+        private ScrollRect _modeScrollRect;
+        private RectTransform _modeScrollContent;
+        private Image _modePageDot0;
+        private Image _modePageDot1;
+        private GameObject _modeChevronLeft;
+        private GameObject _modeChevronRight;
+        private Coroutine _modeScrollCoroutine;
 
         // Shop State (3 category tabs, 4 feature items, user reference design)
         private int _selectedShopTab = 0; // 0: Skin quân cờ, 1: Bàn cờ, 2: Hiệu ứng
@@ -252,6 +354,12 @@ namespace MechChess.UI
         private Text[] _aiDiffCardTitles;
         private Image _radioWhiteImg;
         private Image _radioBlackImg;
+        private GameObject _aiTimeDropdownMenu;
+        private GameObject _aiTimeDropdownBlocker;
+        private Text _aiTimeDropdownBtnText;
+        private Image[] _aiTimeOptionBgs;
+        private Text[] _aiTimeOptionTexts;
+        private Text[] _aiTimeOptionChecks;
 
         // Result Screen elements
         private Text _resultTitleTxt;
@@ -267,6 +375,10 @@ namespace MechChess.UI
         private Text _loginErrorTxt;
         private Action _postLoginAction;
 
+        private GameObject _onlineChoiceModal;
+        private Text _onlineServerInfoTxt;
+        private GameObject _serverIpConfigModal;
+        private InputField _serverIpInput;
         private GameObject _matchmakingModal;
         private Text _matchmakingTimerTxt;
         private Text _matchmakingStatusTxt;
@@ -408,6 +520,8 @@ namespace MechChess.UI
             bool isLearnOpen = _learnScreenModal != null && _learnScreenModal.activeSelf;
             bool isLeaderboardOpen = _leaderboardModal != null && _leaderboardModal.activeSelf;
             int savedLeaderboardTab = _selectedLeaderboardTab;
+            bool isCollectionOpen = _collectionModal != null && _collectionModal.activeSelf;
+            int savedCollectionTab = _selectedCollectionTab;
             int savedNavIndex = _selectedMenuNavIndex;
 
             if (_menuCanvasObj != null)
@@ -517,6 +631,14 @@ namespace MechChess.UI
                         SwitchLeaderboardTab(savedLeaderboardTab);
                     }
                 }
+                else if (isCollectionOpen)
+                {
+                    if (_collectionModal != null)
+                    {
+                        _collectionModal.SetActive(true);
+                        SwitchCollectionTab(savedCollectionTab);
+                    }
+                }
 
                 if (!wasMenuVisible && _menuCanvasObj != null)
                 {
@@ -594,6 +716,33 @@ namespace MechChess.UI
             {
                 _radarIconRt.Rotate(0f, 0f, -120f * Time.unscaledDeltaTime);
             }
+
+            // Update Mode Select Carousel Scroll Indicators (Dots & Side Chevrons)
+            if (_screenModeSelect != null && _screenModeSelect.activeSelf && _modeScrollRect != null)
+            {
+                float hPos = Mathf.Clamp01(_modeScrollRect.horizontalNormalizedPosition);
+                bool isPage0 = hPos < 0.5f;
+
+                if (_modePageDot0 != null)
+                {
+                    _modePageDot0.color = isPage0 ? ColCyanGlow : new Color(0.35f, 0.45f, 0.55f, 0.55f);
+                    _modePageDot0.rectTransform.sizeDelta = new Vector2(isPage0 ? 32f : 12f, 8f);
+                }
+                if (_modePageDot1 != null)
+                {
+                    _modePageDot1.color = !isPage0 ? ColCyanGlow : new Color(0.35f, 0.45f, 0.55f, 0.55f);
+                    _modePageDot1.rectTransform.sizeDelta = new Vector2(!isPage0 ? 32f : 12f, 8f);
+                }
+
+                if (_modeChevronLeft != null)
+                {
+                    _modeChevronLeft.SetActive(hPos > 0.05f);
+                }
+                if (_modeChevronRight != null)
+                {
+                    _modeChevronRight.SetActive(hPos < 0.95f);
+                }
+            }
         }
 
         public bool IsMenuVisible() => _menuCanvasObj != null && _menuCanvasObj.activeSelf;
@@ -659,6 +808,11 @@ namespace MechChess.UI
             if (_screenModeSelect != null) _screenModeSelect.SetActive(true);
             if (_menuCanvasObj != null) _menuCanvasObj.SetActive(true);
 
+            if (_modeScrollRect != null)
+            {
+                _modeScrollRect.horizontalNormalizedPosition = 0f;
+            }
+
             if (UIManager2D.Instance != null) UIManager2D.Instance.SetHUDVisible(false);
             if (MechChess.Chess3D.ChessBoard3DManager.Instance != null && MechChess.Chess3D.ChessBoard3DManager.Instance.BoardRootContainer != null)
             {
@@ -673,6 +827,7 @@ namespace MechChess.UI
             if (_settingsModal != null) _settingsModal.SetActive(false);
             if (_tutorialModal != null) _tutorialModal.SetActive(false);
             if (_shopModal != null) _shopModal.SetActive(false);
+            if (_collectionModal != null) _collectionModal.SetActive(false);
             if (_pauseModal != null) _pauseModal.SetActive(false);
             if (_resultScreenModal != null) _resultScreenModal.SetActive(false);
             if (_profileModal != null) _profileModal.SetActive(false);
@@ -726,6 +881,7 @@ namespace MechChess.UI
             BuildScreen5Settings(_menuCanvasObj.transform, font);
             BuildScreen6Tutorial(_menuCanvasObj.transform, font);
             BuildScreen7Shop(_menuCanvasObj.transform, font);
+            BuildScreen8Collection(_menuCanvasObj.transform, font);
             BuildScreen10Pause(_menuCanvasObj.transform, font);
             BuildScreen11Result(_menuCanvasObj.transform, font);
             BuildScreen12Profile(_menuCanvasObj.transform, font);
@@ -737,6 +893,8 @@ namespace MechChess.UI
             BuildLoginModal(_menuCanvasObj.transform, font);
             BuildMatchmakingModal(_menuCanvasObj.transform, font);
             BuildFriendModal(_menuCanvasObj.transform, font);
+            BuildOnlineChoiceModal(_menuCanvasObj.transform, font);
+            BuildServerIpConfigModal(_menuCanvasObj.transform, font);
             BuildIncomingChallengeModal(_menuCanvasObj.transform, font);
             BuildSeasonLeaderboardModal(_menuCanvasObj.transform, font);
 
@@ -1719,10 +1877,14 @@ namespace MechChess.UI
 
         public void OpenCollectionModal()
         {
-            if (_profileModal != null)
+            CloseAllModals();
+            if (!_isInGameMatch) EnsureBaseScreenActive();
+            if (_collectionModal != null)
             {
-                ShowProfileDetailsModal();
-                SwitchProfileTab(2); // Tab 2: Skin Collection
+                _collectionModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
+                RefreshCollectionUI();
+                SwitchCollectionTab(_selectedCollectionTab);
             }
             else
             {
@@ -2332,50 +2494,179 @@ namespace MechChess.UI
             sepRt.anchoredPosition = new Vector2(0f, -80f);
             sepRt.sizeDelta = new Vector2(1440f, 1.5f);
 
-            // 5 Vertical Featured Cards Container (Full height inside window)
-            GameObject cardsContainer = new GameObject("CardsContainer");
-            cardsContainer.transform.SetParent(windowObj.transform, false);
-            RectTransform ccRt = cardsContainer.AddComponent<RectTransform>();
-            ccRt.anchorMin = new Vector2(0.5f, 0.5f);
-            ccRt.anchorMax = new Vector2(0.5f, 0.5f);
-            ccRt.pivot = new Vector2(0.5f, 0.5f);
-            ccRt.anchoredPosition = new Vector2(0f, -38f);
-            ccRt.sizeDelta = new Vector2(1440f, 660f);
+            // Mode Select Horizontal Scrollable Carousel Container
+            // Width: 1400px (Displays exactly 4 cards initially at 320px width + 24px gap + 24px side padding)
+            // Dragging/scrolling smoothly reveals the 5th card ("Học cờ & Puzzle")
+            GameObject scrollObj = new GameObject("ModeScrollView");
+            scrollObj.transform.SetParent(windowObj.transform, false);
+            RectTransform svRt = scrollObj.AddComponent<RectTransform>();
+            svRt.anchorMin = new Vector2(0.5f, 0.5f);
+            svRt.anchorMax = new Vector2(0.5f, 0.5f);
+            svRt.pivot = new Vector2(0.5f, 0.5f);
+            svRt.anchoredPosition = new Vector2(0f, -25f);
+            svRt.sizeDelta = new Vector2(1400f, 640f);
 
-            float cardWidth = 270f;
-            float cardGap = 22f;
-            float totalSpan = 5 * cardWidth + 4 * cardGap; // 1350 + 88 = 1438f
-            float startX = -totalSpan / 2f + cardWidth / 2f;
+            // Transparent RaycastTarget Image for dragging anywhere across the carousel
+            Image svImg = scrollObj.AddComponent<Image>();
+            svImg.color = Color.clear;
+            svImg.raycastTarget = true;
+
+            scrollObj.AddComponent<RectMask2D>();
+
+            _modeScrollRect = scrollObj.AddComponent<ScrollRect>();
+            _modeScrollRect.horizontal = true;
+            _modeScrollRect.vertical = false;
+            _modeScrollRect.movementType = ScrollRect.MovementType.Elastic;
+            _modeScrollRect.elasticity = 0.12f;
+            _modeScrollRect.inertia = true;
+            _modeScrollRect.decelerationRate = 0.135f;
+            _modeScrollRect.scrollSensitivity = 35f;
+
+            // Content Container (5 cards: 5 * 320 + 4 * 24 + 48 = 1744px)
+            GameObject contentObj = new GameObject("ScrollContent");
+            contentObj.transform.SetParent(scrollObj.transform, false);
+            _modeScrollContent = contentObj.AddComponent<RectTransform>();
+            _modeScrollContent.anchorMin = new Vector2(0f, 0.5f);
+            _modeScrollContent.anchorMax = new Vector2(0f, 0.5f);
+            _modeScrollContent.pivot = new Vector2(0f, 0.5f);
+            _modeScrollContent.anchoredPosition = Vector2.zero;
+            _modeScrollContent.sizeDelta = new Vector2(1744f, 630f);
+
+            _modeScrollRect.content = _modeScrollContent;
+            _modeScrollRect.viewport = svRt;
+
+            float cardW = 320f;
+            float cardGap = 24f;
+            float padLeft = 24f;
 
             // Card 1: Đấu với máy (Index 0)
-            CreateModeFeatureCard(0, cardsContainer.transform, "CardAI",
+            CreateModeFeatureCard(0, contentObj.transform, "CardAI",
                 AegisLocalization.T("Đấu với máy", "Vs Computer"),
                 AegisLocalization.T("Chọn độ khó và bắt đầu\nthử thách AI", "Choose difficulty & challenge\nintelligent AI"),
-                "mode_card_ai.png", new Vector2(startX + 0 * (cardWidth + cardGap), 0f), OpenAIDifficultyModal, font);
+                "mode_card_ai.png", new Vector2(padLeft + 0 * (cardW + cardGap), 0f), OpenAIDifficultyModal, font);
 
             // Card 2: Đấu Online (Index 1)
-            CreateModeFeatureCard(1, cardsContainer.transform, "CardOnline",
+            CreateModeFeatureCard(1, contentObj.transform, "CardOnline",
                 AegisLocalization.T("Đấu Online", "Online Match"),
                 AegisLocalization.T("Ghép đấu xếp hạng ELO\nvà thách đấu bạn bè", "Ranked matchmaking\nand friend duels"),
-                "mode_card_online.png", new Vector2(startX + 1 * (cardWidth + cardGap), 0f), () => RequireLogin(() => ShowMatchmakingModal()), font);
+                "mode_card_online.png", new Vector2(padLeft + 1 * (cardW + cardGap), 0f), () => RequireLogin(() => OpenOnlineChoiceModal()), font);
 
             // Card 3: Hai người (Index 2)
-            CreateModeFeatureCard(2, cardsContainer.transform, "Card2P",
+            CreateModeFeatureCard(2, contentObj.transform, "Card2P",
                 AegisLocalization.T("Hai người", "Pass & Play"),
                 AegisLocalization.T("Chơi cùng bạn bè\ntrên cùng thiết bị", "Play with friends\non the same device"),
-                "mode_card_2p.png", new Vector2(startX + 2 * (cardWidth + cardGap), 0f), () => LaunchGame(GameLaunchMode.LocalPassAndPlay), font);
+                "mode_card_2p.png", new Vector2(padLeft + 2 * (cardW + cardGap), 0f), () => LaunchGame(GameLaunchMode.LocalPassAndPlay), font);
 
             // Card 4: AR (Index 3)
-            CreateModeFeatureCard(3, cardsContainer.transform, "CardAR",
+            CreateModeFeatureCard(3, contentObj.transform, "CardAR",
                 AegisLocalization.T("AR", "AR Mode"),
                 AegisLocalization.T("Đặt bàn cờ lên mặt bàn thật\nqua camera", "Place board on tabletop\nvia camera tracking"),
-                "mode_card_ar.png", new Vector2(startX + 3 * (cardWidth + cardGap), 0f), () => LaunchGame(GameLaunchMode.AugmentedReality), font);
+                "mode_card_ar.png", new Vector2(padLeft + 3 * (cardW + cardGap), 0f), () => LaunchGame(GameLaunchMode.AugmentedReality), font);
 
-            // Card 5: Học cờ & Puzzle (Index 4)
-            CreateModeFeatureCard(4, cardsContainer.transform, "CardLearn",
+            // Card 5: Học cờ & Puzzle (Index 4) - Kéo qua bên trái sẽ thấy!
+            CreateModeFeatureCard(4, contentObj.transform, "CardLearn",
                 AegisLocalization.T("Học cờ & Puzzle", "Learn & Puzzles"),
                 AegisLocalization.T("Nâng cao kỹ năng\nvà tư duy chiến thuật", "Enhance chess tactics\nand strategic thinking"),
-                "mode_card_learn.png", new Vector2(startX + 4 * (cardWidth + cardGap), 0f), OpenLearnScreen, font);
+                "mode_card_learn.png", new Vector2(padLeft + 4 * (cardW + cardGap), 0f), OpenLearnScreen, font);
+
+            // Navigation Left Chevron [ ‹ ]
+            _modeChevronLeft = new GameObject("ModeChevronLeft");
+            _modeChevronLeft.transform.SetParent(windowObj.transform, false);
+            Image lChvImg = _modeChevronLeft.AddComponent<Image>();
+            lChvImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(44, 44, 12f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
+            Button lChvBtn = _modeChevronLeft.AddComponent<Button>();
+            lChvBtn.onClick.AddListener(() => SmoothScrollModeSelect(0f));
+            _modeChevronLeft.AddComponent<MenuButtonEffect>();
+            RectTransform lChvRt = _modeChevronLeft.GetComponent<RectTransform>();
+            lChvRt.anchorMin = new Vector2(0.5f, 0.5f);
+            lChvRt.anchorMax = new Vector2(0.5f, 0.5f);
+            lChvRt.pivot = new Vector2(0.5f, 0.5f);
+            lChvRt.anchoredPosition = new Vector2(-716f, -25f);
+            lChvRt.sizeDelta = new Vector2(44f, 44f);
+            CreateTextComp(_modeChevronLeft.transform, "‹", 28, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 2f), new Vector2(44f, 44f));
+            _modeChevronLeft.SetActive(false);
+
+            // Navigation Right Chevron [ › ]
+            _modeChevronRight = new GameObject("ModeChevronRight");
+            _modeChevronRight.transform.SetParent(windowObj.transform, false);
+            Image rChvImg = _modeChevronRight.AddComponent<Image>();
+            rChvImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(44, 44, 12f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
+            Button rChvBtn = _modeChevronRight.AddComponent<Button>();
+            rChvBtn.onClick.AddListener(() => SmoothScrollModeSelect(1f));
+            _modeChevronRight.AddComponent<MenuButtonEffect>();
+            RectTransform rChvRt = _modeChevronRight.GetComponent<RectTransform>();
+            rChvRt.anchorMin = new Vector2(0.5f, 0.5f);
+            rChvRt.anchorMax = new Vector2(0.5f, 0.5f);
+            rChvRt.pivot = new Vector2(0.5f, 0.5f);
+            rChvRt.anchoredPosition = new Vector2(716f, -25f);
+            rChvRt.sizeDelta = new Vector2(44f, 44f);
+            CreateTextComp(_modeChevronRight.transform, "›", 28, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 2f), new Vector2(44f, 44f));
+
+            // Bottom Pagination Indicator (Dots Container)
+            GameObject dotsObj = new GameObject("PaginationDots");
+            dotsObj.transform.SetParent(windowObj.transform, false);
+            RectTransform dotsRt = dotsObj.AddComponent<RectTransform>();
+            dotsRt.anchorMin = new Vector2(0.5f, 0f);
+            dotsRt.anchorMax = new Vector2(0.5f, 0f);
+            dotsRt.pivot = new Vector2(0.5f, 0f);
+            dotsRt.anchoredPosition = new Vector2(0f, 18f);
+            dotsRt.sizeDelta = new Vector2(100f, 20f);
+
+            // Dot 0 (Page 1: Cards 1-4)
+            GameObject dot0Obj = new GameObject("Dot0");
+            dot0Obj.transform.SetParent(dotsObj.transform, false);
+            _modePageDot0 = dot0Obj.AddComponent<Image>();
+            _modePageDot0.sprite = ArcaneAssetLoader.GetGlassBoxSprite(32, 8, 4f, ColCyanGlow, ColCyanGlow, 1f);
+            _modePageDot0.color = ColCyanGlow;
+            Button d0Btn = dot0Obj.AddComponent<Button>();
+            d0Btn.onClick.AddListener(() => SmoothScrollModeSelect(0f));
+            RectTransform d0Rt = dot0Obj.GetComponent<RectTransform>();
+            d0Rt.anchorMin = new Vector2(0.5f, 0.5f);
+            d0Rt.anchorMax = new Vector2(0.5f, 0.5f);
+            d0Rt.pivot = new Vector2(0.5f, 0.5f);
+            d0Rt.anchoredPosition = new Vector2(-18f, 0f);
+            d0Rt.sizeDelta = new Vector2(32f, 8f);
+
+            // Dot 1 (Page 2: Card 5)
+            GameObject dot1Obj = new GameObject("Dot1");
+            dot1Obj.transform.SetParent(dotsObj.transform, false);
+            _modePageDot1 = dot1Obj.AddComponent<Image>();
+            _modePageDot1.sprite = ArcaneAssetLoader.GetGlassBoxSprite(32, 8, 4f, Color.white, Color.white, 1f);
+            _modePageDot1.color = new Color(0.35f, 0.45f, 0.55f, 0.55f);
+            Button d1Btn = dot1Obj.AddComponent<Button>();
+            d1Btn.onClick.AddListener(() => SmoothScrollModeSelect(1f));
+            RectTransform d1Rt = dot1Obj.GetComponent<RectTransform>();
+            d1Rt.anchorMin = new Vector2(0.5f, 0.5f);
+            d1Rt.anchorMax = new Vector2(0.5f, 0.5f);
+            d1Rt.pivot = new Vector2(0.5f, 0.5f);
+            d1Rt.anchoredPosition = new Vector2(18f, 0f);
+            d1Rt.sizeDelta = new Vector2(12f, 8f);
+        }
+
+        public void SmoothScrollModeSelect(float targetPos)
+        {
+            if (_modeScrollCoroutine != null) StopCoroutine(_modeScrollCoroutine);
+            _modeScrollCoroutine = StartCoroutine(DoSmoothScrollModeSelect(targetPos));
+        }
+
+        private IEnumerator DoSmoothScrollModeSelect(float targetPos)
+        {
+            if (_modeScrollRect == null) yield break;
+            AegisAudioManager.PlayTabSwitch();
+            float startPos = _modeScrollRect.horizontalNormalizedPosition;
+            float elapsed = 0f;
+            float duration = 0.25f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float ease = 1f - Mathf.Pow(1f - t, 3f); // Ease-out cubic
+                _modeScrollRect.horizontalNormalizedPosition = Mathf.Lerp(startPos, targetPos, ease);
+                yield return null;
+            }
+            _modeScrollRect.horizontalNormalizedPosition = targetPos;
+            _modeScrollCoroutine = null;
         }
 
         private void CreateModeFeatureCard(int index, Transform parent, string name, string title, string desc, string textureName, Vector2 pos, Action onClick, Font font)
@@ -2393,7 +2684,7 @@ namespace MechChess.UI
             }
             else
             {
-                cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(270, 600, 20f, ColGlassFill, isSelected ? ColCyanGlow : ColCyanBorder, isSelected ? 2.5f : 1.5f);
+                cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(320, 600, 20f, ColGlassFill, isSelected ? ColCyanGlow : ColCyanBorder, isSelected ? 2.5f : 1.5f);
                 cardBg.type = Image.Type.Sliced;
             }
             if (index >= 0 && index < _modeCardFrameBgs.Length)
@@ -2402,17 +2693,20 @@ namespace MechChess.UI
             }
 
             Button btn = cardObj.AddComponent<Button>();
-            btn.onClick.AddListener(() => SelectModeCard(index, onClick));
+            btn.transition = Selectable.Transition.None;
             cardObj.AddComponent<MenuButtonEffect>();
 
-            RectTransform rt = cardObj.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(270f, 600f);
+            var clickFilter = cardObj.AddComponent<ModeCardClickFilter>();
+            clickFilter.onClick = () => SelectModeCard(index, onClick);
 
-            // Card Artwork Image - fills upper portion of card
+            RectTransform rt = cardObj.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(320f, 600f);
+
+            // Card Artwork Image - fills upper portion of card (294 x 405)
             GameObject artObj = new GameObject("Artwork");
             artObj.transform.SetParent(cardObj.transform, false);
             Image artImg = artObj.AddComponent<Image>();
@@ -2431,7 +2725,7 @@ namespace MechChess.UI
             artRt.anchorMax = new Vector2(0.5f, 1f);
             artRt.pivot = new Vector2(0.5f, 1f);
             artRt.anchoredPosition = new Vector2(0f, -14f);
-            artRt.sizeDelta = new Vector2(246f, 400f);
+            artRt.sizeDelta = new Vector2(294f, 405f);
 
             // Title
             GameObject titleObj = new GameObject("CardTitle");
@@ -2439,7 +2733,7 @@ namespace MechChess.UI
             Text titleTxt = titleObj.AddComponent<Text>();
             titleTxt.text = title;
             titleTxt.font = font;
-            titleTxt.fontSize = 24;
+            titleTxt.fontSize = 26;
             titleTxt.fontStyle = FontStyle.Bold;
             titleTxt.alignment = TextAnchor.MiddleCenter;
             titleTxt.color = ColTextWhite;
@@ -2449,8 +2743,8 @@ namespace MechChess.UI
             tRt.anchorMin = new Vector2(0.5f, 0f);
             tRt.anchorMax = new Vector2(0.5f, 0f);
             tRt.pivot = new Vector2(0.5f, 0f);
-            tRt.anchoredPosition = new Vector2(0f, 102f);
-            tRt.sizeDelta = new Vector2(255f, 36f);
+            tRt.anchoredPosition = new Vector2(0f, 106f);
+            tRt.sizeDelta = new Vector2(300f, 36f);
 
             // Description (centered 2 lines)
             GameObject descObj = new GameObject("CardDesc");
@@ -2458,7 +2752,7 @@ namespace MechChess.UI
             Text descTxt = descObj.AddComponent<Text>();
             descTxt.text = desc;
             descTxt.font = font;
-            descTxt.fontSize = 15;
+            descTxt.fontSize = 16;
             descTxt.lineSpacing = 1.25f;
             descTxt.alignment = TextAnchor.MiddleCenter;
             descTxt.color = new Color(0.75f, 0.85f, 0.96f, 0.95f);
@@ -2468,8 +2762,8 @@ namespace MechChess.UI
             dRt.anchorMin = new Vector2(0.5f, 0f);
             dRt.anchorMax = new Vector2(0.5f, 0f);
             dRt.pivot = new Vector2(0.5f, 0f);
-            dRt.anchoredPosition = new Vector2(0f, 24f);
-            dRt.sizeDelta = new Vector2(255f, 64f);
+            dRt.anchoredPosition = new Vector2(0f, 26f);
+            dRt.sizeDelta = new Vector2(300f, 64f);
         }
 
         private void SelectModeCard(int index, Action onAction)
@@ -2488,7 +2782,7 @@ namespace MechChess.UI
                     }
                     else
                     {
-                        _modeCardFrameBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(270, 600, 20f, ColGlassFill, (i == index) ? ColCyanGlow : ColCyanBorder, (i == index) ? 2.5f : 1.5f);
+                        _modeCardFrameBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(320, 600, 20f, ColGlassFill, (i == index) ? ColCyanGlow : ColCyanBorder, (i == index) ? 2.5f : 1.5f);
                     }
                 }
             }
@@ -2516,7 +2810,7 @@ namespace MechChess.UI
             cRt.sizeDelta = new Vector2(1280f, 720f);
 
             // Modal Header
-            CreateModalHeader(cardObj.transform, AegisLocalization.T("<  ĐẤU VỚI MÁY", "<  VS COMPUTER"), () => _aiDifficultyModal.SetActive(false), font);
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("<  ĐẤU VỚI MÁY", "<  VS COMPUTER"), () => { SetAITimeDropdownOpen(false); _aiDifficultyModal.SetActive(false); }, font);
 
             // Left Column: Paladin Knight Portrait
             GameObject portraitObj = new GameObject("PaladinPortrait");
@@ -2643,16 +2937,11 @@ namespace MechChess.UI
 
             // Time Section
             CreateConfigLabel(rightCol.transform, AegisLocalization.T("Thời gian", "Time Control"), new Vector2(0f, 180f), font);
-            GameObject timeDropdownObj = null;
-            timeDropdownObj = CreateGlassPill(rightCol.transform, "TimePill", $"{GetAITimeDisplay(_selectedAITimeIndex)}  ▼", new Vector2(0f, 135f), new Vector2(360f, 50f), font, () =>
+            GameObject timeDropdownObj = CreateGlassPill(rightCol.transform, "TimePill", $"{GetAITimeDisplay(_selectedAITimeIndex)}  ▼", new Vector2(0f, 135f), new Vector2(360f, 50f), font, () =>
             {
-                _selectedAITimeIndex = (_selectedAITimeIndex + 1) % 5;
-                if (timeDropdownObj != null)
-                {
-                    Text tt = timeDropdownObj.GetComponentInChildren<Text>();
-                    if (tt != null) tt.text = $"{GetAITimeDisplay(_selectedAITimeIndex)}  ▼";
-                }
+                ToggleAITimeDropdown();
             });
+            _aiTimeDropdownBtnText = timeDropdownObj.GetComponentInChildren<Text>();
 
             // Side Color Section
             CreateConfigLabel(rightCol.transform, AegisLocalization.T("Màu quân", "Your Side"), new Vector2(0f, 65f), font);
@@ -2715,6 +3004,92 @@ namespace MechChess.UI
             ctrt.offsetMin = Vector2.zero;
             ctrt.offsetMax = Vector2.zero;
 
+            // Time Dropdown Blocker (Transparent click-outside catcher)
+            _aiTimeDropdownBlocker = new GameObject("TimeDropdownBlocker");
+            _aiTimeDropdownBlocker.transform.SetParent(cardObj.transform, false);
+            RectTransform blkRt = _aiTimeDropdownBlocker.AddComponent<RectTransform>();
+            blkRt.anchorMin = Vector2.zero;
+            blkRt.anchorMax = Vector2.one;
+            blkRt.offsetMin = new Vector2(-600f, -600f);
+            blkRt.offsetMax = new Vector2(600f, 600f);
+            Image blkImg = _aiTimeDropdownBlocker.AddComponent<Image>();
+            blkImg.color = new Color(0f, 0f, 0f, 0.01f);
+            Button blkBtn = _aiTimeDropdownBlocker.AddComponent<Button>();
+            blkBtn.onClick.AddListener(() => SetAITimeDropdownOpen(false));
+            _aiTimeDropdownBlocker.SetActive(false);
+
+            // Time Dropdown List Menu (360 x 230, directly underneath TimePill)
+            _aiTimeDropdownMenu = new GameObject("TimeDropdownMenu");
+            _aiTimeDropdownMenu.transform.SetParent(cardObj.transform, false);
+            Image ddBg = _aiTimeDropdownMenu.AddComponent<Image>();
+            ddBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(360, 230, 16f, new Color(0.02f, 0.06f, 0.14f, 0.98f), ColCyanGlow, 2f);
+            ddBg.type = Image.Type.Sliced;
+            RectTransform ddRt = _aiTimeDropdownMenu.GetComponent<RectTransform>();
+            ddRt.anchorMin = new Vector2(0.5f, 0.5f);
+            ddRt.anchorMax = new Vector2(0.5f, 0.5f);
+            ddRt.pivot = new Vector2(0.5f, 0.5f);
+            ddRt.anchoredPosition = new Vector2(380f, -29f);
+            ddRt.sizeDelta = new Vector2(360f, 230f);
+
+            _aiTimeOptionBgs = new Image[5];
+            _aiTimeOptionTexts = new Text[5];
+            _aiTimeOptionChecks = new Text[5];
+
+            for (int i = 0; i < 5; i++)
+            {
+                int optIdx = i;
+                GameObject itemObj = new GameObject($"TimeOption_{optIdx}");
+                itemObj.transform.SetParent(_aiTimeDropdownMenu.transform, false);
+                RectTransform iRt = itemObj.AddComponent<RectTransform>();
+                iRt.anchorMin = new Vector2(0.5f, 0.5f);
+                iRt.anchorMax = new Vector2(0.5f, 0.5f);
+                iRt.pivot = new Vector2(0.5f, 0.5f);
+                iRt.anchoredPosition = new Vector2(0f, 88f - optIdx * 44f);
+                iRt.sizeDelta = new Vector2(346f, 40f);
+
+                Image itemBg = itemObj.AddComponent<Image>();
+                itemBg.type = Image.Type.Sliced;
+                _aiTimeOptionBgs[optIdx] = itemBg;
+
+                Button itemBtn = itemObj.AddComponent<Button>();
+                itemBtn.onClick.AddListener(() => SelectAITime(optIdx));
+                itemObj.AddComponent<MenuButtonEffect>();
+
+                GameObject txtObj = new GameObject("Label");
+                txtObj.transform.SetParent(itemObj.transform, false);
+                Text txt = txtObj.AddComponent<Text>();
+                txt.font = font;
+                txt.fontSize = 17;
+                txt.alignment = TextAnchor.MiddleLeft;
+                txt.raycastTarget = false;
+                RectTransform tRt = txtObj.GetComponent<RectTransform>();
+                tRt.anchorMin = Vector2.zero;
+                tRt.anchorMax = Vector2.one;
+                tRt.offsetMin = new Vector2(16f, 0f);
+                tRt.offsetMax = new Vector2(-40f, 0f);
+                _aiTimeOptionTexts[optIdx] = txt;
+
+                GameObject chkObj = new GameObject("Check");
+                chkObj.transform.SetParent(itemObj.transform, false);
+                Text chk = chkObj.AddComponent<Text>();
+                chk.font = font;
+                chk.fontSize = 20;
+                chk.fontStyle = FontStyle.Bold;
+                chk.alignment = TextAnchor.MiddleCenter;
+                chk.color = ColCyanGlow;
+                chk.raycastTarget = false;
+                RectTransform chkRt = chkObj.GetComponent<RectTransform>();
+                chkRt.anchorMin = new Vector2(1f, 0.5f);
+                chkRt.anchorMax = new Vector2(1f, 0.5f);
+                chkRt.pivot = new Vector2(1f, 0.5f);
+                chkRt.anchoredPosition = new Vector2(-12f, 0f);
+                chkRt.sizeDelta = new Vector2(28f, 28f);
+                _aiTimeOptionChecks[optIdx] = chk;
+            }
+
+            _aiTimeDropdownMenu.SetActive(false);
+            RefreshAITimeDropdownItems();
+
             _aiDifficultyModal.SetActive(false);
         }
 
@@ -2768,8 +3143,86 @@ namespace MechChess.UI
 
         private void ExecuteStartAIMatch()
         {
+            SetAITimeDropdownOpen(false);
             _aiDifficultyModal.SetActive(false);
             StartGameVsAI(_selectedAIDifficulty);
+        }
+
+        private string GetAITimeOptionLabel(int idx)
+        {
+            switch (idx)
+            {
+                case 0: return AegisLocalization.T("3 phút  •  Blitz", "3 mins  •  Blitz");
+                case 1: return AegisLocalization.T("5 phút  •  Blitz", "5 mins  •  Blitz");
+                case 2: return AegisLocalization.T("10 phút  •  Rapid", "10 mins  •  Rapid");
+                case 3: return AegisLocalization.T("15 phút  •  Rapid", "15 mins  •  Rapid");
+                default: return AegisLocalization.T("Không giới hạn  •  Tự do", "Unlimited  •  Casual");
+            }
+        }
+
+        private void ToggleAITimeDropdown()
+        {
+            if (_aiTimeDropdownMenu == null) return;
+            SetAITimeDropdownOpen(!_aiTimeDropdownMenu.activeSelf);
+        }
+
+        private void SetAITimeDropdownOpen(bool isOpen)
+        {
+            if (_aiTimeDropdownMenu == null) return;
+            _aiTimeDropdownMenu.SetActive(isOpen);
+            if (_aiTimeDropdownBlocker != null) _aiTimeDropdownBlocker.SetActive(isOpen);
+            if (_aiTimeDropdownBtnText != null)
+            {
+                _aiTimeDropdownBtnText.text = $"{GetAITimeDisplay(_selectedAITimeIndex)}  {(isOpen ? "▲" : "▼")}";
+            }
+            if (isOpen)
+            {
+                if (_aiTimeDropdownBlocker != null) _aiTimeDropdownBlocker.transform.SetAsLastSibling();
+                _aiTimeDropdownMenu.transform.SetAsLastSibling();
+                RefreshAITimeDropdownItems();
+            }
+        }
+
+        private void SelectAITime(int index)
+        {
+            _selectedAITimeIndex = index;
+            if (_aiTimeDropdownBtnText != null)
+            {
+                _aiTimeDropdownBtnText.text = $"{GetAITimeDisplay(_selectedAITimeIndex)}  ▼";
+            }
+            SetAITimeDropdownOpen(false);
+            AegisAudioManager.PlayButtonClick();
+        }
+
+        private void RefreshAITimeDropdownItems()
+        {
+            if (_aiTimeOptionBgs == null) return;
+            for (int i = 0; i < 5; i++)
+            {
+                bool isSelected = (i == _selectedAITimeIndex);
+                if (_aiTimeOptionBgs[i] != null)
+                {
+                    if (isSelected)
+                    {
+                        _aiTimeOptionBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(346, 40, 8f, new Color(0.04f, 0.28f, 0.48f, 0.95f), ColCyanBorder, 1.5f);
+                    }
+                    else
+                    {
+                        _aiTimeOptionBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(346, 40, 8f, new Color(0.02f, 0.05f, 0.10f, 0.50f), new Color(0.12f, 0.25f, 0.40f, 0.4f), 1f);
+                    }
+                }
+                if (_aiTimeOptionTexts[i] != null)
+                {
+                    _aiTimeOptionTexts[i].color = isSelected ? Color.white : new Color(0.80f, 0.88f, 0.95f, 0.85f);
+                    _aiTimeOptionTexts[i].fontStyle = isSelected ? FontStyle.Bold : FontStyle.Normal;
+                    _aiTimeOptionTexts[i].text = GetAITimeOptionLabel(i);
+                }
+                if (_aiTimeOptionChecks[i] != null)
+                {
+                    _aiTimeOptionChecks[i].text = isSelected ? "✓" : "";
+                    _aiTimeOptionChecks[i].color = ColCyanGlow;
+                }
+            }
         }
 
         public void StartGameVsAI(int level)
@@ -4281,6 +4734,1209 @@ namespace MechChess.UI
         }
 
         // =========================================================================
+        // SCREEN 8: BỘ SƯU TẬP (Collection Modal with 4 categories & Armory Inspector)
+        // =========================================================================
+        private void InitializeCollectionData()
+        {
+            _allCollectionItems.Clear();
+
+            Color colMythic = new Color(0.96f, 0.80f, 0.32f);    // Radiant Gold
+            Color colLegendary = new Color(0.24f, 0.88f, 1.0f);   // Neon Cyan
+            Color colEpic = new Color(0.82f, 0.40f, 0.98f);      // Hextech Violet
+            Color colRare = new Color(0.38f, 0.70f, 1.0f);       // Celestial Blue
+
+            // Category 0: Quân Cờ Mech (Pieces) - 6 items
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "piece_king",
+                nameVi = "Vua Sovereign",
+                nameEn = "Sovereign King",
+                category = 0,
+                rarity = "THẦN THOẠI",
+                rarityColor = colMythic,
+                typeVi = "Quân Cờ Lãnh Đạo Tối Cao",
+                typeEn = "Supreme Commander Mech",
+                descVi = "Trái tim tối cao của vương triều Aegis, được bảo vệ bởi khiên từ trường Nano và lò phản ứng hạt nhân lượng tử.",
+                descEn = "Supreme heart of the Aegis dynasty, shielded by Nano-magnetic barriers and a quantum core.",
+                perksVi = "⚡ Thần uy tối thượng • Hộ vệ toàn quân • Di chuyển 1 ô mọi hướng",
+                perksEn = "⚡ Supreme majesty • Guards all allies • Moves 1 square in all directions",
+                pieceType = PieceType.King,
+                isOwned = true,
+                prefsKey = null
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "piece_queen",
+                nameVi = "Hậu Empress",
+                nameEn = "Empress Queen",
+                category = 0,
+                rarity = "HUYỀN THOẠI",
+                rarityColor = colLegendary,
+                typeVi = "Quân Cờ Đột Kích Tối Thượng",
+                typeEn = "Supreme Assault Mech",
+                descVi = "Cỗ máy chiến tranh uy lực nhất chiến trường, trang bị cánh phản lực siêu thanh và song kiếm plasma tích điện.",
+                descEn = "Most lethal war machine on the board, equipped with hypersonic thrusters and dual charged plasma blades.",
+                perksVi = "⚡ Cơ động vô song • Quét ngang dọc chéo không giới hạn",
+                perksEn = "⚡ Unrivaled mobility • Controls ranks, files & diagonals without limit",
+                pieceType = PieceType.Queen,
+                isOwned = true,
+                prefsKey = null
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "piece_rook",
+                nameVi = "Xe Fortress",
+                nameEn = "Siege Fortress",
+                category = 0,
+                rarity = "SỬ THI",
+                rarityColor = colEpic,
+                typeVi = "Quân Cờ Công Thành Hạng Nặng",
+                typeEn = "Heavy Siege Bastion",
+                descVi = "Pháo đài bọc thép hạng nặng mang giáp titan đa tầng, húc văng mọi phòng tuyến thẳng hàng của đối phương.",
+                descEn = "Heavy armored bastion with multi-layered titanium armor, smashing through any straight enemy defense.",
+                perksVi = "🛡️ Giáp phản ứng nổ • Quét đường thẳng cực hạn • Hỗ trợ nhập thành",
+                perksEn = "🛡️ Reactive armor • Unlimited straight-line rush • Castling support",
+                pieceType = PieceType.Rook,
+                isOwned = true,
+                prefsKey = null
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "piece_bishop",
+                nameVi = "Tượng Sniper",
+                nameEn = "Arcane Sniper",
+                category = 0,
+                rarity = "SỬ THI",
+                rarityColor = colEpic,
+                typeVi = "Quân Cờ Pháo Xạ Tầm Xa",
+                typeEn = "Long-Range Railgun Mech",
+                descVi = "Hệ thống pháo từ trường ngắm bắn tầm xa, kiểm soát các đường chéo chiến thuật và khống chế góc khuất.",
+                descEn = "Long-range electromagnetic railgun, locking down tactical diagonals and suppressing blind spots.",
+                perksVi = "🎯 Bắn tỉa đường chéo • Vận tốc đầu nòng Mach 7 • Xuyên thấu ma trận",
+                perksEn = "🎯 Diagonal sniping • Mach 7 muzzle velocity • Matrix penetration",
+                pieceType = PieceType.Bishop,
+                isOwned = true,
+                prefsKey = null
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "piece_knight",
+                nameVi = "Mã Striker",
+                nameEn = "Assault Striker",
+                category = 0,
+                rarity = "HUYỀN THOẠI",
+                rarityColor = colLegendary,
+                typeVi = "Quân Cờ Xung Kích Phản Trọng Lực",
+                typeEn = "Anti-Gravity Striker Mech",
+                descVi = "Kỵ binh xung kích trang bị động cơ phản trọng lực, có khả năng nhảy vượt qua đầu các cỗ máy khác để tập kích hiểm hóc.",
+                descEn = "Shock cavalry equipped with anti-gravity thrusters, leaping over obstacles and striking behind enemy lines.",
+                perksVi = "🚀 Nhảy vượt chướng ngại • Đòn đánh chữ L bất ngờ • Tập kích hiểm",
+                perksEn = "🚀 Obstacle leaping • Unpredictable L-step assault • Ambush master",
+                pieceType = PieceType.Knight,
+                isOwned = true,
+                prefsKey = null
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "piece_pawn",
+                nameVi = "Tốt Vanguard",
+                nameEn = "Aegis Vanguard",
+                category = 0,
+                rarity = "TINH ANH",
+                rarityColor = colRare,
+                typeVi = "Quân Cờ Tiên Phong Bọc Thép",
+                typeEn = "Frontline Armored Vanguard",
+                descVi = "Chiến binh tiên phong quả cảm giữ vững phòng tuyến. Khi tiến đến bờ cuối chiến trường sẽ thăng cấp Mecha tối thượng.",
+                descEn = "Brave vanguard holding the frontline. Reaching the end rank ascends into supreme Mecha forms.",
+                perksVi = "⚔️ Tiên phong mở đường • Bước tiến kép nước đầu • Thăng cấp tối thượng",
+                perksEn = "⚔️ Trailblazer • Initial double step • Supreme promotion",
+                pieceType = PieceType.Pawn,
+                isOwned = true,
+                prefsKey = null
+            });
+
+            // Category 1: Skin Huyền Thoại (Skins) - 4 items
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "skin_knight_light",
+                nameVi = "Knight of Light",
+                nameEn = "Knight of Light",
+                category = 1,
+                rarity = "THẦN THOẠI",
+                rarityColor = colMythic,
+                typeVi = "Bộ Skin Thần Thoại Toàn Quân",
+                typeEn = "Mythic Army Skin Set",
+                descVi = "Bộ giáp hoàng kim thánh khiết trui rèn từ mảnh vỡ mặt trời, phản chiếu ánh hào quang bất diệt trên toàn bộ đội quân.",
+                descEn = "Holy golden armor forged from solar essence, radiating divine brilliance across the entire army.",
+                perksVi = "✨ Hào quang hoàng kim • Viền giáp mạ vàng 24K • Hiệu ứng bước đi phát sáng",
+                perksEn = "✨ Solar aura • 24K gold gilded plates • Glowing stride VFX",
+                spriteName = "skin_knight_light.png",
+                isOwned = true,
+                prefsKey = PrefsEquippedSkin
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "skin_dark_legion",
+                nameVi = "Dark Legion",
+                nameEn = "Dark Legion",
+                category = 1,
+                rarity = "SỬ THI",
+                rarityColor = colEpic,
+                typeVi = "Bộ Skin Sử Thi Hắc Ám",
+                typeEn = "Epic Shadow Skin Set",
+                descVi = "Đoàn quân bóng tối từ lòng vực sâu thẳm, rực cháy ngọn lửa hắc diện thạch và khát khao phục thù bóng đêm.",
+                descEn = "Dark legions rising from the Abyss, shrouded in obsidian flames and shadow magic.",
+                perksVi = "🔥 Lửa hỏa ngục • Giáp đen nhám phản quang • Âm thanh di chuyển uy lực",
+                perksEn = "🔥 Hellfire flames • Matte obsidian armor • Thunderous march sound",
+                spriteName = "skin_dark_legion.png",
+                isOwned = true,
+                prefsKey = PrefsEquippedSkin
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "skin_cyber_future",
+                nameVi = "Arcane Paladin",
+                nameEn = "Arcane Paladin",
+                category = 1,
+                rarity = "HUYỀN THOẠI",
+                rarityColor = colLegendary,
+                typeVi = "Bộ Skin Huyền Thoại Lượng Tử",
+                typeEn = "Legendary Quantum Set",
+                descVi = "Thiết kế cơ giới công nghệ cao tương lai, sử dụng lõi năng lượng Arcane Hextech và đường nét neon cyberpunk rực rỡ.",
+                descEn = "Futuristic mech engineering from 2088, powered by Arcane Hextech cores and cyberpunk neon lines.",
+                perksVi = "⚡ Tia laser lượng tử • Lõi năng lượng nhịp đập • Giao diện HUD tương lai",
+                perksEn = "⚡ Quantum lasers • Pulsing power core • Futuristic HUD interface",
+                spriteName = "skin_cyber_future.png",
+                isOwned = true,
+                prefsKey = PrefsEquippedSkin
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "skin_forest_spirit",
+                nameVi = "Forest Spirit",
+                nameEn = "Forest Spirit",
+                category = 1,
+                rarity = "SỬ THI",
+                rarityColor = colEpic,
+                typeVi = "Bộ Skin Tinh Hoa Tự Nhiên",
+                typeEn = "Primal Nature Skin Set",
+                descVi = "Khởi nguồn từ rừng nguyên sinh linh thiêng, mang linh hồn hoa cỏ và sức sống trường tồn của đất trời thiên nhiên.",
+                descEn = "Millennia-old tree spirits crystallized with cherry blossoms and ancient moss.",
+                perksVi = "🌿 Cánh hoa anh đào rơi • Gỗ thiêng cổ thụ • Âm thanh chim hót thanh khiết",
+                perksEn = "🌿 Falling sakura petals • Sacred wood • Serene birdsong ambient",
+                spriteName = "skin_forest_spirit.png",
+                isOwned = true,
+                prefsKey = PrefsEquippedSkin
+            });
+
+            // Category 2: Đấu Trường & Bàn Cờ (Boards) - 4 items
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "board_spirit_blossom",
+                nameVi = "Vườn Hoa Linh Hồn",
+                nameEn = "Spirit Blossom Arena",
+                category = 2,
+                rarity = "HUYỀN THOẠI",
+                rarityColor = colLegendary,
+                typeVi = "Đấu Trường 3D Độc Quyền",
+                typeEn = "Exclusive 3D Arena",
+                descVi = "Đấu trường thanh nhã với những cánh hoa anh đào rơi lãng đãng, cầu đá phong rêu và không gian thiền định bất tận.",
+                descEn = "Ancient shrine arena with blooming sakura trees, mossy stone bridges, and tranquil streams.",
+                perksVi = "🌸 Cây Sakura 3D • Cánh hoa rơi theo gió • Đá phong thủy cổ trấn",
+                perksEn = "🌸 3D Sakura tree • Wind-blown petals • Sacred stone bridge",
+                spriteName = "cyber_hack_arena_bg.png",
+                isOwned = true,
+                prefsKey = PrefsEquippedBoard
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "board_royal_antique",
+                nameVi = "Bàn Cờ Hoàng Gia Cổ Điển",
+                nameEn = "Royal Antique Board",
+                category = 2,
+                rarity = "SỬ THI",
+                rarityColor = colEpic,
+                typeVi = "Bàn Cờ Gỗ Sồi Hoàng Gia",
+                typeEn = "Royal Oak Chessboard",
+                descVi = "Bàn cờ bằng gỗ sồi ngàn năm khảm viền vàng hoa văn hoàng gia châu Âu thế kỷ 18 sang trọng quý phái.",
+                descEn = "Handcrafted from solid oak inlaid with precious metals, once reserved for Renaissance monarchs.",
+                perksVi = "🪵 Gỗ sồi tự nhiên • Viền khắc hoa văn hoàng tộc • Âm thanh gõ gỗ thanh tao",
+                perksEn = "🪵 Natural oak texture • Gilded imperial borders • Crisp wooden click SFX",
+                spriteName = "ingame_3d_table_bg.png",
+                isOwned = true,
+                prefsKey = PrefsEquippedBoard
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "board_magma_core",
+                nameVi = "Đấu Trường Dung Nham",
+                nameEn = "Magma Core Arena",
+                category = 2,
+                rarity = "HUYỀN THOẠI",
+                rarityColor = colLegendary,
+                typeVi = "Đấu Trường Hỏa Ngục",
+                typeEn = "Infernal Magma Arena",
+                descVi = "Được xây dựng ngay trên miệng núi lửa đang phun trào, mỗi nước đi kích hoạt dung nham sủi bọt cuồn cuộn.",
+                descEn = "Built right atop an active volcanic caldera, bubbling magma under every single move.",
+                perksVi = "🌋 Vết nứt dung nham • Khói lửa địa ngục • Sức nóng thiêu đốt",
+                perksEn = "🌋 Magma fissures • Volcanic smoke • Scorching heat glow",
+                spriteName = "cyber_hack_arena_bg.png",
+                isOwned = true,
+                prefsKey = PrefsEquippedBoard
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "board_crystal_sanctuary",
+                nameVi = "Điện Thờ Pha Lê",
+                nameEn = "Crystal Sanctuary",
+                category = 2,
+                rarity = "THẦN THOẠI",
+                rarityColor = colMythic,
+                typeVi = "Đấu Trường Thần Thoại",
+                typeEn = "Mythic Crystal Battlefield",
+                descVi = "Đền thờ cổ ngập tràn tinh thể thạch anh tím tỏa ánh sáng thanh tẩy tâm trí người kỳ thủ.",
+                descEn = "Sacred amethyst sanctuary where eternal starlight converges upon the board.",
+                perksVi = "💎 Tinh thể phát quang • Phản chiếu đa chiều • Tiếng chuông pha lê ngân vang",
+                perksEn = "💎 Luminescent crystals • Multi-dimensional prism • Crystal resonance SFX",
+                spriteName = "main_menu_bg.png",
+                isOwned = false,
+                prefsKey = PrefsEquippedBoard
+            });
+
+            // Category 3: Hiệu Ứng Bắt Quân (Effects) - 4 items
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "fx_arcane_lightning",
+                nameVi = "Sấm Sét Arcane",
+                nameEn = "Arcane Lightning",
+                category = 3,
+                rarity = "HUYỀN THOẠI",
+                rarityColor = colLegendary,
+                typeVi = "Hiệu Ứng Bắt Quân (Finisher)",
+                typeEn = "Capture Finisher FX",
+                descVi = "Tia sét năng lượng cao giáng xuống khi quân cờ hạ gục đối thủ trong các pha bắt quân nảy lửa.",
+                descEn = "High-voltage lightning strike from the stratosphere, disintegrating captured pieces.",
+                perksVi = "⚡ Tia chớp xanh neon • Âm thanh sấm nổ vang rền • Chấn động màn hình",
+                perksEn = "⚡ Cyan neon bolts • Thunder crack audio • Screen rumble",
+                spriteName = "cyber_impulse_orb.png",
+                isOwned = true,
+                prefsKey = PrefsEquippedEffect
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "fx_divine_aura",
+                nameVi = "Hào Quang Thánh",
+                nameEn = "Divine Aura",
+                category = 3,
+                rarity = "SỬ THI",
+                rarityColor = colEpic,
+                typeVi = "Hiệu Ứng Hộ Thân",
+                typeEn = "Guardian Aura FX",
+                descVi = "Cột ánh sáng thiên giới chiếu rọi xuống người chiến thắng pha giao tranh, thanh lọc mọi hiểm nguy.",
+                descEn = "Pillar of celestial light showering the victor of the engagement.",
+                perksVi = "✨ Vòng hào quang thiên thần • Bụi sáng hoàng kim • Âm vang thánh ca",
+                perksEn = "✨ Halo burst • Golden dust • Choral hymn resonance",
+                spriteName = "arcane_crest.png",
+                isOwned = true,
+                prefsKey = PrefsEquippedEffect
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "fx_hellfire_blaze",
+                nameVi = "Hỏa Ngục Bùng Nổ",
+                nameEn = "Hellfire Blaze",
+                category = 3,
+                rarity = "SỬ THI",
+                rarityColor = colEpic,
+                typeVi = "Hiệu Ứng Thiêu Đốt",
+                typeEn = "Inferno Burn FX",
+                descVi = "Cột lửa ngùn ngụt bốc lên từ lòng đất thiêu đốt quân bị bắt, để lại tàn tích tro bụi rực cháy.",
+                descEn = "Infernal flames erupt from below to consume the vanquished piece into embers.",
+                perksVi = "🔥 Cột lửa hỏa ngục • Tàn tro bay theo gió • Âm thanh bùng cháy mãnh liệt",
+                perksEn = "🔥 Fire geyser • Flying ash • Roaring blaze audio",
+                spriteName = "cyber_core_reactor.png",
+                isOwned = true,
+                prefsKey = PrefsEquippedEffect
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "fx_cosmic_stardust",
+                nameVi = "Bụi Sao Vũ Trụ",
+                nameEn = "Cosmic Stardust",
+                category = 3,
+                rarity = "THẦN THOẠI",
+                rarityColor = colMythic,
+                typeVi = "Hiệu Ứng Thiên Hà",
+                typeEn = "Galactic Stardust FX",
+                descVi = "Mở ra một lỗ sâu vũ trụ thu nhỏ, hút quân cờ biến mất vào dòng chảy không thời gian huyền bí.",
+                descEn = "Opens a miniature cosmic wormhole, drawing the piece into space-time currents.",
+                perksVi = "🌌 Vòng xoáy lỗ sâu • Bụi tinh vân lấp lánh • Biến mất huyền bí",
+                perksEn = "🌌 Wormhole vortex • Sparkling nebula dust • Mystic phase-out",
+                spriteName = "cyber_laser_barrier.png",
+                isOwned = false,
+                prefsKey = PrefsEquippedEffect
+            });
+        }
+
+        private Sprite GetCollectionItemSprite(CollectionItemData item)
+        {
+            if (item == null) return null;
+            if (item.pieceType.HasValue)
+            {
+                return ArcaneAssetLoader.GetChessPiece2DSprite(item.pieceType.Value, true, 128);
+            }
+            if (!string.IsNullOrEmpty(item.spriteName))
+            {
+                Sprite sp = ArcaneAssetLoader.LoadArcaneSprite(item.spriteName);
+                if (sp != null) return sp;
+            }
+            return ArcaneAssetLoader.GetMiniChessboardDiagram(128);
+        }
+
+        private bool IsCollectionItemEquipped(CollectionItemData item)
+        {
+            if (item == null) return false;
+            if (item.category == 0) return true; // Tất cả quân cờ mech đều tham chiến mặc định
+
+            if (string.IsNullOrEmpty(item.prefsKey)) return false;
+
+            string defaultVal = item.category == 1 ? "Knight of Light" :
+                                item.category == 2 ? "Vườn Hoa Linh Hồn" : "Sấm Sét Arcane";
+            string current = PlayerPrefs.GetString(item.prefsKey, defaultVal);
+
+            return string.Equals(current, item.nameVi, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(current, item.nameEn, StringComparison.OrdinalIgnoreCase) ||
+                   (item.category == 1 && current.Contains(item.nameEn)) ||
+                   (item.category == 2 && current.Contains("Spirit") && item.id == "board_spirit_blossom");
+        }
+
+        private void BuildScreen8Collection(Transform parent, Font font)
+        {
+            InitializeCollectionData();
+
+            _collectionModal = CreateModalOverlay(parent, "Screen8_CollectionModal");
+
+            // Main Window Card (1520 x 820)
+            GameObject cardObj = new GameObject("CollectionCard");
+            cardObj.transform.SetParent(_collectionModal.transform, false);
+            RectTransform cRt = cardObj.AddComponent<RectTransform>();
+            cRt.anchorMin = new Vector2(0.5f, 0.5f);
+            cRt.anchorMax = new Vector2(0.5f, 0.5f);
+            cRt.pivot = new Vector2(0.5f, 0.5f);
+            cRt.anchoredPosition = Vector2.zero;
+            cRt.sizeDelta = new Vector2(1520f, 820f);
+
+            Image cardBg = cardObj.AddComponent<Image>();
+            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1520, 820, 24f, new Color(0.03f, 0.08f, 0.16f, 0.96f), ColCyanBorder, 2f);
+            cardBg.type = Image.Type.Sliced;
+
+            // Header Bar
+            GameObject headerObj = new GameObject("CollectionHeader");
+            headerObj.transform.SetParent(cardObj.transform, false);
+            RectTransform hRt = headerObj.AddComponent<RectTransform>();
+            hRt.anchorMin = new Vector2(0.5f, 1f);
+            hRt.anchorMax = new Vector2(0.5f, 1f);
+            hRt.pivot = new Vector2(0.5f, 1f);
+            hRt.anchoredPosition = new Vector2(0f, -16f);
+            hRt.sizeDelta = new Vector2(1440f, 60f);
+
+            // Back Button [ < ]
+            GameObject backBtnObj = new GameObject("BtnBack");
+            backBtnObj.transform.SetParent(headerObj.transform, false);
+            Image bbImg = backBtnObj.AddComponent<Image>();
+            bbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(48, 48, 10f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
+            Button bbBtn = backBtnObj.AddComponent<Button>();
+            bbBtn.onClick.AddListener(() => CloseModal(_collectionModal));
+            backBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform bbRt = backBtnObj.GetComponent<RectTransform>();
+            bbRt.anchorMin = new Vector2(0f, 0.5f);
+            bbRt.anchorMax = new Vector2(0f, 0.5f);
+            bbRt.pivot = new Vector2(0f, 0.5f);
+            bbRt.anchoredPosition = new Vector2(10f, 0f);
+            bbRt.sizeDelta = new Vector2(48f, 48f);
+
+            GameObject backIconObj = new GameObject("BackIcon");
+            backIconObj.transform.SetParent(backBtnObj.transform, false);
+            Sprite backSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_back.png");
+            if (backSprite != null)
+            {
+                Image backIconImg = backIconObj.AddComponent<Image>();
+                backIconImg.sprite = backSprite;
+                backIconImg.color = ColCyanGlow;
+                backIconImg.preserveAspect = true;
+            }
+            else
+            {
+                Text bkt = backIconObj.AddComponent<Text>();
+                bkt.text = "<";
+                bkt.font = font;
+                bkt.fontSize = 26;
+                bkt.fontStyle = FontStyle.Bold;
+                bkt.alignment = TextAnchor.MiddleCenter;
+                bkt.color = ColCyanGlow;
+            }
+            RectTransform backIconRt = backIconObj.GetComponent<RectTransform>();
+            backIconRt.anchorMin = Vector2.zero;
+            backIconRt.anchorMax = Vector2.one;
+            backIconRt.offsetMin = new Vector2(8f, 8f);
+            backIconRt.offsetMax = new Vector2(-8f, -8f);
+
+            // Title & Subtitle
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(headerObj.transform, false);
+            Text titleTxt = titleObj.AddComponent<Text>();
+            titleTxt.text = AegisLocalization.T("BỘ SƯU TẬP (COLLECTION)", "COLLECTION & ARMORY");
+            titleTxt.font = font;
+            titleTxt.fontSize = 28;
+            titleTxt.fontStyle = FontStyle.Bold;
+            titleTxt.alignment = TextAnchor.MiddleLeft;
+            titleTxt.color = ColCyanGlow;
+            RectTransform tRt = titleObj.GetComponent<RectTransform>();
+            tRt.anchorMin = new Vector2(0f, 0.5f);
+            tRt.anchorMax = new Vector2(0f, 0.5f);
+            tRt.pivot = new Vector2(0f, 0.5f);
+            tRt.anchoredPosition = new Vector2(70f, 10f);
+            tRt.sizeDelta = new Vector2(420f, 32f);
+
+            GameObject subTitleObj = new GameObject("SubTitle");
+            subTitleObj.transform.SetParent(headerObj.transform, false);
+            Text subTitleTxt = subTitleObj.AddComponent<Text>();
+            subTitleTxt.text = AegisLocalization.T("Kho Binh Khí & Thần Binh Tinh Anh AegisMech", "Elite Weapons & Armory Collection");
+            subTitleTxt.font = font;
+            subTitleTxt.fontSize = 15;
+            subTitleTxt.fontStyle = FontStyle.Normal;
+            subTitleTxt.alignment = TextAnchor.MiddleLeft;
+            subTitleTxt.color = ColTextMuted;
+            RectTransform stRt = subTitleObj.GetComponent<RectTransform>();
+            stRt.anchorMin = new Vector2(0f, 0.5f);
+            stRt.anchorMax = new Vector2(0f, 0.5f);
+            stRt.pivot = new Vector2(0f, 0.5f);
+            stRt.anchoredPosition = new Vector2(70f, -14f);
+            stRt.sizeDelta = new Vector2(420f, 22f);
+
+            // Progress Badge (Center-Right)
+            GameObject progBadge = new GameObject("ProgressBadge");
+            progBadge.transform.SetParent(headerObj.transform, false);
+            Image pbBg = progBadge.AddComponent<Image>();
+            pbBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(240, 44, 14f, new Color(0.04f, 0.12f, 0.20f, 0.90f), ColCyanBorder, 1.2f);
+            pbBg.type = Image.Type.Sliced;
+            RectTransform pbRt = progBadge.GetComponent<RectTransform>();
+            pbRt.anchorMin = new Vector2(1f, 0.5f);
+            pbRt.anchorMax = new Vector2(1f, 0.5f);
+            pbRt.pivot = new Vector2(1f, 0.5f);
+            pbRt.anchoredPosition = new Vector2(-165f, 0f);
+            pbRt.sizeDelta = new Vector2(240f, 44f);
+
+            GameObject progIcon = new GameObject("ProgIcon");
+            progIcon.transform.SetParent(progBadge.transform, false);
+            Image piImg = progIcon.AddComponent<Image>();
+            piImg.sprite = ArcaneAssetLoader.LoadArcaneSprite("dock_icon_inventory.png");
+            piImg.preserveAspect = true;
+            RectTransform piRt = progIcon.GetComponent<RectTransform>();
+            piRt.anchorMin = new Vector2(0f, 0.5f);
+            piRt.anchorMax = new Vector2(0f, 0.5f);
+            piRt.pivot = new Vector2(0f, 0.5f);
+            piRt.anchoredPosition = new Vector2(10f, 0f);
+            piRt.sizeDelta = new Vector2(26f, 26f);
+
+            GameObject progTxtObj = new GameObject("ProgTxt");
+            progTxtObj.transform.SetParent(progBadge.transform, false);
+            _collectionProgressTxt = progTxtObj.AddComponent<Text>();
+            _collectionProgressTxt.font = font;
+            _collectionProgressTxt.fontSize = 17;
+            _collectionProgressTxt.fontStyle = FontStyle.Bold;
+            _collectionProgressTxt.alignment = TextAnchor.MiddleLeft;
+            _collectionProgressTxt.color = ColCyanGlow;
+            RectTransform pgtRt = progTxtObj.GetComponent<RectTransform>();
+            pgtRt.anchorMin = new Vector2(0f, 0.5f);
+            pgtRt.anchorMax = new Vector2(1f, 0.5f);
+            pgtRt.pivot = new Vector2(0f, 0.5f);
+            pgtRt.anchoredPosition = new Vector2(44f, 8f);
+            pgtRt.sizeDelta = new Vector2(-50f, 20f);
+
+            // Progress Bar Underneath text
+            GameObject pBarBg = new GameObject("ProgBarBg");
+            pBarBg.transform.SetParent(progBadge.transform, false);
+            Image pbbImg = pBarBg.AddComponent<Image>();
+            pbbImg.color = new Color(0.08f, 0.16f, 0.24f, 0.95f);
+            RectTransform pbbRt = pBarBg.GetComponent<RectTransform>();
+            pbbRt.anchorMin = new Vector2(0f, 0f);
+            pbbRt.anchorMax = new Vector2(0f, 0f);
+            pbbRt.pivot = new Vector2(0f, 0f);
+            pbbRt.anchoredPosition = new Vector2(44f, 7f);
+            pbbRt.sizeDelta = new Vector2(180f, 6f);
+
+            GameObject pBarFill = new GameObject("ProgBarFill");
+            pBarFill.transform.SetParent(pBarBg.transform, false);
+            Image pbfImg = pBarFill.AddComponent<Image>();
+            pbfImg.color = ColCyanGlow;
+            _collectionProgressBarFill = pBarFill.GetComponent<RectTransform>();
+            _collectionProgressBarFill.anchorMin = Vector2.zero;
+            _collectionProgressBarFill.anchorMax = Vector2.zero;
+            _collectionProgressBarFill.pivot = Vector2.zero;
+            _collectionProgressBarFill.anchoredPosition = Vector2.zero;
+            _collectionProgressBarFill.sizeDelta = new Vector2(150f, 6f);
+
+            // Gold Badge (Far Right)
+            GameObject coinObj = new GameObject("CoinBadge");
+            coinObj.transform.SetParent(headerObj.transform, false);
+            Image cbImg = coinObj.AddComponent<Image>();
+            cbImg.sprite = ArcaneAssetLoader.LoadArcaneSprite("shop_coin_badge.png") ??
+                           ArcaneAssetLoader.GetGlassBoxSprite(140, 44, 14f, new Color(0.18f, 0.12f, 0.04f, 0.9f), ColGoldBorder, 1.5f);
+            cbImg.type = Image.Type.Simple;
+            RectTransform cbRt = coinObj.GetComponent<RectTransform>();
+            cbRt.anchorMin = new Vector2(1f, 0.5f);
+            cbRt.anchorMax = new Vector2(1f, 0.5f);
+            cbRt.pivot = new Vector2(1f, 0.5f);
+            cbRt.anchoredPosition = new Vector2(-10f, 0f);
+            cbRt.sizeDelta = new Vector2(140f, 44f);
+
+            GameObject goldIconObj = new GameObject("CoinIcon");
+            goldIconObj.transform.SetParent(coinObj.transform, false);
+            Image goldIconImg = goldIconObj.AddComponent<Image>();
+            goldIconImg.sprite = ArcaneAssetLoader.LoadArcaneSprite("icon_gold_coin.png");
+            goldIconImg.preserveAspect = true;
+            RectTransform giRt = goldIconObj.GetComponent<RectTransform>();
+            giRt.anchorMin = new Vector2(0f, 0.5f);
+            giRt.anchorMax = new Vector2(0f, 0.5f);
+            giRt.pivot = new Vector2(0f, 0.5f);
+            giRt.anchoredPosition = new Vector2(12f, 0f);
+            giRt.sizeDelta = new Vector2(24f, 24f);
+
+            GameObject goldTxtObj = new GameObject("GoldTxt");
+            goldTxtObj.transform.SetParent(coinObj.transform, false);
+            _collectionGoldTxt = goldTxtObj.AddComponent<Text>();
+            _collectionGoldTxt.text = _currentGold.ToString();
+            _collectionGoldTxt.font = font;
+            _collectionGoldTxt.fontSize = 22;
+            _collectionGoldTxt.fontStyle = FontStyle.Bold;
+            _collectionGoldTxt.alignment = TextAnchor.MiddleRight;
+            _collectionGoldTxt.color = ColGoldBorder;
+            RectTransform gtRt = goldTxtObj.GetComponent<RectTransform>();
+            gtRt.anchorMin = Vector2.zero;
+            gtRt.anchorMax = Vector2.one;
+            gtRt.offsetMin = new Vector2(40f, 0f);
+            gtRt.offsetMax = new Vector2(-16f, 0f);
+
+            // Category Navigation Tabs (Width 220, Height 46)
+            GameObject tabsObj = new GameObject("CollectionTabs");
+            tabsObj.transform.SetParent(cardObj.transform, false);
+            RectTransform ctbRt = tabsObj.AddComponent<RectTransform>();
+            ctbRt.anchorMin = new Vector2(0.5f, 1f);
+            ctbRt.anchorMax = new Vector2(0.5f, 1f);
+            ctbRt.pivot = new Vector2(0.5f, 1f);
+            ctbRt.anchoredPosition = new Vector2(0f, -84f);
+            ctbRt.sizeDelta = new Vector2(1440f, 48f);
+
+            string[] tabNamesVi = { "♟️ Quân Cờ Mech", "🛡️ Skin Huyền Thoại", "🏟️ Đấu Trường & Bàn", "✨ Hiệu Ứng Bắt Quân" };
+            string[] tabNamesEn = { "♟️ Mech Pieces", "🛡️ Mythic Skins", "🏟️ Battlefields", "✨ Finisher FX" };
+            Sprite tabActSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_active.png");
+            Sprite tabInactSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_inactive.png");
+
+            for (int i = 0; i < 4; i++)
+            {
+                int tabIdx = i;
+                bool active = (i == _selectedCollectionTab);
+                GameObject tObj = new GameObject("Tab_" + i);
+                tObj.transform.SetParent(tabsObj.transform, false);
+
+                Image bg = tObj.AddComponent<Image>();
+                bg.sprite = active ? tabActSprite : tabInactSprite;
+                bg.type = Image.Type.Simple;
+                _collectionTabBgs[i] = bg;
+
+                Button btn = tObj.AddComponent<Button>();
+                btn.onClick.AddListener(() => SwitchCollectionTab(tabIdx));
+                tObj.AddComponent<MenuButtonEffect>();
+
+                RectTransform rt = tObj.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0f, 0.5f);
+                rt.anchorMax = new Vector2(0f, 0.5f);
+                rt.pivot = new Vector2(0f, 0.5f);
+                rt.anchoredPosition = new Vector2(10f + i * 236f, 0f);
+                rt.sizeDelta = new Vector2(225f, 46f);
+
+                GameObject txtObj = new GameObject("Txt");
+                txtObj.transform.SetParent(tObj.transform, false);
+                Text txtComp = txtObj.AddComponent<Text>();
+                txtComp.text = AegisLocalization.T(tabNamesVi[i], tabNamesEn[i]);
+                txtComp.font = font;
+                txtComp.fontSize = 19;
+                txtComp.fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
+                txtComp.alignment = TextAnchor.MiddleCenter;
+                txtComp.color = active ? ColCyanGlow : ColTextWhite;
+                _collectionTabTexts[i] = txtComp;
+
+                RectTransform txtRt = txtObj.GetComponent<RectTransform>();
+                txtRt.anchorMin = Vector2.zero;
+                txtRt.anchorMax = Vector2.one;
+                txtRt.offsetMin = Vector2.zero;
+                txtRt.offsetMax = Vector2.zero;
+            }
+
+            // Left Area: 4 Category Containers (Width 960, Height 640)
+            GameObject showcaseArea = new GameObject("ShowcaseArea");
+            showcaseArea.transform.SetParent(cardObj.transform, false);
+            RectTransform scRt = showcaseArea.AddComponent<RectTransform>();
+            scRt.anchorMin = new Vector2(0.5f, 0.5f);
+            scRt.anchorMax = new Vector2(0.5f, 0.5f);
+            scRt.pivot = new Vector2(0.5f, 0.5f);
+            scRt.anchoredPosition = new Vector2(-240f, -25f);
+            scRt.sizeDelta = new Vector2(960f, 630f);
+
+            // Container 0: 6 Quân Cờ Mech (2 rows x 3 columns)
+            GameObject cont0 = new GameObject("Category_Pieces");
+            cont0.transform.SetParent(showcaseArea.transform, false);
+            _collectionCategoryContainers[0] = cont0;
+            RectTransform c0Rt = cont0.AddComponent<RectTransform>();
+            c0Rt.anchorMin = Vector2.zero;
+            c0Rt.anchorMax = Vector2.one;
+            c0Rt.offsetMin = Vector2.zero;
+            c0Rt.offsetMax = Vector2.zero;
+
+            List<CollectionItemData> pieces = _allCollectionItems.FindAll(x => x.category == 0);
+            float[] pieceColX = { -315f, 0f, 315f };
+            float[] pieceRowY = { 150f, -150f };
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                var pItem = pieces[i];
+                int col = i % 3;
+                int row = i / 3;
+                CreatePieceCollectionCard(cont0.transform, pItem, new Vector2(pieceColX[col], pieceRowY[row]), font);
+            }
+
+            // Container 1: 4 Skin Sets
+            GameObject cont1 = new GameObject("Category_Skins");
+            cont1.transform.SetParent(showcaseArea.transform, false);
+            _collectionCategoryContainers[1] = cont1;
+            RectTransform c1Rt = cont1.AddComponent<RectTransform>();
+            c1Rt.anchorMin = Vector2.zero;
+            c1Rt.anchorMax = Vector2.one;
+            c1Rt.offsetMin = Vector2.zero;
+            c1Rt.offsetMax = Vector2.zero;
+
+            List<CollectionItemData> skins = _allCollectionItems.FindAll(x => x.category == 1);
+            float skinCardW = 225f;
+            float skinGap = 16f;
+            float skinStartX = -((4 * skinCardW + 3 * skinGap) / 2f) + skinCardW / 2f;
+            for (int i = 0; i < skins.Count; i++)
+            {
+                var sItem = skins[i];
+                CreateSkinCollectionCard(cont1.transform, sItem, new Vector2(skinStartX + i * (skinCardW + skinGap), 0f), font);
+            }
+            cont1.SetActive(false);
+
+            // Container 2: 4 Arenas / Boards (2x2 grid)
+            GameObject cont2 = new GameObject("Category_Boards");
+            cont2.transform.SetParent(showcaseArea.transform, false);
+            _collectionCategoryContainers[2] = cont2;
+            RectTransform c2Rt = cont2.AddComponent<RectTransform>();
+            c2Rt.anchorMin = Vector2.zero;
+            c2Rt.anchorMax = Vector2.one;
+            c2Rt.offsetMin = Vector2.zero;
+            c2Rt.offsetMax = Vector2.zero;
+
+            List<CollectionItemData> boards = _allCollectionItems.FindAll(x => x.category == 2);
+            float[] boardColX = { -235f, 235f };
+            float[] boardRowY = { 150f, -150f };
+            for (int i = 0; i < boards.Count; i++)
+            {
+                var bItem = boards[i];
+                int col = i % 2;
+                int row = i / 2;
+                CreateWideCollectionCard(cont2.transform, bItem, new Vector2(boardColX[col], boardRowY[row]), font);
+            }
+            cont2.SetActive(false);
+
+            // Container 3: 4 Finishers / Combat FX (2x2 grid)
+            GameObject cont3 = new GameObject("Category_Effects");
+            cont3.transform.SetParent(showcaseArea.transform, false);
+            _collectionCategoryContainers[3] = cont3;
+            RectTransform c3Rt = cont3.AddComponent<RectTransform>();
+            c3Rt.anchorMin = Vector2.zero;
+            c3Rt.anchorMax = Vector2.one;
+            c3Rt.offsetMin = Vector2.zero;
+            c3Rt.offsetMax = Vector2.zero;
+
+            List<CollectionItemData> fxItems = _allCollectionItems.FindAll(x => x.category == 3);
+            for (int i = 0; i < fxItems.Count; i++)
+            {
+                var fItem = fxItems[i];
+                int col = i % 2;
+                int row = i / 2;
+                CreateWideCollectionCard(cont3.transform, fItem, new Vector2(boardColX[col], boardRowY[row]), font);
+            }
+            cont3.SetActive(false);
+
+            // Right Inspector Panel (Width 460, Height 630)
+            BuildCollectionInspectorPanel(cardObj.transform, font);
+
+            _collectionModal.SetActive(false);
+            if (_allCollectionItems.Count > 0)
+            {
+                InspectCollectionItem(_allCollectionItems[0]);
+            }
+        }
+
+        private void BuildCollectionInspectorPanel(Transform parent, Font font)
+        {
+            GameObject inspectObj = new GameObject("ArmoryInspectorPanel");
+            inspectObj.transform.SetParent(parent, false);
+
+            RectTransform iRt = inspectObj.AddComponent<RectTransform>();
+            iRt.anchorMin = new Vector2(0.5f, 0.5f);
+            iRt.anchorMax = new Vector2(0.5f, 0.5f);
+            iRt.pivot = new Vector2(0.5f, 0.5f);
+            iRt.anchoredPosition = new Vector2(495f, -25f);
+            iRt.sizeDelta = new Vector2(460f, 630f);
+
+            Image iBg = inspectObj.AddComponent<Image>();
+            iBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(460, 630, 20f, new Color(0.02f, 0.06f, 0.12f, 0.96f), ColCyanBorder, 2f);
+            iBg.type = Image.Type.Sliced;
+
+            // Inspector Header
+            CreateTextComp(inspectObj.transform, AegisLocalization.T("✦ CHI TIẾT BINH KHÍ ✦", "✦ ARMORY INSPECTOR ✦"), 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 280f), new Vector2(420f, 30f));
+
+            // Artwork Preview Frame (Width 410, Height 230)
+            GameObject frameObj = new GameObject("PreviewFrame");
+            frameObj.transform.SetParent(inspectObj.transform, false);
+            Image frameBg = frameObj.AddComponent<Image>();
+            frameBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(410, 230, 14f, new Color(0.01f, 0.03f, 0.07f, 0.95f), ColMutedBorder, 1.2f);
+            frameBg.type = Image.Type.Sliced;
+            RectTransform fRt = frameObj.GetComponent<RectTransform>();
+            fRt.anchoredPosition = new Vector2(0f, 145f);
+            fRt.sizeDelta = new Vector2(410f, 230f);
+
+            GameObject imgObj = new GameObject("Artwork");
+            imgObj.transform.SetParent(frameObj.transform, false);
+            _inspectImg = imgObj.AddComponent<Image>();
+            _inspectImg.preserveAspect = true;
+            RectTransform imgRt = imgObj.GetComponent<RectTransform>();
+            imgRt.anchorMin = Vector2.zero;
+            imgRt.anchorMax = Vector2.one;
+            imgRt.offsetMin = new Vector2(10f, 10f);
+            imgRt.offsetMax = new Vector2(-10f, -10f);
+
+            // Title
+            _inspectTitle = CreateTextComp(inspectObj.transform, "Vật phẩm", 24, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 8f), new Vector2(420f, 30f));
+            _inspectTitle.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _inspectTitle.resizeTextForBestFit = true;
+            _inspectTitle.resizeTextMinSize = 16;
+            _inspectTitle.resizeTextMaxSize = 24;
+
+            // Rarity & Type Subtitle Row
+            GameObject tagRow = new GameObject("TagRow");
+            tagRow.transform.SetParent(inspectObj.transform, false);
+            RectTransform trRt = tagRow.AddComponent<RectTransform>();
+            trRt.anchoredPosition = new Vector2(0f, -22f);
+            trRt.sizeDelta = new Vector2(420f, 26f);
+
+            _inspectRarity = CreateTextComp(tagRow.transform, "THẦN THOẠI", 16, FontStyle.Bold, ColCyanGlow, font, new Vector2(-110f, 0f), new Vector2(180f, 24f), TextAnchor.MiddleRight);
+            CreateTextComp(tagRow.transform, "•", 16, FontStyle.Bold, ColMutedBorder, font, Vector2.zero, new Vector2(20f, 24f), TextAnchor.MiddleCenter);
+            _inspectType = CreateTextComp(tagRow.transform, "Quân Cờ", 15, FontStyle.Normal, ColTextMuted, font, new Vector2(110f, 0f), new Vector2(180f, 24f), TextAnchor.MiddleLeft);
+
+            // Lore / Description Box (Width 410, Height 95)
+            GameObject descObj = new GameObject("DescBox");
+            descObj.transform.SetParent(inspectObj.transform, false);
+            Image descBg = descObj.AddComponent<Image>();
+            descBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(410, 95, 12f, new Color(0.04f, 0.08f, 0.15f, 0.85f), ColMutedBorder, 1f);
+            descBg.type = Image.Type.Sliced;
+            RectTransform dRt = descObj.GetComponent<RectTransform>();
+            dRt.anchoredPosition = new Vector2(0f, -95f);
+            dRt.sizeDelta = new Vector2(410f, 95f);
+
+            _inspectDesc = CreateTextComp(descObj.transform, "Mô tả chiến thuật...", 14, FontStyle.Normal, ColTextWhite, font, Vector2.zero, new Vector2(380f, 75f), TextAnchor.UpperLeft);
+            _inspectDesc.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _inspectDesc.verticalOverflow = VerticalWrapMode.Overflow;
+            _inspectDesc.lineSpacing = 1.2f;
+
+            // Perks Box (Width 410, Height 85)
+            GameObject perksObj = new GameObject("PerksBox");
+            perksObj.transform.SetParent(inspectObj.transform, false);
+            Image perksBg = perksObj.AddComponent<Image>();
+            perksBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(410, 85, 12f, new Color(0.04f, 0.08f, 0.15f, 0.85f), ColMutedBorder, 1f);
+            perksBg.type = Image.Type.Sliced;
+            RectTransform pkRt = perksObj.GetComponent<RectTransform>();
+            pkRt.anchoredPosition = new Vector2(0f, -195f);
+            pkRt.sizeDelta = new Vector2(410f, 85f);
+
+            CreateTextComp(perksObj.transform, AegisLocalization.T("⚡ ĐẶC TÍNH CHIẾN THUẬT", "⚡ TACTICAL PERKS"), 14, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 24f), new Vector2(380f, 22f), TextAnchor.MiddleLeft);
+            _inspectPerks = CreateTextComp(perksObj.transform, "Hiệu ứng...", 13, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -10f), new Vector2(380f, 48f), TextAnchor.UpperLeft);
+            _inspectPerks.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _inspectPerks.verticalOverflow = VerticalWrapMode.Overflow;
+            _inspectPerks.lineSpacing = 1.15f;
+
+            // Action CTA Button
+            _inspectEquipBtnObj = new GameObject("BtnActionEquip");
+            _inspectEquipBtnObj.transform.SetParent(inspectObj.transform, false);
+            _inspectEquipBtnBg = _inspectEquipBtnObj.AddComponent<Image>();
+            _inspectEquipBtnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 50, 14f, ColGoldCta, ColGoldBorder, 2f);
+            _inspectEquipBtnBg.type = Image.Type.Sliced;
+
+            _inspectEquipBtn = _inspectEquipBtnObj.AddComponent<Button>();
+            _inspectEquipBtnObj.AddComponent<MenuButtonEffect>();
+
+            RectTransform ebRt = _inspectEquipBtnObj.GetComponent<RectTransform>();
+            ebRt.anchoredPosition = new Vector2(0f, -270f);
+            ebRt.sizeDelta = new Vector2(380f, 50f);
+
+            _inspectEquipBtnTxt = CreateTextComp(_inspectEquipBtnObj.transform, AegisLocalization.T("⚔️  TRANG BỊ NGAY", "⚔️  EQUIP NOW"), 20, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(360f, 34f));
+        }
+
+        private void CreatePieceCollectionCard(Transform parent, CollectionItemData item, Vector2 pos, Font font)
+        {
+            GameObject card = new GameObject("Card_" + item.id);
+            card.transform.SetParent(parent, false);
+            item.cardObj = card;
+
+            Image bg = card.AddComponent<Image>();
+            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(290, 270, 16f, ColGlassFill, item.rarityColor, 1.5f);
+            bg.type = Image.Type.Sliced;
+            item.borderImg = bg;
+
+            Button btn = card.AddComponent<Button>();
+            btn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                InspectCollectionItem(item);
+            });
+            card.AddComponent<MenuButtonEffect>();
+
+            RectTransform rt = card.GetComponent<RectTransform>();
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(290f, 270f);
+
+            // Piece Icon Token (Enlarged 90x90)
+            GameObject tokenObj = new GameObject("Token");
+            tokenObj.transform.SetParent(card.transform, false);
+            Image tokenImg = tokenObj.AddComponent<Image>();
+            tokenImg.sprite = GetCollectionItemSprite(item);
+            tokenImg.preserveAspect = true;
+            RectTransform trt = tokenObj.GetComponent<RectTransform>();
+            trt.anchoredPosition = new Vector2(0f, 48f);
+            trt.sizeDelta = new Vector2(96f, 96f);
+
+            // Title
+            CreateTextComp(card.transform, AegisLocalization.T(item.nameVi, item.nameEn), 22, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, -24f), new Vector2(270f, 28f));
+
+            // Class / Rarity
+            CreateTextComp(card.transform, item.rarity, 14, FontStyle.Bold, item.rarityColor, font, new Vector2(0f, -50f), new Vector2(270f, 20f));
+
+            // Status Pill
+            GameObject pill = new GameObject("StatusPill");
+            pill.transform.SetParent(card.transform, false);
+            Image pImg = pill.AddComponent<Image>();
+            pImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(190, 32, 10f, new Color(0.05f, 0.20f, 0.25f, 0.95f), ColCyanGlow, 1.2f);
+            pImg.type = Image.Type.Sliced;
+            item.statusBg = pImg;
+            RectTransform prt = pill.GetComponent<RectTransform>();
+            prt.anchoredPosition = new Vector2(0f, -96f);
+            prt.sizeDelta = new Vector2(190f, 32f);
+
+            Text st = CreateTextComp(pill.transform, AegisLocalization.T("✓ ĐANG DÙNG", "✓ EQUIPPED"), 15, FontStyle.Bold, ColCyanGlow, font, Vector2.zero, new Vector2(180f, 24f));
+            item.statusText = st;
+        }
+
+        private void CreateSkinCollectionCard(Transform parent, CollectionItemData item, Vector2 pos, Font font)
+        {
+            GameObject card = new GameObject("Card_" + item.id);
+            card.transform.SetParent(parent, false);
+            item.cardObj = card;
+
+            Image bg = card.AddComponent<Image>();
+            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(225, 590, 18f, ColGlassFill, item.rarityColor, 1.5f);
+            bg.type = Image.Type.Sliced;
+            item.borderImg = bg;
+
+            Button btn = card.AddComponent<Button>();
+            btn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                InspectCollectionItem(item);
+            });
+            card.AddComponent<MenuButtonEffect>();
+
+            RectTransform rt = card.GetComponent<RectTransform>();
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(225f, 590f);
+
+            // Artwork
+            GameObject artObj = new GameObject("Artwork");
+            artObj.transform.SetParent(card.transform, false);
+            Image artImg = artObj.AddComponent<Image>();
+            artImg.sprite = GetCollectionItemSprite(item);
+            artImg.preserveAspect = false;
+            RectTransform artRt = artObj.GetComponent<RectTransform>();
+            artRt.anchorMin = new Vector2(0.5f, 1f);
+            artRt.anchorMax = new Vector2(0.5f, 1f);
+            artRt.pivot = new Vector2(0.5f, 1f);
+            artRt.anchoredPosition = new Vector2(0f, -12f);
+            artRt.sizeDelta = new Vector2(205f, 390f);
+
+            // Title
+            CreateTextComp(card.transform, AegisLocalization.T(item.nameVi, item.nameEn), 20, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, -145f), new Vector2(215f, 30f));
+
+            // Rarity Tag
+            CreateTextComp(card.transform, item.rarity, 14, FontStyle.Bold, item.rarityColor, font, new Vector2(0f, -180f), new Vector2(200f, 20f));
+
+            // Status Pill
+            GameObject pill = new GameObject("StatusPill");
+            pill.transform.SetParent(card.transform, false);
+            Image pImg = pill.AddComponent<Image>();
+            bool isEq = IsCollectionItemEquipped(item);
+            pImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(190, 36, 10f, isEq ? new Color(0.05f, 0.20f, 0.25f, 0.95f) : new Color(0.08f, 0.14f, 0.20f, 0.90f), isEq ? ColCyanGlow : ColMutedBorder, 1.2f);
+            pImg.type = Image.Type.Sliced;
+            item.statusBg = pImg;
+            RectTransform prt = pill.GetComponent<RectTransform>();
+            prt.anchoredPosition = new Vector2(0f, -240f);
+            prt.sizeDelta = new Vector2(190f, 36f);
+
+            Text st = CreateTextComp(pill.transform, isEq ? AegisLocalization.T("✓ ĐANG DÙNG", "✓ EQUIPPED") : AegisLocalization.T("ĐÃ SỞ HỮU", "OWNED"), 15, FontStyle.Bold, isEq ? ColCyanGlow : ColTextWhite, font, Vector2.zero, new Vector2(180f, 26f));
+            item.statusText = st;
+        }
+
+        private void CreateWideCollectionCard(Transform parent, CollectionItemData item, Vector2 pos, Font font)
+        {
+            GameObject card = new GameObject("Card_" + item.id);
+            card.transform.SetParent(parent, false);
+            item.cardObj = card;
+
+            Image bg = card.AddComponent<Image>();
+            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(460, 275, 16f, ColGlassFill, item.rarityColor, 1.5f);
+            bg.type = Image.Type.Sliced;
+            item.borderImg = bg;
+
+            Button btn = card.AddComponent<Button>();
+            btn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                InspectCollectionItem(item);
+            });
+            card.AddComponent<MenuButtonEffect>();
+
+            RectTransform rt = card.GetComponent<RectTransform>();
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(460f, 275f);
+
+            // Preview Image
+            GameObject artObj = new GameObject("Artwork");
+            artObj.transform.SetParent(card.transform, false);
+            Image artImg = artObj.AddComponent<Image>();
+            artImg.sprite = GetCollectionItemSprite(item);
+            artImg.preserveAspect = false;
+            RectTransform artRt = artObj.GetComponent<RectTransform>();
+            artRt.anchorMin = new Vector2(0.5f, 1f);
+            artRt.anchorMax = new Vector2(0.5f, 1f);
+            artRt.pivot = new Vector2(0.5f, 1f);
+            artRt.anchoredPosition = new Vector2(0f, -10f);
+            artRt.sizeDelta = new Vector2(440f, 155f);
+
+            // Title
+            CreateTextComp(card.transform, AegisLocalization.T(item.nameVi, item.nameEn), 22, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, -48f), new Vector2(440f, 28f));
+
+            // Rarity Tag
+            CreateTextComp(card.transform, item.rarity + " • " + AegisLocalization.T(item.typeVi, item.typeEn), 14, FontStyle.Bold, item.rarityColor, font, new Vector2(0f, -74f), new Vector2(440f, 20f));
+
+            // Status Pill
+            GameObject pill = new GameObject("StatusPill");
+            pill.transform.SetParent(card.transform, false);
+            Image pImg = pill.AddComponent<Image>();
+            bool isEq = IsCollectionItemEquipped(item);
+            Color fillCol = isEq ? new Color(0.05f, 0.20f, 0.25f, 0.95f) : (item.isOwned ? new Color(0.08f, 0.14f, 0.20f, 0.90f) : new Color(0.20f, 0.05f, 0.05f, 0.90f));
+            Color borderCol = isEq ? ColCyanGlow : (item.isOwned ? ColMutedBorder : new Color(0.8f, 0.3f, 0.3f));
+            pImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(210, 32, 10f, fillCol, borderCol, 1.2f);
+            pImg.type = Image.Type.Sliced;
+            item.statusBg = pImg;
+            RectTransform prt = pill.GetComponent<RectTransform>();
+            prt.anchoredPosition = new Vector2(0f, -112f);
+            prt.sizeDelta = new Vector2(210f, 32f);
+
+            string sTxt = isEq ? AegisLocalization.T("✓ ĐANG DÙNG", "✓ EQUIPPED") : (item.isOwned ? AegisLocalization.T("ĐÃ SỞ HỮU", "OWNED") : AegisLocalization.T("🔒 CHƯA MỞ", "🔒 LOCKED"));
+            Color tCol = isEq ? ColCyanGlow : (item.isOwned ? ColTextWhite : new Color(0.9f, 0.4f, 0.4f));
+            Text st = CreateTextComp(pill.transform, sTxt, 15, FontStyle.Bold, tCol, font, Vector2.zero, new Vector2(200f, 24f));
+            item.statusText = st;
+        }
+
+        private void SwitchCollectionTab(int tabIndex)
+        {
+            if (_selectedCollectionTab != tabIndex) AegisAudioManager.PlayTabSwitch();
+            _selectedCollectionTab = tabIndex;
+            Sprite activeSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_active.png");
+            Sprite inactiveSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_inactive.png");
+
+            for (int i = 0; i < _collectionTabBgs.Length; i++)
+            {
+                if (_collectionTabBgs[i] != null)
+                {
+                    _collectionTabBgs[i].sprite = (i == tabIndex) ? activeSprite : inactiveSprite;
+                }
+                if (_collectionTabTexts[i] != null)
+                {
+                    _collectionTabTexts[i].color = (i == tabIndex) ? ColCyanGlow : ColTextWhite;
+                    _collectionTabTexts[i].fontStyle = (i == tabIndex) ? FontStyle.Bold : FontStyle.Normal;
+                }
+                if (_collectionCategoryContainers[i] != null)
+                {
+                    _collectionCategoryContainers[i].SetActive(i == tabIndex);
+                }
+            }
+
+            CollectionItemData firstInTab = _allCollectionItems.Find(x => x.category == tabIndex);
+            if (firstInTab != null)
+            {
+                InspectCollectionItem(firstInTab);
+            }
+        }
+
+        private void InspectCollectionItem(CollectionItemData item)
+        {
+            if (item == null) return;
+            _inspectedItem = item;
+
+            if (_inspectTitle != null) _inspectTitle.text = AegisLocalization.T(item.nameVi, item.nameEn);
+            if (_inspectRarity != null)
+            {
+                _inspectRarity.text = item.rarity;
+                _inspectRarity.color = item.rarityColor;
+            }
+            if (_inspectType != null) _inspectType.text = AegisLocalization.T(item.typeVi, item.typeEn);
+            if (_inspectDesc != null) _inspectDesc.text = AegisLocalization.T(item.descVi, item.descEn);
+            if (_inspectPerks != null) _inspectPerks.text = AegisLocalization.T(item.perksVi, item.perksEn);
+
+            if (_inspectImg != null)
+            {
+                Sprite sp = GetCollectionItemSprite(item);
+                if (sp != null)
+                {
+                    _inspectImg.sprite = sp;
+                    _inspectImg.color = Color.white;
+                    _inspectImg.preserveAspect = true;
+                }
+            }
+
+            bool equipped = IsCollectionItemEquipped(item);
+            if (_inspectEquipBtn != null && _inspectEquipBtnTxt != null && _inspectEquipBtnBg != null)
+            {
+                _inspectEquipBtn.onClick.RemoveAllListeners();
+
+                if (equipped)
+                {
+                    _inspectEquipBtnTxt.text = AegisLocalization.T("✓ ĐANG TRANG BỊ", "✓ EQUIPPED");
+                    _inspectEquipBtnTxt.color = ColCyanGlow;
+                    _inspectEquipBtnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 50, 14f, new Color(0.06f, 0.16f, 0.22f, 0.95f), ColCyanBorder, 2f);
+                    _inspectEquipBtn.interactable = false;
+                }
+                else if (item.isOwned)
+                {
+                    _inspectEquipBtnTxt.text = AegisLocalization.T("⚔️  TRANG BỊ NGAY", "⚔️  EQUIP NOW");
+                    _inspectEquipBtnTxt.color = ColDarkBtnText;
+                    _inspectEquipBtnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 50, 14f, ColGoldCta, ColGoldBorder, 2f);
+                    _inspectEquipBtn.interactable = true;
+                    _inspectEquipBtn.onClick.AddListener(() => EquipCollectionItem(item));
+                }
+                else
+                {
+                    _inspectEquipBtnTxt.text = AegisLocalization.T("🛒  XEM TRONG CỬA HÀNG", "🛒  VIEW IN SHOP");
+                    _inspectEquipBtnTxt.color = Color.white;
+                    _inspectEquipBtnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 50, 14f, new Color(0.20f, 0.12f, 0.05f, 0.95f), ColGoldBorder, 1.5f);
+                    _inspectEquipBtn.interactable = true;
+                    _inspectEquipBtn.onClick.AddListener(() =>
+                    {
+                        CloseModal(_collectionModal);
+                        OpenShopModal();
+                    });
+                }
+            }
+        }
+
+        private void EquipCollectionItem(CollectionItemData item)
+        {
+            if (item == null || string.IsNullOrEmpty(item.prefsKey)) return;
+
+            PlayerPrefs.SetString(item.prefsKey, item.nameVi);
+            PlayerPrefs.Save();
+            AegisAudioManager.PlayButtonClick();
+
+            string toastMsg = AegisLocalization.T($"Đã trang bị: {item.nameVi}!", $"Equipped: {item.nameEn}!");
+            ShowToast(toastMsg, ToastType.Success);
+
+            RefreshCollectionUI();
+            InspectCollectionItem(item);
+        }
+
+        public void RefreshCollectionUI()
+        {
+            if (_collectionGoldTxt != null) _collectionGoldTxt.text = _currentGold.ToString();
+
+            int total = _allCollectionItems.Count;
+            int owned = 0;
+            for (int i = 0; i < _allCollectionItems.Count; i++)
+            {
+                if (_allCollectionItems[i].isOwned) owned++;
+            }
+
+            int percent = total > 0 ? (int)((float)owned / total * 100f) : 0;
+            if (_collectionProgressTxt != null)
+            {
+                _collectionProgressTxt.text = AegisLocalization.T($"SỞ HỮU: {owned} / {total} ({percent}%)", $"OWNED: {owned} / {total} ({percent}%)");
+            }
+
+            if (_collectionProgressBarFill != null)
+            {
+                float ratio = total > 0 ? Mathf.Clamp01((float)owned / total) : 0f;
+                _collectionProgressBarFill.sizeDelta = new Vector2(180f * ratio, 6f);
+            }
+
+            for (int i = 0; i < _allCollectionItems.Count; i++)
+            {
+                var itm = _allCollectionItems[i];
+                if (itm.statusText == null) continue;
+
+                bool isEq = IsCollectionItemEquipped(itm);
+                if (isEq)
+                {
+                    itm.statusText.text = AegisLocalization.T("✓ ĐANG DÙNG", "✓ EQUIPPED");
+                    itm.statusText.color = ColCyanGlow;
+                    if (itm.statusBg != null) itm.statusBg.color = new Color(0.05f, 0.20f, 0.25f, 0.95f);
+                    if (itm.borderImg != null) itm.borderImg.color = ColCyanGlow;
+                }
+                else if (itm.isOwned)
+                {
+                    itm.statusText.text = AegisLocalization.T("ĐÃ SỞ HỮU", "OWNED");
+                    itm.statusText.color = ColTextWhite;
+                    if (itm.statusBg != null) itm.statusBg.color = new Color(0.08f, 0.14f, 0.20f, 0.90f);
+                    if (itm.borderImg != null) itm.borderImg.color = itm.rarityColor;
+                }
+                else
+                {
+                    itm.statusText.text = AegisLocalization.T("🔒 CHƯA MỞ", "🔒 LOCKED");
+                    itm.statusText.color = new Color(0.9f, 0.4f, 0.4f);
+                    if (itm.statusBg != null) itm.statusBg.color = new Color(0.20f, 0.05f, 0.05f, 0.90f);
+                    if (itm.borderImg != null) itm.borderImg.color = ColMutedBorder;
+                }
+            }
+
+            if (_inspectedItem != null)
+            {
+                InspectCollectionItem(_inspectedItem);
+            }
+        }
+
+        // =========================================================================
         // SCREEN 10: TẠM DỪNG (Pause Modal)
         // =========================================================================
         private void BuildScreen10Pause(Transform parent, Font font)
@@ -4328,6 +5984,10 @@ namespace MechChess.UI
 
         private void ReturnToMainMenuFromPause()
         {
+            if (MechChess.AR.HybridARController.Instance != null)
+            {
+                MechChess.AR.HybridARController.Instance.TurnOffCamera();
+            }
             if (_menuCanvasObj != null)
             {
                 Canvas c = _menuCanvasObj.GetComponent<Canvas>();
@@ -4584,6 +6244,12 @@ namespace MechChess.UI
         {
             if (_resultScreenModal == null) return;
 
+            // Automatically turn off camera when match finishes
+            if (MechChess.AR.HybridARController.Instance != null)
+            {
+                MechChess.AR.HybridARController.Instance.TurnOffCamera();
+            }
+
             // 1. Activate Canvas and raise sortingOrder above in-game HUD (100)
             if (_menuCanvasObj != null)
             {
@@ -4628,12 +6294,18 @@ namespace MechChess.UI
                 _resultEloTxt.text = isDraw ? "<color=#80d8ff>Elo +0</color>" : (victory ? "<color=#00e676>Elo +12</color>" : "<color=#ff5252>Elo -8</color>");
             }
 
-            // Securely record match result to Supabase database via FastAPI
-            if (UserAccountManager.Instance != null && UserAccountManager.Instance.IsLoggedIn)
+            // Securely record match result to Supabase database via FastAPI and local storage
+            string matchRes = isDraw ? "draw" : (victory ? "win" : "loss");
+            bool isAi = (_lastLaunchMode == GameLaunchMode.VersusAI);
+            string oppName = isAi
+                ? (_selectedAIDifficulty == 1 ? "Cyber AI (Dễ)" :
+                   _selectedAIDifficulty == 2 ? "Cyber AI (Trung bình)" :
+                   _selectedAIDifficulty == 3 ? "Cyber AI (Khó)" : "Cyber AI (Rất khó)")
+                : "VS Player (Online)";
+
+            if (UserAccountManager.Instance != null)
             {
-                string matchRes = isDraw ? "draw" : (victory ? "win" : "loss");
-                string oppName = "Cyber AI";
-                UserAccountManager.Instance.RecordMatchResult(matchRes, oppName, true, "white", moves, durationSec, (ok, res) =>
+                UserAccountManager.Instance.RecordMatchResult(matchRes, oppName, isAi, "white", moves, durationSec, (ok, res) =>
                 {
                     if (ok && res != null)
                     {
@@ -4643,8 +6315,8 @@ namespace MechChess.UI
                             string colorHex = res.elo_change > 0 ? "#00e676" : (res.elo_change < 0 ? "#ff5252" : "#80d8ff");
                             _resultEloTxt.text = $"<color={colorHex}>Elo {sign}{res.elo_change}</color> (Tổng: {res.new_elo})";
                         }
-                        UpdateUserProfileUI();
                     }
+                    UpdateUserProfileUI();
                 });
             }
 
@@ -4830,27 +6502,26 @@ namespace MechChess.UI
                 CreateTextComp(statsCard.transform, statHeaders[i], 21, FontStyle.Bold, new Color(0.80f, 0.88f, 0.98f), font, new Vector2(colX[i], 78f), new Vector2(110f, 30f), TextAnchor.MiddleCenter);
             }
 
-            // Row 1: Elo (Cyan 32 Bold), Wins (White 28 Bold), Losses (White 28 Bold), Draw Icon
-            int currentElo = 1250;
+            // Row 1: Đấu Online (PvP) - Elo, Thắng, Thua, Hòa
+            int currentElo = 1200;
             if (UserAccountManager.Instance != null && UserAccountManager.Instance.CurrentElo > 0)
                 currentElo = UserAccountManager.Instance.CurrentElo;
-            _profileModalEloComp = CreateTextComp(statsCard.transform, currentElo.ToString(), 32, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[0], 28f), new Vector2(110f, 40f), TextAnchor.MiddleCenter);
-            _profileModalWinsComp = CreateTextComp(statsCard.transform, "0", 28, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], 28f), new Vector2(110f, 38f), TextAnchor.MiddleCenter);
-            _profileModalLossesComp = CreateTextComp(statsCard.transform, "0", 28, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], 28f), new Vector2(110f, 38f), TextAnchor.MiddleCenter);
 
-            // Draw Icon (profile_draw_icon.png)
-            GameObject drawIconObj = new GameObject("DrawIcon");
-            drawIconObj.transform.SetParent(statsCard.transform, false);
-            Image drawIconImg = drawIconObj.AddComponent<Image>();
-            Sprite drawSp = ArcaneAssetLoader.LoadArcaneSprite("profile_draw_icon.png");
-            if (drawSp != null) drawIconImg.sprite = drawSp;
-            else drawIconImg.color = ColCyanGlow;
-            drawIconImg.preserveAspect = true;
-            RectTransform diRt = drawIconObj.GetComponent<RectTransform>();
-            diRt.anchoredPosition = new Vector2(colX[3], 28f);
-            diRt.sizeDelta = new Vector2(36f, 36f);
+            // Col 0: Elo + Subtitle "Đấu Online"
+            _profileModalEloComp = CreateTextComp(statsCard.transform, currentElo.ToString(), 30, FontStyle.Bold, ColGoldBorder, font, new Vector2(colX[0], 36f), new Vector2(110f, 32f), TextAnchor.MiddleCenter);
+            _profileModalSubPvpLabel = CreateTextComp(statsCard.transform, AegisLocalization.T("Đấu Online", "Online PvP"), 13, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[0], 12f), new Vector2(110f, 18f), TextAnchor.MiddleCenter);
 
-            // Row 2: Rank Crest, 12 (White 26 Bold), 8 (Cyan 26 Bold), Draws (White 26 Bold)
+            // Col 1, 2, 3: Thắng, Thua, Hòa Online
+            _profileModalPvpWinsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], 26f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalPvpLossesComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], 26f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalPvpDrawsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], 26f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+
+            _profileModalWinsComp = _profileModalPvpWinsComp;
+            _profileModalLossesComp = _profileModalPvpLossesComp;
+            _profileModalDrawsComp = _profileModalPvpDrawsComp;
+
+            // Row 2: Đấu Với Máy (Vs AI) - Crest + Tier, Thắng, Thua, Hòa
+            // Col 0: Rank Crest Icon + Subtitle "Đấu Với Máy"
             GameObject rankCrestObj = new GameObject("RankCrest");
             rankCrestObj.transform.SetParent(statsCard.transform, false);
             Image rankCrestImg = rankCrestObj.AddComponent<Image>();
@@ -4859,11 +6530,15 @@ namespace MechChess.UI
             else rankCrestImg.color = ColCyanGlow;
             rankCrestImg.preserveAspect = true;
             RectTransform rcRt = rankCrestObj.GetComponent<RectTransform>();
-            rcRt.anchoredPosition = new Vector2(colX[0], -62f);
-            rcRt.sizeDelta = new Vector2(38f, 38f);
+            rcRt.anchoredPosition = new Vector2(colX[0], -50f);
+            rcRt.sizeDelta = new Vector2(30f, 30f);
 
-            CreateTextComp(statsCard.transform, "12", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
-            _profileModalDrawsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalRankTierComp = CreateTextComp(statsCard.transform, AegisLocalization.T("Đấu Với Máy", "Vs Computer"), 13, FontStyle.Bold, new Color(0.80f, 0.88f, 0.98f), font, new Vector2(colX[0], -74f), new Vector2(110f, 18f), TextAnchor.MiddleCenter);
+
+            // Col 1, 2, 3: Thắng, Thua, Hòa Máy
+            _profileModalAiWinsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalAiLossesComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalAiDrawsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
 
             // Switch Account / Logout Button
             CreateMenuActionButton(
@@ -4982,64 +6657,8 @@ namespace MechChess.UI
                 rdrt.sizeDelta = new Vector2(560f, 1.5f);
             }
 
-            // 3 Match Rows matching Image 2 exactly:
-            // Row 0: Silver mech crest | VS AI | 1 - 0 | 10/10/2026
-            // Row 1: Red circle avatar | VS Player | 0 - 1 | 08/10/2026
-            // Row 2: Blue circle avatar | VS AI | 1 - 0 | 05/10/2026
-            string[] opponents = { "VS AI", "VS Player", "VS AI" };
-            string[] rowIcons = { "profile_vs_ai_icon.png", "profile_vs_player_icon.png", "profile_vs_ai_round.png" };
-            string[] dates = { "10/10/2026", "08/10/2026", "05/10/2026" };
-
-            float[] rowY = { 90f, -15f, -115f };
-            for (int i = 0; i < 3; i++)
-            {
-                GameObject rowObj = new GameObject("Row_" + i);
-                rowObj.transform.SetParent(historyContainer.transform, false);
-                RectTransform rRt = rowObj.AddComponent<RectTransform>();
-                rRt.anchoredPosition = new Vector2(0f, rowY[i]);
-                rRt.sizeDelta = new Vector2(570f, 80f);
-
-                // Row Icon
-                GameObject rIconObj = new GameObject("Icon");
-                rIconObj.transform.SetParent(rowObj.transform, false);
-                Image rIconImg = rIconObj.AddComponent<Image>();
-                Sprite icSp = ArcaneAssetLoader.LoadArcaneSprite(rowIcons[i]);
-                if (icSp != null) rIconImg.sprite = icSp;
-                else rIconImg.color = ColCyanGlow;
-                rIconImg.preserveAspect = true;
-                RectTransform riRt = rIconObj.GetComponent<RectTransform>();
-                riRt.anchoredPosition = new Vector2(-240f, 0f);
-                riRt.sizeDelta = new Vector2(44f, 44f);
-
-                // Opponent Name (Bold 24)
-                CreateTextComp(rowObj.transform, opponents[i], 24, FontStyle.Bold, ColTextWhite, font, new Vector2(-125f, 0f), new Vector2(190f, 34f), TextAnchor.MiddleLeft);
-
-                // Score (Bold 28)
-                if (i == 1)
-                {
-                    // Loss score: 0 - 1 (1 in bright red)
-                    GameObject scoreObj = new GameObject("Score");
-                    scoreObj.transform.SetParent(rowObj.transform, false);
-                    Text scoreTxt = scoreObj.AddComponent<Text>();
-                    scoreTxt.text = "0 - <color=#FF4444>1</color>";
-                    scoreTxt.font = font;
-                    scoreTxt.fontSize = 28;
-                    scoreTxt.fontStyle = FontStyle.Bold;
-                    scoreTxt.alignment = TextAnchor.MiddleCenter;
-                    scoreTxt.color = ColTextWhite;
-                    scoreTxt.supportRichText = true;
-                    RectTransform sRt = scoreObj.GetComponent<RectTransform>();
-                    sRt.anchoredPosition = new Vector2(35f, 0f);
-                    sRt.sizeDelta = new Vector2(120f, 38f);
-                }
-                else
-                {
-                    CreateTextComp(rowObj.transform, "1 - 0", 28, FontStyle.Bold, ColTextWhite, font, new Vector2(35f, 0f), new Vector2(120f, 38f), TextAnchor.MiddleCenter);
-                }
-
-                // Date (Normal 19)
-                CreateTextComp(rowObj.transform, dates[i], 19, FontStyle.Normal, new Color(0.75f, 0.85f, 0.98f), font, new Vector2(205f, 0f), new Vector2(140f, 32f), TextAnchor.MiddleRight);
-            }
+            // Real dynamic match rows populated directly from player history
+            LoadDynamicMatchHistory();
 
             // Tab 1 Content: Achievements (Thành tích)
             GameObject achContainer = new GameObject("Tab1_Achievements");
@@ -5089,6 +6708,24 @@ namespace MechChess.UI
             {
                 CreateTextComp(skinTabContainer.transform, "🛡  " + ownedSkins[i], 21, FontStyle.Bold, ColTextWhite, font, new Vector2(-110f, 80f - i * 80f), new Vector2(370f, 34f), TextAnchor.MiddleLeft);
             }
+
+            GameObject openColBtnObj = new GameObject("BtnOpenFullCollection");
+            openColBtnObj.transform.SetParent(skinTabContainer.transform, false);
+            Image ocBg = openColBtnObj.AddComponent<Image>();
+            ocBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 46, 12f, ColGoldCta, ColGoldBorder, 1.5f);
+            ocBg.type = Image.Type.Sliced;
+            Button ocBtn = openColBtnObj.AddComponent<Button>();
+            ocBtn.onClick.AddListener(() =>
+            {
+                CloseModal(_profileModal);
+                OpenCollectionModal();
+            });
+            openColBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform ocRt = openColBtnObj.GetComponent<RectTransform>();
+            ocRt.anchoredPosition = new Vector2(0f, -130f);
+            ocRt.sizeDelta = new Vector2(380f, 46f);
+            CreateTextComp(openColBtnObj.transform, AegisLocalization.T("🛡️  MỞ KHO BỘ SƯU TẬP TOÀN DIỆN", "🛡️  OPEN FULL COLLECTION"), 18, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(360f, 30f));
+
             skinTabContainer.SetActive(false);
 
             _profileModal.SetActive(false);
@@ -5516,10 +7153,164 @@ namespace MechChess.UI
 
         private void OpenOnlineMatchChoiceModal()
         {
-            ShowConfirmDialog(AegisLocalization.T("CHẾ ĐỘ ĐẤU ONLINE", "ONLINE MULTIPLAYER"), AegisLocalization.T("Bạn muốn ghép trận ngẫu nhiên (Ranked) hay Thách đấu bạn bè?", "Do you want Ranked Matchmaking or Friend Duel?"), () =>
+            OpenOnlineChoiceModal();
+        }
+
+        public void OpenOnlineChoiceModal()
+        {
+            if (_onlineChoiceModal == null)
             {
                 ShowMatchmakingModal();
+                return;
+            }
+            if (_onlineServerInfoTxt != null)
+            {
+                string host = OnlineMultiplayerManager.GetCurrentServerHost();
+                _onlineServerInfoTxt.text = AegisLocalization.T($"🌐 Máy chủ: <b><color=#00e5ff>{host}</color></b>", $"🌐 Server: <b><color=#00e5ff>{host}</color></b>");
+            }
+            _onlineChoiceModal.SetActive(true);
+            AegisAudioManager.PlayModalOpen();
+        }
+
+        private void BuildOnlineChoiceModal(Transform parent, Font font)
+        {
+            _onlineChoiceModal = CreateModalOverlay(parent, "OnlineChoiceModalOverlay");
+
+            GameObject cardObj = new GameObject("OnlineChoiceCard");
+            cardObj.transform.SetParent(_onlineChoiceModal.transform, false);
+
+            Image cardImg = cardObj.AddComponent<Image>();
+            cardImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(620, 480, 24f, ColGlassFill, ColCyanBorder, 2f);
+            cardImg.type = Image.Type.Sliced;
+
+            RectTransform cardRt = cardObj.GetComponent<RectTransform>();
+            cardRt.anchoredPosition = Vector2.zero;
+            cardRt.sizeDelta = new Vector2(620f, 480f);
+
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("ĐẤU TRƯỜNG ONLINE MULTIPLAYER", "ONLINE MULTIPLAYER ARENA"), () => _onlineChoiceModal.SetActive(false), font);
+
+            // Server Address bar
+            GameObject sBox = new GameObject("ServerBar");
+            sBox.transform.SetParent(cardObj.transform, false);
+            Image sBg = sBox.AddComponent<Image>();
+            sBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(540, 42, 10f, new Color(0.04f, 0.10f, 0.18f, 0.90f), ColMutedBorder, 1.2f);
+            sBg.type = Image.Type.Sliced;
+            RectTransform sRt = sBox.GetComponent<RectTransform>();
+            sRt.anchoredPosition = new Vector2(0f, 150f);
+            sRt.sizeDelta = new Vector2(540f, 42f);
+
+            _onlineServerInfoTxt = CreateTextComp(sBox.transform, AegisLocalization.T($"🌐 Máy chủ: <b><color=#00e5ff>{OnlineMultiplayerManager.GetCurrentServerHost()}</color></b>", $"🌐 Server: <b><color=#00e5ff>{OnlineMultiplayerManager.GetCurrentServerHost()}</color></b>"), 15, FontStyle.Normal, ColTextWhite, font, new Vector2(-60f, 0f), new Vector2(380f, 32f), TextAnchor.MiddleLeft);
+
+            CreateMenuActionButton(sBox.transform, "BtnChangeIp", AegisLocalization.T("⚙️ ĐỔI IP", "⚙️ EDIT IP"), new Vector2(205f, 0f), new Vector2(100f, 32f), ColCyanBorder, ColDarkBtnText, 14, () =>
+            {
+                OpenServerIpModal();
+            }, font, ColCyanGlow, 1.2f);
+
+            // Ranked Matchmaking Button (Big Card)
+            GameObject rBtnObj = new GameObject("BtnRanked");
+            rBtnObj.transform.SetParent(cardObj.transform, false);
+            Image rImg = rBtnObj.AddComponent<Image>();
+            rImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(540, 95, 14f, new Color(0.12f, 0.18f, 0.10f, 0.90f), ColGoldBorder, 1.5f);
+            rImg.type = Image.Type.Sliced;
+            Button rBtn = rBtnObj.AddComponent<Button>();
+            rBtn.onClick.AddListener(() =>
+            {
+                _onlineChoiceModal.SetActive(false);
+                ShowMatchmakingModal();
             });
+            rBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform rRt = rBtnObj.GetComponent<RectTransform>();
+            rRt.anchoredPosition = new Vector2(0f, 60f);
+            rRt.sizeDelta = new Vector2(540f, 95f);
+
+            CreateTextComp(rBtnObj.transform, AegisLocalization.T("⚔️  GHÉP ĐẤU XẾP HẠNG (RANKED)", "⚔️  RANKED MATCHMAKING"), 20, FontStyle.Bold, ColGoldCta, font, new Vector2(0f, 16f), new Vector2(500f, 28f), TextAnchor.MiddleCenter);
+            CreateTextComp(rBtnObj.transform, AegisLocalization.T("Tự động tìm đối thủ online có mức Rank & Elo tương đồng", "Auto-match with online opponents with similar Elo & Rank"), 14, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -14f), new Vector2(500f, 22f), TextAnchor.MiddleCenter);
+
+            // Friend Duel Button (Big Card)
+            GameObject fBtnObj = new GameObject("BtnFriend");
+            fBtnObj.transform.SetParent(cardObj.transform, false);
+            Image fImg = fBtnObj.AddComponent<Image>();
+            fImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(540, 95, 14f, new Color(0.06f, 0.14f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
+            fImg.type = Image.Type.Sliced;
+            Button fBtn = fBtnObj.AddComponent<Button>();
+            fBtn.onClick.AddListener(() =>
+            {
+                _onlineChoiceModal.SetActive(false);
+                ShowFriendModal();
+            });
+            fBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform fRt = fBtnObj.GetComponent<RectTransform>();
+            fRt.anchoredPosition = new Vector2(0f, -50f);
+            fRt.sizeDelta = new Vector2(540f, 95f);
+
+            CreateTextComp(fBtnObj.transform, AegisLocalization.T("👥  THÁCH ĐẤU BẠN BÈ (FRIEND DUEL)", "👥  CHALLENGE FRIEND (DUEL)"), 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 16f), new Vector2(500f, 28f), TextAnchor.MiddleCenter);
+            CreateTextComp(fBtnObj.transform, AegisLocalization.T("Xem người chơi trực tuyến hoặc nhập tên tài khoản để mời", "View online players or invite directly by player username"), 14, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -14f), new Vector2(500f, 22f), TextAnchor.MiddleCenter);
+
+            // LAN / Multi-device Tip
+            CreateTextComp(cardObj.transform, AegisLocalization.T("💡 Để chơi 2 máy: Bật backend (start-backend.bat) trên Máy 1, máy 2 bấm 'ĐỔI IP' nhập IPv4 của Máy 1.", "💡 2-Device play: Run start-backend.bat on PC 1, on PC 2 click 'EDIT IP' and enter PC 1's IPv4."), 13, FontStyle.Italic, new Color(0.70f, 0.85f, 0.95f, 0.85f), font, new Vector2(0f, -130f), new Vector2(540f, 36f), TextAnchor.MiddleCenter);
+
+            // Close Button
+            CreateMenuActionButton(cardObj.transform, "BtnCloseChoice", AegisLocalization.T("ĐÓNG", "CLOSE"), new Vector2(0f, -190f), new Vector2(160f, 44f), ColGlassFill, ColTextMuted, 16, () => _onlineChoiceModal.SetActive(false), font, ColMutedBorder, 1.2f);
+
+            _onlineChoiceModal.SetActive(false);
+        }
+
+        public void OpenServerIpModal()
+        {
+            if (_serverIpConfigModal == null) return;
+            if (_serverIpInput != null)
+            {
+                _serverIpInput.text = OnlineMultiplayerManager.GetCurrentServerHost();
+            }
+            _serverIpConfigModal.SetActive(true);
+            AegisAudioManager.PlayModalOpen();
+        }
+
+        private void BuildServerIpConfigModal(Transform parent, Font font)
+        {
+            _serverIpConfigModal = CreateModalOverlay(parent, "ServerIpConfigModalOverlay");
+
+            GameObject cardObj = new GameObject("ServerIpCard");
+            cardObj.transform.SetParent(_serverIpConfigModal.transform, false);
+
+            Image cardImg = cardObj.AddComponent<Image>();
+            cardImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(540, 360, 20f, ColGlassFill, ColCyanBorder, 2f);
+            cardImg.type = Image.Type.Sliced;
+
+            RectTransform cardRt = cardObj.GetComponent<RectTransform>();
+            cardRt.anchoredPosition = Vector2.zero;
+            cardRt.sizeDelta = new Vector2(540f, 360f);
+
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("CẤU HÌNH MÁY CHỦ ONLINE", "CONFIGURE ONLINE SERVER"), () => _serverIpConfigModal.SetActive(false), font);
+
+            CreateTextComp(cardObj.transform, AegisLocalization.T("Nhập IP và Port của máy chủ Backend:\n(Ví dụ: 192.168.1.15:8000 hoặc ngrok/domain Internet)", "Enter Backend Server IP and Port:\n(E.g.: 192.168.1.15:8000 or ngrok/domain)"), 15, FontStyle.Normal, ColTextWhite, font, new Vector2(0f, 75f), new Vector2(480f, 46f), TextAnchor.MiddleCenter);
+
+            _serverIpInput = CreateInputField(cardObj.transform, "ServerIpInput", "192.168.1.x:8000...", new Vector2(0f, 15f), new Vector2(460f, 48f), font);
+            _serverIpInput.text = OnlineMultiplayerManager.GetCurrentServerHost();
+
+            CreateMenuActionButton(cardObj.transform, "BtnSaveServerIp", AegisLocalization.T("LƯU & KẾT NỐI", "SAVE & CONNECT"), new Vector2(120f, -80f), new Vector2(200f, 48f), ColGoldCta, ColDarkBtnText, 17, () =>
+            {
+                string target = _serverIpInput != null ? _serverIpInput.text.Trim() : "";
+                if (string.IsNullOrEmpty(target)) target = "localhost:8000";
+
+                if (OnlineMultiplayerManager.Instance != null)
+                {
+                    OnlineMultiplayerManager.Instance.SetServerHost(target);
+                }
+                if (_onlineServerInfoTxt != null)
+                {
+                    _onlineServerInfoTxt.text = AegisLocalization.T($"🌐 Máy chủ: <b><color=#00e5ff>{OnlineMultiplayerManager.GetCurrentServerHost()}</color></b>", $"🌐 Server: <b><color=#00e5ff>{OnlineMultiplayerManager.GetCurrentServerHost()}</color></b>");
+                }
+                ShowToast(AegisLocalization.T($"Đã đổi máy chủ: {target}", $"Server changed: {target}"), ToastType.Success);
+                _serverIpConfigModal.SetActive(false);
+            }, font, ColGoldBorder, 1.5f);
+
+            CreateMenuActionButton(cardObj.transform, "BtnCancelServerIp", AegisLocalization.T("HỦY", "CANCEL"), new Vector2(-120f, -80f), new Vector2(160f, 48f), ColGlassFill, ColTextMuted, 17, () =>
+            {
+                _serverIpConfigModal.SetActive(false);
+            }, font, ColMutedBorder, 1.2f);
+
+            _serverIpConfigModal.SetActive(false);
         }
 
         private void ShowMatchmakingModal()
@@ -5956,6 +7747,7 @@ namespace MechChess.UI
                    (_settingsModal != null && _settingsModal.activeSelf) ||
                    (_tutorialModal != null && _tutorialModal.activeSelf) ||
                    (_shopModal != null && _shopModal.activeSelf) ||
+                   (_collectionModal != null && _collectionModal.activeSelf) ||
                    (_pauseModal != null && _pauseModal.activeSelf) ||
                    (_resultScreenModal != null && _resultScreenModal.activeSelf) ||
                    (_profileModal != null && _profileModal.activeSelf) ||
@@ -6029,6 +7821,7 @@ namespace MechChess.UI
             if (!_isInGameMatch) EnsureBaseScreenActive();
             if (_aiDifficultyModal != null)
             {
+                SetAITimeDropdownOpen(false);
                 _aiDifficultyModal.SetActive(true);
                 AegisAudioManager.PlayModalOpen();
             }
@@ -6608,9 +8401,6 @@ namespace MechChess.UI
             int level = profile != null ? profile.level : 1;
             int exp = profile != null ? profile.exp : 0;
             int maxExp = profile != null ? Mathf.Max(100, profile.max_exp) : 100;
-            int wins = profile != null ? profile.wins : 0;
-            int losses = profile != null ? profile.losses : 0;
-            int draws = profile != null ? profile.draws : 0;
 
             if (_profileNameTxt != null) _profileNameTxt.text = username;
             if (_profileLevelTxt != null) _profileLevelTxt.text = $"Lv. {level} • Elo {elo}";
@@ -6623,50 +8413,79 @@ namespace MechChess.UI
                 float ratio = Mathf.Clamp01((float)exp / maxExp);
                 _profileModalExpFillRt.sizeDelta = new Vector2(180f * ratio, 16f);
             }
+
+            int pvpWins = UserAccountManager.Instance != null ? UserAccountManager.Instance.PvpWins : 0;
+            int pvpLosses = UserAccountManager.Instance != null ? UserAccountManager.Instance.PvpLosses : 0;
+            int pvpDraws = UserAccountManager.Instance != null ? UserAccountManager.Instance.PvpDraws : 0;
+
+            int aiWins = UserAccountManager.Instance != null ? UserAccountManager.Instance.AiWins : 0;
+            int aiLosses = UserAccountManager.Instance != null ? UserAccountManager.Instance.AiLosses : 0;
+            int aiDraws = UserAccountManager.Instance != null ? UserAccountManager.Instance.AiDraws : 0;
+
+            // Fallback sync if account has wins/losses from profile
+            if (profile != null && (pvpWins + aiWins == 0) && profile.wins > 0)
+            {
+                aiWins = profile.wins;
+            }
+            if (profile != null && (pvpLosses + aiLosses == 0) && profile.losses > 0)
+            {
+                pvpLosses = profile.losses;
+            }
+
+            // Row 1 (Online PvP)
             if (_profileModalEloComp != null) _profileModalEloComp.text = elo.ToString();
-            if (_profileModalWinsComp != null) _profileModalWinsComp.text = wins.ToString();
-            if (_profileModalLossesComp != null) _profileModalLossesComp.text = losses.ToString();
-            if (_profileModalDrawsComp != null) _profileModalDrawsComp.text = draws.ToString();
+            if (_profileModalPvpWinsComp != null) _profileModalPvpWinsComp.text = pvpWins.ToString();
+            if (_profileModalPvpLossesComp != null) _profileModalPvpLossesComp.text = pvpLosses.ToString();
+            if (_profileModalPvpDrawsComp != null) _profileModalPvpDrawsComp.text = pvpDraws.ToString();
+
+            // Row 2 (Vs AI)
+            if (_profileModalAiWinsComp != null) _profileModalAiWinsComp.text = aiWins.ToString();
+            if (_profileModalAiLossesComp != null) _profileModalAiLossesComp.text = aiLosses.ToString();
+            if (_profileModalAiDrawsComp != null) _profileModalAiDrawsComp.text = aiDraws.ToString();
+
+            // Compatibility
+            if (_profileModalWinsComp != null) _profileModalWinsComp.text = pvpWins.ToString();
+            if (_profileModalLossesComp != null) _profileModalLossesComp.text = pvpLosses.ToString();
+            if (_profileModalDrawsComp != null) _profileModalDrawsComp.text = pvpDraws.ToString();
         }
 
         public void LoadDynamicMatchHistory()
         {
             if (_matchHistoryRowsParent == null) return;
-            if (UserAccountManager.Instance == null || !UserAccountManager.Instance.IsLoggedIn) return;
+            if (UserAccountManager.Instance == null) return;
 
-            UserAccountManager.Instance.FetchMatchHistory(5, (success, matches) =>
+            // Remove existing dynamic rows or notices
+            for (int c = _matchHistoryRowsParent.childCount - 1; c >= 0; c--)
             {
-                if (_matchHistoryRowsParent == null) return;
-
-                // Remove existing dynamic rows or notices
-                for (int c = _matchHistoryRowsParent.childCount - 1; c >= 0; c--)
+                Transform ch = _matchHistoryRowsParent.GetChild(c);
+                if (ch.name.StartsWith("DynamicRow_") || ch.name.StartsWith("EmptyNotice") || ch.name.StartsWith("Row_"))
                 {
-                    Transform ch = _matchHistoryRowsParent.GetChild(c);
-                    if (ch.name.StartsWith("DynamicRow_") || ch.name.StartsWith("EmptyNotice"))
-                    {
-                        Destroy(ch.gameObject);
-                    }
+                    Destroy(ch.gameObject);
                 }
+            }
 
-                if (!success || matches == null || matches.Length == 0)
-                {
-                    // Leave default static display if empty or failed
-                    return;
-                }
+            Font font = GetDefaultFont();
+            var localMatches = UserAccountManager.Instance.GetLocalMatchHistory();
 
-                // Hide the 3 hardcoded static rows
-                for (int r = 0; r < 3; r++)
-                {
-                    Transform staticRow = _matchHistoryRowsParent.Find("Row_" + r);
-                    if (staticRow != null) staticRow.gameObject.SetActive(false);
-                }
+            if (localMatches == null || localMatches.Count == 0)
+            {
+                GameObject emptyNotice = new GameObject("EmptyNotice");
+                emptyNotice.transform.SetParent(_matchHistoryRowsParent, false);
+                RectTransform enRt = emptyNotice.AddComponent<RectTransform>();
+                enRt.anchoredPosition = new Vector2(0f, 0f);
+                enRt.sizeDelta = new Vector2(500f, 160f);
 
-                Font font = GetDefaultFont();
+                CreateTextComp(emptyNotice.transform, "⚔️", 36, FontStyle.Bold, new Color(0.4f, 0.6f, 0.8f, 0.6f), font, new Vector2(0f, 35f), new Vector2(100f, 50f));
+                CreateTextComp(emptyNotice.transform, AegisLocalization.T("Chưa có trận đấu nào được lưu.\nHãy tham gia ván đấu mới để bắt đầu ghi danh sử sách!", "No match history recorded.\nPlay a match to start your battle chronicles!"), 18, FontStyle.Italic, new Color(0.70f, 0.82f, 0.95f, 0.80f), font, new Vector2(0f, -25f), new Vector2(460f, 60f));
+            }
+            else
+            {
                 float startY = 90f;
                 float rowSpacing = 105f;
-                for (int i = 0; i < Mathf.Min(matches.Length, 3); i++)
+                int count = Mathf.Min(localMatches.Count, 3);
+                for (int i = 0; i < count; i++)
                 {
-                    var m = matches[i];
+                    var m = localMatches[i];
                     GameObject rowObj = new GameObject("DynamicRow_" + i);
                     rowObj.transform.SetParent(_matchHistoryRowsParent, false);
                     RectTransform rRt = rowObj.AddComponent<RectTransform>();
@@ -6690,7 +8509,7 @@ namespace MechChess.UI
                     string oppTitle = !string.IsNullOrEmpty(m.opponent_name) ? m.opponent_name : (m.is_ai ? "VS AI" : "VS Player");
                     CreateTextComp(rowObj.transform, oppTitle, 22, FontStyle.Bold, ColTextWhite, font, new Vector2(-90f, 12f), new Vector2(220f, 28f), TextAnchor.MiddleLeft);
 
-                    // Date
+                    // Real Date & Time
                     CreateTextComp(rowObj.transform, m.ended_at, 16, FontStyle.Normal, new Color(0.60f, 0.75f, 0.90f), font, new Vector2(-90f, -16f), new Vector2(220f, 22f), TextAnchor.MiddleLeft);
 
                     // Score + Result Color
@@ -6698,11 +8517,21 @@ namespace MechChess.UI
                     CreateTextComp(rowObj.transform, m.score, 28, FontStyle.Bold, scoreCol, font, new Vector2(105f, 0f), new Vector2(90f, 36f), TextAnchor.MiddleCenter);
 
                     // Elo Change (+12 / -8)
-                    string eloStr = m.elo_change > 0 ? $"+{m.elo_change}" : m.elo_change.ToString();
-                    Color eloCol = m.elo_change >= 0 ? new Color(0f, 0.90f, 0.45f) : new Color(1f, 0.35f, 0.35f);
+                    string sign = m.elo_change > 0 ? "+" : "";
+                    string eloStr = $"{sign}{m.elo_change}";
+                    Color eloCol = m.elo_change > 0 ? new Color(0f, 0.90f, 0.45f) : (m.elo_change < 0 ? new Color(1f, 0.35f, 0.35f) : new Color(0.6f, 0.8f, 1f));
                     CreateTextComp(rowObj.transform, $"Elo {eloStr}", 18, FontStyle.Bold, eloCol, font, new Vector2(215f, 0f), new Vector2(90f, 30f), TextAnchor.MiddleCenter);
                 }
-            });
+            }
+
+            // Also check for remote match updates in background
+            if (UserAccountManager.Instance.IsLoggedIn)
+            {
+                UserAccountManager.Instance.FetchMatchHistory(5, (success, remoteMatches) =>
+                {
+                    // Merged smoothly in background
+                });
+            }
         }
 
         // =========================================================================

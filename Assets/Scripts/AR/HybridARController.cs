@@ -131,7 +131,10 @@ namespace MechChess.AR
             {
                 if (_arCanvas != null) _arCanvas.gameObject.SetActive(false);
                 if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
+                if (_pipContainer != null) _pipContainer.SetActive(false);
+                if (_guidanceOverlay != null) _guidanceOverlay.SetActive(false);
                 StopWebcam();
+                _arDisplayMode = 2;
             }
             else
             {
@@ -409,11 +412,27 @@ namespace MechChess.AR
 
         public void StopWebcam()
         {
-            if (_webcamTexture != null && _webcamTexture.isPlaying)
+            if (_webcamTexture != null)
             {
-                _webcamTexture.Stop();
+                if (_webcamTexture.isPlaying)
+                {
+                    _webcamTexture.Stop();
+                }
                 Debug.Log("[HybridAR] Webcam stream stopped.");
             }
+            if (_backgroundRawImage != null) _backgroundRawImage.texture = null;
+        }
+
+        /// <summary>
+        /// Automatically shuts down the webcam stream, hides AR background quad/pip overlay,
+        /// and restores standard 3D studio arena. Called when a match ends or player returns to menu.
+        /// </summary>
+        public void TurnOffCamera()
+        {
+            SetARActive(false);
+            ApplyDisplayMode(2);
+            StopWebcam();
+            Debug.Log("[HybridAR] Match ended: Webcam and AR overlays automatically turned OFF.");
         }
 
         public void ToggleARMode()

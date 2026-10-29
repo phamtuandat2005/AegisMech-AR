@@ -613,7 +613,7 @@ namespace MechChess.UI
             SetHUDVisible(false);
             if (MechChess.AR.HybridARController.Instance != null)
             {
-                MechChess.AR.HybridARController.Instance.SetARActive(false);
+                MechChess.AR.HybridARController.Instance.TurnOffCamera();
             }
             if (MainMenu2D.Instance != null)
             {
@@ -983,6 +983,11 @@ namespace MechChess.UI
 
             CreateCyberGameButton(contentObj.transform, "DrawerResign", "🏳️", AegisLocalization.T("ĐẦU HÀNG", "RESIGN"), "", new Vector2(142, -54), new Vector2(136, 44), CyberButtonColor.Crimson, () =>
             {
+                SetTacticalDrawerOpen(false);
+                if (MechChess.AR.HybridARController.Instance != null)
+                {
+                    MechChess.AR.HybridARController.Instance.TurnOffCamera();
+                }
                 if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
                     MechChess.Chess3D.ChessBoard3DManager.Instance.Resign(_activeColor);
             }, defaultFont);
@@ -1015,8 +1020,8 @@ namespace MechChess.UI
                 OnToggleARClicked?.Invoke();
             }, defaultFont);
 
-            // Row 3: 2D/3D Perspective Toggle & 2D Combat Minigame Hack
-            CreateCyberGameButton(contentObj.transform, "BtnToggle2DView", "📐", AegisLocalization.T("GÓC NHÌN", "VIEW MODE"), AegisLocalization.T("ĐỔI GÓC CAM", "CYCLE CAM VIEW"), new Vector2(-108, -242), new Vector2(210, 46), CyberButtonColor.Violet, () =>
+            // Row 3: 2D/3D Perspective Toggle
+            CreateCyberGameButton(contentObj.transform, "BtnToggle2DView", "📐", AegisLocalization.T("GÓC NHÌN", "VIEW MODE"), AegisLocalization.T("ĐỔI GÓC CAM", "CYCLE CAM VIEW"), new Vector2(0, -242), new Vector2(426, 46), CyberButtonColor.Violet, () =>
             {
                 if (MechChess.Mobile.MobileTouchInput.Instance != null)
                 {
@@ -1034,23 +1039,14 @@ namespace MechChess.UI
                 }
             }, defaultFont);
 
-            CreateCyberGameButton(contentObj.transform, "BtnTest2DCombat", "⚔️", AegisLocalization.T("ẤN CHÚ 2D", "ARCANE CLASH"), AegisLocalization.T("TRANH ĐOẠT PHÁP TRẬN", "RUNE WARD DUEL"), new Vector2(108, -242), new Vector2(210, 46), CyberButtonColor.Amber, () =>
-            {
-                SetTacticalDrawerOpen(false);
-                if (MechChess.Combat2D.CombatMinigame2D.Instance != null)
-                {
-                    RecordMove(AegisLocalization.T("[ẤN CHÚ 2D] Khởi kích trận chiến phá giải pháp trận!", "[ARCANE CLASH] Initiated Rune Ward Clash!"));
-                    MechChess.Combat2D.CombatMinigame2D.Instance.StartMinigame((win) =>
-                    {
-                        RecordMove(win ? AegisLocalization.T("[ẤN CHÚ 2D] Phá vỡ phong ấn thành công: Sát thương 100%!", "[ARCANE CLASH] Ward Shattered: 100% Critical Damage!") : AegisLocalization.T("[ẤN CHÚ 2D] Hết thời gian ngưng tụ: Đòn đánh cơ bản.", "[ARCANE CLASH] Channeling Depleted: Normal Strike."));
-                    });
-                }
-            }, defaultFont);
-
             // Row 4: Reset Match & Return to Menu Buttons
             CreateCyberGameButton(contentObj.transform, "BtnReset", "🔄", AegisLocalization.T("LÀM MỚI", "RESET MATCH"), AegisLocalization.T("BẮT ĐẦU LẠI", "PURGE & RESTART"), new Vector2(-108, -292), new Vector2(210, 42), CyberButtonColor.Gunmetal, () =>
             {
                 SetTacticalDrawerOpen(false);
+                if (MechChess.AR.HybridARController.Instance != null)
+                {
+                    MechChess.AR.HybridARController.Instance.TurnOffCamera();
+                }
                 OnResetGameClicked?.Invoke();
             }, defaultFont);
 
@@ -1680,6 +1676,12 @@ namespace MechChess.UI
         {
             _isGameOver = true;
             _isTimerRunning = false;
+
+            // Automatically turn off camera when match finishes
+            if (MechChess.AR.HybridARController.Instance != null)
+            {
+                MechChess.AR.HybridARController.Instance.TurnOffCamera();
+            }
 
             if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
             {

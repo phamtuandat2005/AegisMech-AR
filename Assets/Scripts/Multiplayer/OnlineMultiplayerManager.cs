@@ -114,6 +114,59 @@ namespace MechChess.Multiplayer
         public event Action<List<OnlinePlayerInfo>> OnOnlinePlayersUpdatedEvent;
 
         public List<OnlinePlayerInfo> CachedOnlinePlayers { get; private set; } = new List<OnlinePlayerInfo>();
+        public const string PrefsKeyServerHost = "AegisMech_ServerHost";
+
+        public static string GetCurrentServerHost()
+        {
+            string saved = PlayerPrefs.GetString(PrefsKeyServerHost, "");
+            if (!string.IsNullOrEmpty(saved)) return saved;
+            if (Instance != null && !string.IsNullOrEmpty(Instance.serverAddress))
+            {
+                string s = Instance.serverAddress;
+                if (s.StartsWith("ws://", StringComparison.OrdinalIgnoreCase)) s = s.Substring(5);
+                else if (s.StartsWith("wss://", StringComparison.OrdinalIgnoreCase)) s = s.Substring(6);
+                return s.TrimEnd('/');
+            }
+            return "localhost:8000";
+        }
+
+        public void SetServerHost(string rawHost)
+        {
+            if (string.IsNullOrWhiteSpace(rawHost)) rawHost = "localhost:8000";
+            rawHost = rawHost.Trim();
+            bool isSecure = rawHost.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || rawHost.StartsWith("wss://", StringComparison.OrdinalIgnoreCase);
+            string clean = rawHost;
+            if (clean.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) clean = clean.Substring(7);
+            else if (clean.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) clean = clean.Substring(8);
+            else if (clean.StartsWith("ws://", StringComparison.OrdinalIgnoreCase)) clean = clean.Substring(5);
+            else if (clean.StartsWith("wss://", StringComparison.OrdinalIgnoreCase)) clean = clean.Substring(6);
+            clean = clean.TrimEnd('/');
+
+            serverAddress = (isSecure ? "wss://" : "ws://") + clean;
+            PlayerPrefs.SetString(PrefsKeyServerHost, clean);
+            PlayerPrefs.Save();
+
+            string httpPrefix = isSecure ? "https://" : "http://";
+            if (UserAccountManager.Instance != null)
+            {
+                UserAccountManager.Instance.backendApiBaseUrl = httpPrefix + clean;
+            }
+            if (MechChess.AR.HybridARController.Instance != null)
+            {
+                MechChess.AR.HybridARController.Instance.backendApiUrl = httpPrefix + clean + "/api/recognize-card";
+            }
+            if (ChessBoard3DManager.Instance != null)
+            {
+                ChessBoard3DManager.Instance.aiBackendUrl = httpPrefix + clean + "/api/ai-move";
+            }
+
+            Debug.Log($"[OnlineMultiplayer] Server Host updated: {serverAddress} | HTTP API: {httpPrefix + clean}");
+
+            if (UserAccountManager.Instance != null && UserAccountManager.Instance.IsLoggedIn)
+            {
+                ConnectToLobby();
+            }
+        }
 
         private void Awake()
         {
@@ -121,6 +174,11 @@ namespace MechChess.Multiplayer
             {
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
+                string savedHost = PlayerPrefs.GetString(PrefsKeyServerHost, "");
+                if (!string.IsNullOrEmpty(savedHost))
+                {
+                    SetServerHost(savedHost);
+                }
             }
             else
             {
