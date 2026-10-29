@@ -1,0 +1,112 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main, 'feature/**' ]
+    paths:
+      - 'backend-ai-docker/**'
+      - 'Dockerfile'
+      - 'render.yaml'
+      - '.github/workflows/backend-*.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend-ai-docker/**'
+      - 'Dockerfile'
+      - 'render.yaml'
+      - '.github/workflows/backend-*.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: backend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  test:
+    name: Backend Lint, Unit Tests & Docker Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+          cache-dependency-path: |
+            backend-ai-docker/requirements.txt
+            backend-ai-docker/requirements-dev.txt
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend-ai-docker/requirements.txt
+          pip install -r backend-ai-docker/requirements-dev.txt
+
+      - name: Lint with Flake8 (Syntax errors & undefined symbols)
+        working-directory: backend-ai-docker
+        run: |
+          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Run Deterministic Unit, Security & Database Tests
+        working-directory: backend-ai-docker
+        env:
+          APP_ENV: test
+          DATABASE_URL: "sqlite+aiosqlite:///./test_ci.db"
+          JWT_SECRET_KEY: test_secret_key_ci_environment_only_minimum_length_32
+        run: |
+          pytest -v -m "not integration" --junitxml=backend-test-results.xml
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Docker Image
+        run: |
+          docker build \
+            --tag aegismech-backend:ci \
+            --file backend-ai-docker/Dockerfile \
+            backend-ai-docker/
+
+      - name: Validate Container Startup & Health Check Endpoint
+        run: |
+          echo "Starting test container with ephemeral in-memory SQLite..."
+          docker run -d \
+            --name backend-healthcheck-test \
+            -p 8000:8000 \
+            -e APP_ENV=test \
+            -e DATABASE_URL="sqlite+aiosqlite:///./test_ci.db" \
+            -e JWT_SECRET_KEY=test_secret_key_ci_environment_only_minimum_length_32 \
+            aegismech-backend:ci
+
+          echo "Waiting for healthcheck to pass..."
+          for i in $(seq 1 30); do
+            if curl -s -f http://localhost:8000/health | grep -q "healthy"; then
+              echo "Healthcheck passed on attempt $i!"
+              docker stop backend-healthcheck-test
+              docker rm backend-healthcheck-test
+              exit 0
+            fi
+            echo "Waiting for backend service (attempt $i/30)..."
+            sleep 1
+          done
+
+          echo "ERROR: Backend container failed health check within 30 seconds."
+          docker logs backend-healthcheck-test
+          docker stop backend-healthcheck-test
+          docker rm backend-healthcheck-test
+          exit 1
+
+      - name: Upload Backend Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: backend-ai-docker/backend-test-results.xml
+          retention-days: 14

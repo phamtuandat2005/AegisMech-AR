@@ -1,0 +1,166 @@
+name: Unity Build
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - '.github/workflows/unity-build.yml'
+  workflow_dispatch:
+    inputs:
+      target_platform:
+        description: 'Target platform to build'
+        required: true
+        default: 'Android'
+        type: choice
+        options:
+          - 'Android'
+          - 'StandaloneWindows64'
+          - 'Both'
+
+concurrency:
+  group: unity-build-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build Android APK (ARM64 / IL2CPP)
+    if: github.event_name != 'workflow_dispatch' || inputs.target_platform == 'Android' || inputs.target_platform == 'Both'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Repository with Git LFS
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Checkout Git LFS Assets
+        run: |
+          git lfs pull
+
+      - name: Verify Unity License Secret Availability
+        id: check-license
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ] || [ -n "$UNITY_EMAIL" ]; then
+            echo "license_available=true" >> "$GITHUB_OUTPUT"
+            echo "SUCCESS: Unity activation credentials are present in repository secrets."
+          else
+            echo "license_available=false" >> "$GITHUB_OUTPUT"
+            echo "=========================================================================="
+            echo "::warning::UNITY_LICENSE secret is not yet configured in GitHub Secrets!"
+            echo "GameCI requires an activated Unity license (.ulf) to compile Android APKs."
+            echo "To activate:"
+            echo "  1. Run the 'Unity Activation' workflow (Actions -> Unity Activation -> Run workflow)."
+            echo "  2. Activate the resulting .alf file at https://license.unity3d.com"
+            echo "  3. Add the downloaded .ulf file contents as Secret: UNITY_LICENSE"
+            echo "=========================================================================="
+          fi
+
+      - name: Cache Unity Library
+        if: steps.check-license.outputs.license_available == 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Unity-6000.3.20f1-Android-${{ hashFiles('ProjectSettings/ProjectVersion.txt', 'Packages/manifest.json') }}
+          restore-keys: |
+            Library-Unity-6000.3.20f1-Android-
+            Library-Unity-
+
+      - name: Build Android Player (APK)
+        if: steps.check-license.outputs.license_available == 'true'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: .
+          unityVersion: 6000.3.20f1
+          targetPlatform: Android
+          buildsPath: build/Android
+          buildName: AegisMechAR
+          versioning: Semantic
+
+      - name: Upload Android APK Artifact
+        if: steps.check-license.outputs.license_available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AegisMechAR-Android-${{ github.sha }}
+          path: build/Android/**/*.apk
+          retention-days: 14
+
+  build-windows:
+    name: Build Windows Standalone (x64)
+    if: github.event_name == 'workflow_dispatch' && (inputs.target_platform == 'StandaloneWindows64' || inputs.target_platform == 'Both')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Repository with Git LFS
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Checkout Git LFS Assets
+        run: |
+          git lfs pull
+
+      - name: Verify Unity License Secret Availability
+        id: check-license
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ] || [ -n "$UNITY_EMAIL" ]; then
+            echo "license_available=true" >> "$GITHUB_OUTPUT"
+            echo "SUCCESS: Unity activation credentials are present in repository secrets."
+          else
+            echo "license_available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::UNITY_LICENSE secret is not yet configured in GitHub Secrets!"
+          fi
+
+      - name: Cache Unity Library
+        if: steps.check-license.outputs.license_available == 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Unity-6000.3.20f1-Windows-${{ hashFiles('ProjectSettings/ProjectVersion.txt', 'Packages/manifest.json') }}
+          restore-keys: |
+            Library-Unity-6000.3.20f1-Windows-
+            Library-Unity-
+
+      - name: Build Windows Standalone Player
+        if: steps.check-license.outputs.license_available == 'true'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: .
+          unityVersion: 6000.3.20f1
+          targetPlatform: StandaloneWindows64
+          buildsPath: build/Windows
+          buildName: AegisMechAR
+          versioning: Semantic
+
+      - name: Upload Windows Standalone Artifact
+        if: steps.check-license.outputs.license_available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AegisMechAR-Windows-${{ github.sha }}
+          path: build/Windows/**/*
+          retention-days: 14

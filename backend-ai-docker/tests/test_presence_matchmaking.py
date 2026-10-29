@@ -42,6 +42,9 @@ from app.security import create_access_token
 
 # pyrefly: ignore[missing-import]
 import websockets
+import pytest
+
+pytestmark = pytest.mark.integration
 
 TEST_PORT = 8011
 BASE_HTTP_URL = f"http://127.0.0.1:{TEST_PORT}"
@@ -344,6 +347,11 @@ def run_full_suite():
             server_proc.kill()
         print("[INFO] Test server stopped cleanly.")
 
+import pytest
+
+@pytest.mark.integration
+def test_presence_matchmaking():
+    run_full_suite()
 
 if __name__ == "__main__":
     run_full_suite()

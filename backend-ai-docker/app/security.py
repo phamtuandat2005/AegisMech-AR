@@ -341,6 +341,10 @@ class SlidingWindowRateLimiter:
             for k in empty_keys:
                 del self._history[k]
 
+    def reset(self):
+        with self._lock:
+            self._history.clear()
+
 rate_limiter = SlidingWindowRateLimiter()
 
 # ---------------------------------------------------------------------------

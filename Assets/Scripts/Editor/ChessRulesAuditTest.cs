@@ -23,13 +23,8 @@ namespace MechChess.EditorTests
             public string Details;
         }
 
-        [MenuItem("AegisMech/Audit/Run All Chess Rules Tests")]
-        public static void RunAllChessRulesTests()
+        public static List<TestResult> ExecuteAllTests()
         {
-            Debug.Log("=================================================================");
-            Debug.Log(">>> RUNNING AEGISMECH-AR CHESS RULES AUDIT TEST SUITE <<<");
-            Debug.Log("=================================================================");
-
             List<TestResult> results = new List<TestResult>();
 
             // Setup a temporary test game object with ChessBoard3DManager
@@ -63,6 +58,18 @@ namespace MechChess.EditorTests
                 ClearBoard(board);
                 UnityEngine.Object.DestroyImmediate(testBoardObj);
             }
+
+            return results;
+        }
+
+        [MenuItem("AegisMech/Audit/Run All Chess Rules Tests")]
+        public static void RunAllChessRulesTests()
+        {
+            Debug.Log("=================================================================");
+            Debug.Log(">>> RUNNING AEGISMECH-AR CHESS RULES AUDIT TEST SUITE <<<");
+            Debug.Log("=================================================================");
+
+            List<TestResult> results = ExecuteAllTests();
 
             List<string> reportLines = new List<string>();
             reportLines.Add("=================================================================");

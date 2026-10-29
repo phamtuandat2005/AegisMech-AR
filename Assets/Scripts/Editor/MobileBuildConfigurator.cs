@@ -50,11 +50,14 @@ namespace MechChess.Editor
 
             AssetDatabase.SaveAssets();
 
-            EditorUtility.DisplayDialog(
-                "Android Build Configured",
-                "Successfully configured:\n- Scripting Backend: IL2CPP\n- Architecture: ARM64\n- Minimum API Level: 26\n- Camera & Internet Permissions: Enabled",
-                "OK"
-            );
+            if (!Application.isBatchMode)
+            {
+                EditorUtility.DisplayDialog(
+                    "Android Build Configured",
+                    "Successfully configured:\n- Scripting Backend: IL2CPP\n- Architecture: ARM64\n- Minimum API Level: 26\n- Camera & Internet Permissions: Enabled",
+                    "OK"
+                );
+            }
 
             Debug.Log("[MechChess Build] Android build settings successfully applied!");
         }
@@ -87,11 +90,19 @@ namespace MechChess.Editor
 
             if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
             {
-                EditorUtility.DisplayDialog("Build Succeeded", $"APK generated successfully:\n{apkPath}\nTotal Size: {report.summary.totalSize / (1024 * 1024)} MB", "OK");
+                Debug.Log($"[MechChess Build] Build Succeeded: {apkPath} ({report.summary.totalSize / (1024 * 1024)} MB)");
+                if (!Application.isBatchMode)
+                {
+                    EditorUtility.DisplayDialog("Build Succeeded", $"APK generated successfully:\n{apkPath}\nTotal Size: {report.summary.totalSize / (1024 * 1024)} MB", "OK");
+                }
             }
             else
             {
-                EditorUtility.DisplayDialog("Build Result", $"Build ended with status: {report.summary.result}", "OK");
+                Debug.LogError($"[MechChess Build] Build failed with result: {report.summary.result}");
+                if (!Application.isBatchMode)
+                {
+                    EditorUtility.DisplayDialog("Build Result", $"Build ended with status: {report.summary.result}", "OK");
+                }
             }
         }
 
@@ -122,7 +133,11 @@ namespace MechChess.Editor
                 cam.gameObject.AddComponent<MobileTouchInput>();
             }
 
-            EditorUtility.DisplayDialog("Scene Setup Complete", "GameController and all 5 Subsystems (3D Chess, 2D HUD, 2D Physics Combat, AR Controller, Adafruit IO, Mobile Touch) have been linked in the scene!", "OK");
+            Debug.Log("[MechChess Build] Scene setup complete: GameController and all 5 Subsystems linked.");
+            if (!Application.isBatchMode)
+            {
+                EditorUtility.DisplayDialog("Scene Setup Complete", "GameController and all 5 Subsystems (3D Chess, 2D HUD, 2D Physics Combat, AR Controller, Adafruit IO, Mobile Touch) have been linked in the scene!", "OK");
+            }
         }
     }
 }

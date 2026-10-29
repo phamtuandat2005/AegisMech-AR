@@ -1,0 +1,102 @@
+name: Unity CI
+
+on:
+  push:
+    branches: [ main, 'feature/**' ]
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - '.github/workflows/unity-*.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - '.github/workflows/unity-*.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: unity-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  test-editmode:
+    name: Unity EditMode & Audit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout Repository with Git LFS
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Checkout Git LFS Assets
+        run: |
+          git lfs pull
+
+      - name: Verify Unity License Secret Availability
+        id: check-license
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ] || [ -n "$UNITY_EMAIL" ]; then
+            echo "license_available=true" >> "$GITHUB_OUTPUT"
+            echo "SUCCESS: Unity activation credentials are present in repository secrets."
+          else
+            echo "license_available=false" >> "$GITHUB_OUTPUT"
+            echo "=========================================================================="
+            echo "::warning::UNITY_LICENSE secret is not yet configured in GitHub Secrets!"
+            echo "GameCI requires an activated Unity license (.ulf) to execute Editor batchmode."
+            echo "To activate:"
+            echo "  1. Run the 'Unity Activation' workflow (Actions -> Unity Activation -> Run workflow)."
+            echo "  2. Activate the resulting .alf file at https://license.unity3d.com"
+            echo "  3. Add the downloaded .ulf file contents as Secret: UNITY_LICENSE"
+            echo "=========================================================================="
+          fi
+
+      - name: Cache Unity Library
+        if: steps.check-license.outputs.license_available == 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Unity-6000.3.20f1-EditMode-${{ hashFiles('ProjectSettings/ProjectVersion.txt', 'Packages/manifest.json') }}
+          restore-keys: |
+            Library-Unity-6000.3.20f1-EditMode-
+            Library-Unity-
+
+      - name: Run Unity EditMode & Chess Engine Audit Tests
+        if: steps.check-license.outputs.license_available == 'true'
+        uses: game-ci/unity-test-runner@v4
+        id: testRunner
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: .
+          unityVersion: 6000.3.20f1
+          testMode: editmode
+          artifactsPath: artifacts
+          customParameters: -executeMethod MechChess.EditorTests.CIAutomationRunner.RunBatchAudit
+          checkName: Unity EditMode Test Results
+
+      - name: Upload Test Results XML & Editor Logs
+        if: steps.check-license.outputs.license_available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-test-results
+          path: |
+            artifacts/*.xml
+            TestResults/*.xml
+            *.log
+          retention-days: 14
