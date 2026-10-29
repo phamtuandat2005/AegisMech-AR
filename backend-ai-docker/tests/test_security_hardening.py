@@ -291,6 +291,7 @@ def test_rate_limiting_enforcement(client: TestClient):
             break
 
     assert hit_429 is True
+    rate_limiter.reset()
 
 def test_payload_size_limit_enforced(client: TestClient):
     """

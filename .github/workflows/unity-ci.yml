@@ -1,0 +1,79 @@
+name: Unity CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - '.github/workflows/unity-*.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - '.github/workflows/unity-*.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: unity-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  test-editmode:
+    name: Unity EditMode & Audit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout Repository with Git LFS
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Checkout Git LFS Assets
+        run: |
+          git lfs pull
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Unity-6000.3.20f1-EditMode-${{ hashFiles('ProjectSettings/ProjectVersion.txt', 'Packages/manifest.json') }}
+          restore-keys: |
+            Library-Unity-6000.3.20f1-EditMode-
+            Library-Unity-
+
+      - name: Run Unity EditMode & Chess Engine Audit Tests
+        uses: game-ci/unity-test-runner@v4
+        id: testRunner
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: .
+          unityVersion: 6000.3.20f1
+          testMode: editmode
+          artifactsPath: artifacts
+          customParameters: -executeMethod MechChess.EditorTests.CIAutomationRunner.RunBatchAudit
+          checkName: Unity EditMode Test Results
+
+      - name: Upload Test Results XML & Editor Logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unity-test-results
+          path: |
+            artifacts/*.xml
+            TestResults/*.xml
+            *.log
+          retention-days: 14

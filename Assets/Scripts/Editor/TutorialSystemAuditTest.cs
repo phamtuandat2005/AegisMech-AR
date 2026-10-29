@@ -22,15 +22,9 @@ namespace MechChess.EditorTests
             public string Details;
         }
 
-        [MenuItem("AegisMech/Audit/Run All Tutorial System Tests")]
-        public static void RunAllTutorialSystemTests()
+        public static List<TestResult> ExecuteAllTests()
         {
-            Debug.Log("=================================================================");
-            Debug.Log(">>> RUNNING AEGISMECH-AR TUTORIAL SYSTEM AUDIT TEST SUITE <<<");
-            Debug.Log("=================================================================");
-
             List<TestResult> results = new List<TestResult>();
-
             SafeRun(Test_TabCountsAndPageIntegrity, "TabCountsAndPageIntegrity", results);
             SafeRun(Test_BilingualContentNonEmpty, "BilingualContentNonEmpty", results);
             SafeRun(Test_StepByStepGuideIntegrity, "StepByStepGuideIntegrity", results);
@@ -43,6 +37,17 @@ namespace MechChess.EditorTests
             SafeRun(Test_BilingualLanguageToggle, "BilingualLanguageToggle", results);
             SafeRun(Test_ProceduralSpriteCaching, "ProceduralSpriteCaching", results);
             SafeRun(Test_UIInstantiationSafety, "UIInstantiationSafety", results);
+            return results;
+        }
+
+        [MenuItem("AegisMech/Audit/Run All Tutorial System Tests")]
+        public static void RunAllTutorialSystemTests()
+        {
+            Debug.Log("=================================================================");
+            Debug.Log(">>> RUNNING AEGISMECH-AR TUTORIAL SYSTEM AUDIT TEST SUITE <<<");
+            Debug.Log("=================================================================");
+
+            List<TestResult> results = ExecuteAllTests();
 
             List<string> reportLines = new List<string>();
             reportLines.Add("=================================================================");

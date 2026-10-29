@@ -301,5 +301,11 @@ def run_all_tests():
     if failed > 0:
         sys.exit(1)
 
+import pytest
+
+@pytest.mark.integration
+def test_live_network_and_ws():
+    run_all_tests()
+
 if __name__ == "__main__":
     run_all_tests()

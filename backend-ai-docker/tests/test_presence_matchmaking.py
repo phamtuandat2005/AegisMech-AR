@@ -344,6 +344,11 @@ def run_full_suite():
             server_proc.kill()
         print("[INFO] Test server stopped cleanly.")
 
+import pytest
+
+@pytest.mark.integration
+def test_presence_matchmaking():
+    run_full_suite()
 
 if __name__ == "__main__":
     run_full_suite()

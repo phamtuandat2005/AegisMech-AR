@@ -7,8 +7,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 # pyrefly: ignore[missing-import]
 from fastapi.testclient import TestClient
 from app.main import app
+from app.security import rate_limiter
 
 def test_live_endpoints():
+    rate_limiter.reset()
     client = TestClient(app)
 
     print("\n>>> TESTING LIVE FASTAPI REST ENDPOINTS WITH POSTGRESQL/DATABASE <<<")

@@ -49,10 +49,21 @@ async def run_tests():
         assert prof.gold == 500
         print(f"[PASS] Profile Model: Level {prof.level}, Gold {prof.gold}, Gems {prof.gems}")
 
-        # 4. Test Duplicate Username Rejection
-        ok_dup, msg_dup, _ = await crud.register_or_login_player(session, f"imposter_{rand_id}@gmail.com", test_uname)
-        assert not ok_dup, "Duplicate username was not rejected!"
-        print(f"[PASS] Duplicate username rejection verified.")
+        # 4. Test Duplicate Username Handling
+        # 4a: Direct Registration rejects duplicate username
+        ok_dup, msg_dup, _ = await crud.register_or_login_player(
+            session, account=test_uname, password="password123", is_register=True
+        )
+        assert not ok_dup, "Duplicate username was not rejected on registration!"
+        print("[PASS] Duplicate username registration rejection verified.")
+
+        # 4b: Quick email registration safely de-conflicts duplicate username
+        ok_deconflict, _, p_deconflict = await crud.register_or_login_player(
+            session, gmail=f"imposter_{rand_id}@gmail.com", requested_username=test_uname
+        )
+        assert ok_deconflict, "Quick email registration should succeed with de-conflicted username"
+        assert p_deconflict.username != test_uname, "De-conflicted username must be unique"
+        print(f"[PASS] Quick email auto-deconfliction verified: requested '{test_uname}' -> assigned '{p_deconflict.username}'.")
 
         # 5. Test Match Record (Win)
         req_win = schemas.MatchRecordRequest(
@@ -102,6 +113,12 @@ async def run_tests():
         print(f"[PASS] Leaderboard: Rank 1 is '{board[0].username}' with {board[0].elo} Elo.")
 
     print("\n>>> ALL SUPABASE POSTGRESQL DATABASE TESTS PASSED 100%! <<<\n")
+
+import pytest
+
+@pytest.mark.asyncio
+async def test_database_crud():
+    await run_tests()
 
 if __name__ == "__main__":
     asyncio.run(run_tests())
