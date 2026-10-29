@@ -54,7 +54,7 @@ namespace MechChess.AR
 
         [Header("Mode Configuration")]
         public ARMode activeMode = ARMode.WebcamFallback;
-        public string backendApiUrl = "http://localhost:8000/api/recognize-card";
+        public string backendApiUrl = "https://aegismech-ar.onrender.com/api/recognize-card";
 
         [Header("References")]
         public Transform chessboardRoot;

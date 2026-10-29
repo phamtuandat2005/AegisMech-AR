@@ -83,7 +83,7 @@ namespace MechChess.Chess3D
         public bool isVsAI = false;
         public PieceColor aiColor = PieceColor.Black;
         public int aiLevel = 2; // 1 = Easy, 2 = Medium, 3 = Hard, 4 = Expert
-        public string aiBackendUrl = "http://localhost:8000/api/ai-move";
+        public string aiBackendUrl = "https://aegismech-ar.onrender.com/api/ai-move";
         private bool _isAIThinking = false;
 
         // F01 Advanced Rules State

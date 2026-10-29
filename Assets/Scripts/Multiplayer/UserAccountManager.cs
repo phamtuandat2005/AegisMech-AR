@@ -160,7 +160,7 @@ namespace MechChess.Multiplayer
         public event Action<UserAccountData> OnProfileUpdated;
         public event Action OnLoggedOut;
 
-        public string backendApiBaseUrl = "http://localhost:8000";
+        public string backendApiBaseUrl = "https://aegismech-ar.onrender.com";
 
         private void Awake()
         {

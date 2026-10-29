@@ -71,7 +71,7 @@ namespace MechChess.Multiplayer
         public static OnlineMultiplayerManager Instance { get; private set; }
 
         [Header("Connection Settings")]
-        public string serverAddress = "ws://localhost:8000";
+        public string serverAddress = "wss://aegismech-ar.onrender.com";
         public string currentRoomId = "ROOM-101";
         public string playerName = "ArcaneCommander";
 
@@ -127,7 +127,7 @@ namespace MechChess.Multiplayer
                 else if (s.StartsWith("wss://", StringComparison.OrdinalIgnoreCase)) s = s.Substring(6);
                 return s.TrimEnd('/');
             }
-            return "localhost:8000";
+            return "aegismech-ar.onrender.com";
         }
 
         public void SetServerHost(string rawHost)
