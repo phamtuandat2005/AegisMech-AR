@@ -422,7 +422,7 @@ namespace MechChess.ProceduralMech
             quad.transform.localRotation = Quaternion.identity;
 
             Collider qc = quad.GetComponent<Collider>();
-            if (qc != null) UnityEngine.Object.Destroy(qc);
+            if (qc != null) SafeDestroy(qc);
             Renderer qr = quad.GetComponent<Renderer>();
             if (qr != null) qr.sharedMaterial = standeeMat;
 
@@ -435,26 +435,15 @@ namespace MechChess.ProceduralMech
             backQuad.transform.localRotation = Quaternion.Euler(0, 180f, 0);
 
             Collider bqc = backQuad.GetComponent<Collider>();
-            if (bqc != null) UnityEngine.Object.Destroy(bqc);
+            if (bqc != null) SafeDestroy(bqc);
             Renderer bqr = backQuad.GetComponent<Renderer>();
             if (bqr != null) bqr.sharedMaterial = standeeMat;
 
             // Camera Y-Axis Face Script: Always rotates toward Camera Y so King looks magnificent from any AR angle!
             standeeContainer.AddComponent<HologramStandeeBillboard>();
 
-            // Ground Cyber Holographic Pedestal (clean neon pulse ring at floor level)
-            CreatePrimitive(PrimitiveType.Cylinder, "HoloRing_Pulse", root, new Vector3(0, 0.02f, 0), new Vector3(0.72f, 0.015f, 0.72f), Quaternion.identity, glowMat);
+            // Minimal neutral base without colored glow ring
             CreatePrimitive(PrimitiveType.Cylinder, "HoloRing_Core", root, new Vector3(0, 0.01f, 0), new Vector3(0.58f, 0.01f, 0.58f), Quaternion.identity, armorMat);
-
-            // 4 Cyber Hologram Emitter Beacons around the base
-            float[] nodeAngles = { 45f, 135f, 225f, 315f };
-            for (int i = 0; i < 4; i++)
-            {
-                float rad = nodeAngles[i] * Mathf.Deg2Rad;
-                float nx = Mathf.Sin(rad) * 0.34f;
-                float nz = Mathf.Cos(rad) * 0.34f;
-                CreatePrimitive(PrimitiveType.Cube, $"HoloEmitter_{i}", root, new Vector3(nx, 0.035f, nz), new Vector3(0.06f, 0.05f, 0.06f), Quaternion.identity, glowMat);
-            }
 
             return true;
         }
@@ -762,7 +751,7 @@ namespace MechChess.ProceduralMech
 
             // Clean up any inner colliders so only root master collider handles selection
             Collider[] colliders = modelInstance.GetComponentsInChildren<Collider>();
-            foreach (var c in colliders) UnityEngine.Object.Destroy(c);
+            foreach (var c in colliders) SafeDestroy(c);
 
             // Auto-scale model if needed so it fits nicely on a chess tile with proper proportional hierarchy
             Renderer[] renderers = modelInstance.GetComponentsInChildren<Renderer>();
@@ -819,9 +808,6 @@ namespace MechChess.ProceduralMech
                 }
             }
 
-            // Add sleek team aura ring at the feet (Cyan for White, Crimson for Black) to match sci-fi chess theme
-            CreatePrimitive(PrimitiveType.Cylinder, "TeamAuraRing", root, new Vector3(0, 0.015f, 0), new Vector3(0.68f, 0.012f, 0.68f), Quaternion.identity, glowMat);
-
             return true;
         }
 
@@ -839,7 +825,7 @@ namespace MechChess.ProceduralMech
 
             // Remove default sub-colliders so only root master collider handles physics/clicks
             Collider c = obj.GetComponent<Collider>();
-            if (c != null) UnityEngine.Object.Destroy(c);
+            if (c != null) SafeDestroy(c);
 
             Renderer r = obj.GetComponent<Renderer>();
             if (r != null && mat != null)
@@ -861,12 +847,21 @@ namespace MechChess.ProceduralMech
             obj.transform.localScale = localScale;
 
             Collider c = obj.GetComponent<Collider>();
-            if (c != null) UnityEngine.Object.Destroy(c);
+            if (c != null) SafeDestroy(c);
 
             Renderer r = obj.GetComponent<Renderer>();
             if (r != null && mat != null) r.sharedMaterial = mat;
 
             return obj;
+        }
+
+        private static void SafeDestroy(UnityEngine.Object obj)
+        {
+            if (obj == null) return;
+            if (Application.isPlaying)
+                UnityEngine.Object.Destroy(obj);
+            else
+                UnityEngine.Object.DestroyImmediate(obj);
         }
     }
 }

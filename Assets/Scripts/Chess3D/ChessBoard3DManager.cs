@@ -110,7 +110,7 @@ namespace MechChess.Chess3D
 
         public void TriggerWatchdogCheckForTest(bool forceTimeout = false)
         {
-            if (forceTimeout || (_isBusyAnimating && (Time.time - _busyAnimStartTime > 2.5f)))
+            if (forceTimeout || (_isBusyAnimating && (Time.time - _busyAnimStartTime > BusyTimeout)))
             {
                 SkipActiveAnimation();
             }
@@ -121,6 +121,7 @@ namespace MechChess.Chess3D
         private bool _isBusyAnimating = false;
         private ChessPiece3D _animatingPiece = null;
         private float _busyAnimStartTime = 0f;
+        private float BusyTimeout { get { return MechChess.ProceduralMech.CaptureCutsceneDirector.IsPlaying ? 12f : 2.5f; } }
 
         private Transform _boardRoot;
         private Transform _piecesRoot;
@@ -131,7 +132,7 @@ namespace MechChess.Chess3D
         private void Update()
         {
             // Animation Watchdog: Prevents input from ever locking permanently if an animation or coroutine hangs
-            if (_isBusyAnimating && (Time.time - _busyAnimStartTime > 2.5f))
+            if (_isBusyAnimating && (Time.time - _busyAnimStartTime > BusyTimeout))
             {
                 Debug.LogWarning("[ChessBoard3D] Animation watchdog timeout! Force-releasing animation lock.");
                 SkipActiveAnimation();
@@ -151,10 +152,10 @@ namespace MechChess.Chess3D
             BuildProceduralBoard();
             SpawnAllPieces();
 
-            // Keep the 3D chessboard hidden initially until the player actually launches a match from the Main Menu
+            // Keep the 3D chessboard active so the arena and board are visible as backdrop or match
             if (BoardRootContainer != null)
             {
-                BoardRootContainer.gameObject.SetActive(false);
+                BoardRootContainer.gameObject.SetActive(true);
             }
 
             // Link UI Manager Callbacks
@@ -169,52 +170,52 @@ namespace MechChess.Chess3D
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Diffuse");
 
-            // Light Tile: Cyber Silver Plate with Cyan glow border
-            _lightTileMat = new Material(shader) { name = "Tile_LightCyber" };
-            SetMatColor(_lightTileMat, new Color(0.85f, 0.90f, 0.95f), 0.7f, 0.5f);
+            // Light Tile: Classic Natural Amber Birch Wood with real PBR woodgrain (from user reference image 1)
+            _lightTileMat = new Material(shader) { name = "Tile_LightAmberWood" };
+            ApplyWoodTexture(_lightTileMat, "WoodLight_Diffuse", "WoodLight_Normal", new Color(0.98f, 0.88f, 0.68f), 0.60f);
 
-            // Dark Tile: Obsidian Carbon Plate with subtle dark reflection
-            _darkTileMat = new Material(shader) { name = "Tile_DarkCarbon" };
-            SetMatColor(_darkTileMat, new Color(0.12f, 0.14f, 0.18f), 0.85f, 0.4f);
+            // Dark Tile: Classic Rich Walnut Teak Wood with real PBR woodgrain (from user reference image 1)
+            _darkTileMat = new Material(shader) { name = "Tile_DarkWalnutWood" };
+            ApplyWoodTexture(_darkTileMat, "WoodDark_Diffuse", "WoodDark_Normal", new Color(0.85f, 0.58f, 0.32f), 0.60f);
 
-            // Highlight Tile: Radiant Neon Emerald Green (Empty valid move square)
+            // Highlight Tile: Radiant Soft Emerald Green (Empty valid move square)
             _highlightTileMat = new Material(shader) { name = "Tile_HighlightGreen" };
-            SetMatColor(_highlightTileMat, new Color(0.1f, 1.0f, 0.35f), 0.2f, 0.8f);
+            SetMatColor(_highlightTileMat, new Color(0.2f, 0.85f, 0.45f), 0.1f, 0.7f);
             _highlightTileMat.EnableKeyword("_EMISSION");
             if (_highlightTileMat.HasProperty("_EmissionColor"))
-                _highlightTileMat.SetColor("_EmissionColor", new Color(0.1f, 1.8f, 0.4f) * 2.2f);
+                _highlightTileMat.SetColor("_EmissionColor", new Color(0.2f, 1.4f, 0.5f) * 1.8f);
 
-            // Selected Piece Tile: Radiant Electric Cyan Focus
-            _selectedTileMat = new Material(shader) { name = "Tile_SelectedCyan" };
-            SetMatColor(_selectedTileMat, new Color(0.15f, 0.85f, 1.0f), 0.2f, 0.8f);
+            // Selected Piece Tile: Radiant Warm Golden Sunburst Focus
+            _selectedTileMat = new Material(shader) { name = "Tile_SelectedGold" };
+            SetMatColor(_selectedTileMat, new Color(0.95f, 0.70f, 0.15f), 0.1f, 0.7f);
             _selectedTileMat.EnableKeyword("_EMISSION");
             if (_selectedTileMat.HasProperty("_EmissionColor"))
-                _selectedTileMat.SetColor("_EmissionColor", new Color(0.2f, 1.8f, 2.5f) * 2.2f);
+                _selectedTileMat.SetColor("_EmissionColor", new Color(2.0f, 1.3f, 0.2f) * 2.0f);
 
             // Capture Target Tile: Vibrant Plasma Crimson / Attack Danger Red
             _captureHighlightMat = new Material(shader) { name = "Tile_CaptureCrimson" };
-            SetMatColor(_captureHighlightMat, new Color(1.0f, 0.15f, 0.25f), 0.2f, 0.8f);
+            SetMatColor(_captureHighlightMat, new Color(1.0f, 0.18f, 0.25f), 0.1f, 0.7f);
             _captureHighlightMat.EnableKeyword("_EMISSION");
             if (_captureHighlightMat.HasProperty("_EmissionColor"))
-                _captureHighlightMat.SetColor("_EmissionColor", new Color(2.8f, 0.2f, 0.35f) * 2.5f);
+                _captureHighlightMat.SetColor("_EmissionColor", new Color(2.6f, 0.2f, 0.35f) * 2.2f);
 
-            // Last Move Tile: Radiant Amber Gold
-            _lastMoveMat = new Material(shader) { name = "Tile_LastMoveGold" };
-            SetMatColor(_lastMoveMat, new Color(0.95f, 0.72f, 0.15f), 0.3f, 0.7f);
+            // Last Move Tile: Soft Luminous Honey Amber
+            _lastMoveMat = new Material(shader) { name = "Tile_LastMoveHoney" };
+            SetMatColor(_lastMoveMat, new Color(0.95f, 0.80f, 0.25f), 0.1f, 0.6f);
             _lastMoveMat.EnableKeyword("_EMISSION");
             if (_lastMoveMat.HasProperty("_EmissionColor"))
-                _lastMoveMat.SetColor("_EmissionColor", new Color(1.8f, 1.2f, 0.2f) * 1.6f);
+                _lastMoveMat.SetColor("_EmissionColor", new Color(1.5f, 1.1f, 0.2f) * 1.5f);
 
             // Check Warning Tile: Fiery Glowing Red for King under attack
             _checkWarningMat = new Material(shader) { name = "Tile_CheckWarningRed" };
-            SetMatColor(_checkWarningMat, new Color(1.0f, 0.15f, 0.2f), 0.2f, 0.8f);
+            SetMatColor(_checkWarningMat, new Color(1.0f, 0.15f, 0.2f), 0.1f, 0.7f);
             _checkWarningMat.EnableKeyword("_EMISSION");
             if (_checkWarningMat.HasProperty("_EmissionColor"))
                 _checkWarningMat.SetColor("_EmissionColor", new Color(2.8f, 0.2f, 0.3f) * 2.5f);
 
-            // Board Perimeter Border: Gunmetal with neon cyan border
-            _borderMat = new Material(shader) { name = "Board_BorderMat" };
-            SetMatColor(_borderMat, new Color(0.08f, 0.10f, 0.12f), 0.9f, 0.3f);
+            // Board Perimeter Border: Polished Natural Golden Beechwood Frame with real PBR woodgrain
+            _borderMat = new Material(shader) { name = "Board_BorderWoodMat" };
+            ApplyWoodTexture(_borderMat, "WoodBorder_Diffuse", "WoodBorder_Normal", new Color(0.96f, 0.84f, 0.62f), 0.70f);
 
             // Enable GPU Instancing across all board materials for low-end mobile performance
             _lightTileMat.enableInstancing = true;
@@ -227,6 +228,26 @@ namespace MechChess.Chess3D
             _borderMat.enableInstancing = true;
         }
 
+        private void ApplyWoodTexture(Material mat, string diffName, string normName, Color tint, float smoothness)
+        {
+            Texture2D diff = Resources.Load<Texture2D>($"Textures/Board/{diffName}");
+            Texture2D norm = Resources.Load<Texture2D>($"Textures/Board/{normName}");
+            if (diff != null)
+            {
+                if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", diff);
+                if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", diff);
+            }
+            if (norm != null)
+            {
+                if (mat.HasProperty("_BumpMap"))
+                {
+                    mat.SetTexture("_BumpMap", norm);
+                    mat.EnableKeyword("_NORMALMAP");
+                }
+            }
+            SetMatColor(mat, tint, 0.0f, smoothness);
+        }
+
         private void SetMatColor(Material mat, Color col, float metallic, float smoothness)
         {
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", col);
@@ -236,10 +257,12 @@ namespace MechChess.Chess3D
         }
 
         /// <summary>
-        /// Generates the 8x8 procedural chessboard grid and neon frame.
+        /// Generates the 8x8 procedural chessboard grid, wooden frame, and surrounding Spirit Blossom environment.
         /// </summary>
         public void BuildProceduralBoard()
         {
+            if (_lightTileMat == null) InitializeBoardMaterials();
+
             if (BoardRootContainer == null)
             {
                 GameObject container = new GameObject("ChessBoard_WorldContainer");
@@ -249,23 +272,29 @@ namespace MechChess.Chess3D
                 BoardRootContainer = container.transform;
             }
 
-            if (_boardRoot != null) Destroy(_boardRoot.gameObject);
+            if (_boardRoot != null)
+            {
+                SafeDestroy(_boardRoot.gameObject);
+            }
 
             _boardRoot = new GameObject("ProceduralChessBoard_3D").transform;
             _boardRoot.SetParent(BoardRootContainer, false);
 
-            // Outer Arena Platform Pedestal
+            // Build the Spirit Blossom / Ionia floating sanctuary environment around the board
+            SpiritBlossomArena.BuildArena(_boardRoot, new Vector3(3.5f, 0f, 3.5f));
+
+            // Outer Wooden Board Base Pedestal
             GameObject arenaPedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            arenaPedestal.name = "CyberArenaPedestal";
+            arenaPedestal.name = "BoardWoodenPedestal";
             arenaPedestal.transform.SetParent(_boardRoot, false);
-            arenaPedestal.transform.localPosition = new Vector3(3.5f, -0.2f, 3.5f);
-            arenaPedestal.transform.localScale = new Vector3(9.0f, 0.2f, 9.0f);
+            arenaPedestal.transform.localPosition = new Vector3(3.5f, -0.15f, 3.5f);
+            arenaPedestal.transform.localScale = new Vector3(8.9f, 0.15f, 8.9f);
             Renderer pedRend = arenaPedestal.GetComponent<Renderer>();
             pedRend.sharedMaterial = _borderMat;
             pedRend.receiveShadows = true;
             pedRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-            // Outer Frame
+            // Outer Wooden Frame
             float totalSize = 8 * tileSize;
             GameObject frame = GameObject.CreatePrimitive(PrimitiveType.Cube);
             frame.name = "BoardPerimeterFrame";
@@ -276,30 +305,6 @@ namespace MechChess.Chess3D
             frameRend.sharedMaterial = _borderMat;
             frameRend.receiveShadows = true;
             frameRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-
-            // Dedicated Cinematic Arena Key Light with Grounding Soft Shadows
-            GameObject keyLightObj = new GameObject("ArenaKeyLight");
-            keyLightObj.transform.SetParent(_boardRoot, false);
-            Light keyLight = keyLightObj.AddComponent<Light>();
-            keyLight.type = LightType.Directional;
-            keyLight.color = new Color(1.0f, 0.98f, 0.95f);
-            keyLight.intensity = 1.6f;
-            keyLight.shadows = LightShadows.Soft;
-            keyLight.shadowStrength = 0.60f;
-            keyLight.shadowBias = 0.05f;
-            keyLight.shadowNormalBias = 0.4f;
-            keyLightObj.transform.localRotation = Quaternion.Euler(55f, -30f, 0);
-
-            // Dedicated Overhead Fill Point Light (Shadows Off for Mobile Performance)
-            GameObject fillLightObj = new GameObject("ArenaOverheadFill");
-            fillLightObj.transform.SetParent(_boardRoot, false);
-            fillLightObj.transform.localPosition = new Vector3(3.5f, 6.0f, 3.5f);
-            Light fillLight = fillLightObj.AddComponent<Light>();
-            fillLight.type = LightType.Point;
-            fillLight.color = new Color(0.6f, 0.9f, 1.0f);
-            fillLight.intensity = 2.0f;
-            fillLight.range = 25f;
-            fillLight.shadows = LightShadows.None;
 
             // 64 Tiles
             for (int file = 0; file < 8; file++)
@@ -329,7 +334,7 @@ namespace MechChess.Chess3D
                 }
             }
 
-            // Build Perimeter 3D Coordinate Notation (A-H, 1-8)
+            // Build Perimeter 3D Coordinate Notation (A-H, 1-8) in burned wood finish
             BuildBoardCoordinateLabels();
         }
 
@@ -338,7 +343,7 @@ namespace MechChess.Chess3D
             GameObject labelContainer = new GameObject("BoardCoordinateLabels");
             labelContainer.transform.SetParent(_boardRoot, false);
 
-            Color labelColor = new Color(0.40f, 0.85f, 1.0f, 0.85f); // Neon Cyan
+            Color labelColor = new Color(0.25f, 0.12f, 0.05f, 0.95f); // Dark Walnut Burnt Markings (from Image 1)
 
             // Files: A - H (along rank -0.62f bottom and 7.62f top)
             for (int f = 0; f < 8; f++)
@@ -395,7 +400,7 @@ namespace MechChess.Chess3D
                 BoardRootContainer = container.transform;
             }
 
-            if (_piecesRoot != null) Destroy(_piecesRoot.gameObject);
+            if (_piecesRoot != null) SafeDestroy(_piecesRoot.gameObject);
             _piecesRoot = new GameObject("MechPiecesRoot").transform;
             _piecesRoot.SetParent(BoardRootContainer, false);
 
@@ -468,6 +473,12 @@ namespace MechChess.Chess3D
         // Selection & Move Logic
         // =========================================================================
         public void SkipActiveAnimation()
+        {
+            if (MechChess.ProceduralMech.CaptureCutsceneDirector.IsPlaying) MechChess.ProceduralMech.CaptureCutsceneDirector.SkipActive();
+            SkipActiveAnimationCore();
+        }
+
+        private void SkipActiveAnimationCore()
         {
             if (_isBusyAnimating)
             {
@@ -2045,7 +2056,7 @@ namespace MechChess.Chess3D
             if (parts.Length < 4) return false;
 
             // Clear existing pieces
-            if (_piecesRoot != null) Destroy(_piecesRoot.gameObject);
+            if (_piecesRoot != null) SafeDestroy(_piecesRoot.gameObject);
             _piecesRoot = new GameObject("MechPiecesRoot").transform;
             _piecesRoot.SetParent(transform, false);
             Array.Clear(boardPieces, 0, boardPieces.Length);
@@ -2199,6 +2210,15 @@ namespace MechChess.Chess3D
                     ExecuteMove(piece, f2, r2);
                 }
             }
+        }
+
+        private static void SafeDestroy(UnityEngine.Object obj)
+        {
+            if (obj == null) return;
+            if (Application.isPlaying)
+                Destroy(obj);
+            else
+                DestroyImmediate(obj);
         }
     }
 

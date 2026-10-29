@@ -556,16 +556,20 @@ namespace MechChess.UI
 
         private void Update()
         {
-            // Toggle Fullscreen / Windowed with F11 or Alt+Enter on PC
-            if (Input.GetKeyDown(KeyCode.F11) || ((Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) && Input.GetKeyDown(KeyCode.Return)))
+            // Toggle Fullscreen / Windowed with F11 or Alt+Enter on PC (New Input System safe)
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb != null)
             {
-                if (Screen.fullScreenMode == FullScreenMode.Windowed)
+                if (kb.f11Key.wasPressedThisFrame || ((kb.leftAltKey.isPressed || kb.rightAltKey.isPressed) && kb.enterKey.wasPressedThisFrame))
                 {
-                    Screen.fullScreenMode = FullScreenMode.FullScreenWindow;
-                }
-                else
-                {
-                    Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
+                    if (Screen.fullScreenMode == FullScreenMode.Windowed)
+                    {
+                        Screen.fullScreenMode = FullScreenMode.FullScreenWindow;
+                    }
+                    else
+                    {
+                        Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
+                    }
                 }
             }
 

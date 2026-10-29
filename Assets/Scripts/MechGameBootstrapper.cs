@@ -20,7 +20,19 @@ namespace MechChess
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoInitializeGame()
         {
-            if (ChessBoard3DManager.Instance != null)
+            // Clean up any temporary editor preview objects so the runtime bootstrapper initializes cleanly
+            GameObject editorPreview = GameObject.Find("ChessBoard_EditorPreview");
+            if (editorPreview != null)
+            {
+                Object.DestroyImmediate(editorPreview);
+            }
+            GameObject strayContainer = GameObject.Find("ChessBoard_WorldContainer");
+            if (strayContainer != null && GameObject.Find("GameController") == null)
+            {
+                Object.DestroyImmediate(strayContainer);
+            }
+
+            if (GameObject.Find("GameController") != null)
             {
                 Debug.Log("[MechChess Bootstrap] Game systems already present in scene.");
                 return;
@@ -56,7 +68,7 @@ namespace MechChess
             if (mainCam != null)
             {
                 mainCam.clearFlags = CameraClearFlags.SolidColor;
-                mainCam.backgroundColor = new Color(0.04f, 0.06f, 0.10f);
+                mainCam.backgroundColor = new Color(0.18f, 0.56f, 0.64f); // Serene Spirit Blossom Celestial Sky
 
                 MobileTouchInput touchInput = mainCam.GetComponent<MobileTouchInput>();
                 if (touchInput == null)
@@ -72,7 +84,29 @@ namespace MechChess
             }
             catch { }
 
+#if UNITY_EDITOR
+            // In Unity Editor, launch directly into 3D match so developer immediately sees the board, mechs, and arena
+            controller.AddComponent<EditorDirectMatchLauncher>();
+#endif
+
             Debug.Log("[MechChess Bootstrap] All Subsystems and EventSystem successfully initialized!");
         }
     }
+
+#if UNITY_EDITOR
+    internal class EditorDirectMatchLauncher : MonoBehaviour
+    {
+        private System.Collections.IEnumerator Start()
+        {
+            yield return null; // Wait 1 frame for MainMenu2D and ChessBoard3DManager Start()
+
+            var menu = GetComponent<MainMenu2D>();
+            if (menu != null)
+            {
+                Debug.Log("[MechChess Bootstrap] Editor Auto-Launcher: Entering 3D match directly!");
+                menu.LaunchGame(MainMenu2D.GameLaunchMode.VersusAI);
+            }
+        }
+    }
+#endif
 }

@@ -31,6 +31,106 @@ namespace MechChess.ProceduralMech
         private float _selectedLift = 0f;
         private GameObject _selectionHologramObj;
 
+        // ── Sub-Part Animation System ──────────────────────────────────────────
+        public enum CombatRole { Attacker, Defender }
+        public enum CombatPhase { Idle, Dash, Clash, Finisher, Aftermath }
+
+        // Part type constants — used to select the right combat & locomotion overrides per part.
+        private const byte PT_GENERIC  = 0;
+        private const byte PT_LEG      = 1;  // thighs, shins, bipedal & hydraulic legs
+        private const byte PT_FOOT     = 2;  // feet, toes, heels
+        private const byte PT_ARM      = 3;  // upper arm, forearm, gauntlet
+        private const byte PT_HEAD     = 4;  // head, neck, helmet, visor
+        private const byte PT_WING     = 5;  // wings (Queen)
+        private const byte PT_SHOULDER = 6;  // pauldrons
+        private const byte PT_CANNON   = 7;  // twin cannons, barrels (Rook)
+        private const byte PT_WEAPON   = 8;  // Greatsword, arm blades, mane blades
+        private const byte PT_FIN      = 9;  // radiator fins (Pawn)
+        private const byte PT_CORE     = 10; // reactor core, resonance core
+
+        private struct PartAnim
+        {
+            public Transform  target;
+            public Vector3    baseLocalPos;
+            public Quaternion baseLocalRot;
+            public byte       partType;
+            public float      sideSign; // -1 for right, +1 for left, 0 for center
+
+            // Rotation oscillation
+            public Vector3 rotAxis;   // axis (local-space)
+            public float   rotAmp;    // degrees amplitude  (< 0 = continuous spin)
+            public float   rotFreq;   // Hz
+            public float   rotPhase;  // phase offset (radians)
+
+            // Position oscillation (zero = disabled)
+            public Vector3 posAxis;
+            public float   posAmp;
+            public float   posFreq;
+            public float   posPhase;
+        }
+
+        private readonly List<PartAnim> _partAnims = new List<PartAnim>();
+        [System.NonSerialized] private bool _subPartsInitialized;
+
+        // Piece type caching
+        private PieceType _pieceType = PieceType.Pawn;
+        private bool _hasPieceType = false;
+        public PieceType PieceType
+        {
+            get
+            {
+                if (_hasPieceType) return _pieceType;
+                ChessPiece3D p = GetComponent<ChessPiece3D>();
+                if (p != null) { _pieceType = p.pieceType; _hasPieceType = true; }
+                return _pieceType;
+            }
+            set { _pieceType = value; _hasPieceType = true; }
+        }
+
+        // ── Active Locomotion State (0..1, driven during piece movement) ───────
+        private float _locoWeight = 0f;
+        private float _locoPhase  = 0f;
+
+        // ── Combat Choreography State (driven by cutscene & attack routines) ───
+        private bool        _inCombat       = false;
+        private CombatRole  _cbtRole        = CombatRole.Attacker;
+        private CombatPhase _cbtPhase       = CombatPhase.Idle;
+        private float       _cbtProgress    = 0f;
+        private PieceType   _cbtPieceType   = PieceType.Pawn;
+
+        /// <summary>
+        /// Drives the full-body locomotion stride (legs running, arms swinging, wings flapping).
+        /// </summary>
+        public void SetLocomotion(float weight, float strideCycle)
+        {
+            _locoWeight = Mathf.Clamp01(weight);
+            _locoPhase  = strideCycle;
+        }
+
+        /// <summary>
+        /// Drives dynamic full-body combat poses matching the current cutscene or attack phase.
+        /// </summary>
+        public void DriveCombatChoreography(PieceType pieceType, CombatRole role, CombatPhase phase, float progress)
+        {
+            _inCombat     = true;
+            _cbtPieceType = pieceType;
+            _cbtRole      = role;
+            _cbtPhase     = phase;
+            _cbtProgress  = Mathf.Clamp01(progress);
+        }
+
+        /// <summary>
+        /// Clears all combat and locomotion poses back to neutral idle.
+        /// </summary>
+        public void ResetCombatPoses()
+        {
+            _inCombat     = false;
+            _cbtPhase     = CombatPhase.Idle;
+            _cbtProgress  = 0f;
+            _locoWeight   = 0f;
+        }
+
+
         // Skippable Animation References
         private Coroutine _activeAnimationRoutine = null;
         private Action _onImpactCallback = null;
@@ -66,6 +166,549 @@ namespace MechChess.ProceduralMech
             if (_baseLocalRotation == Quaternion.identity && transform.localRotation != Quaternion.identity)
             {
                 _baseLocalRotation = transform.localRotation;
+            }
+        }
+
+        // ── Sub-Part Animation Discovery ───────────────────────────────────────
+        /// <summary>
+        /// Scans child GameObjects by name and registers oscillation descriptors
+        /// so each recognizable mech part moves independently on its own rhythm.
+        /// Called once lazily on first Update so all child parts are already built.
+        /// </summary>
+        private void InitializeSubPartAnimations()
+        {
+            _subPartsInitialized = true;
+            _partAnims.Clear();
+
+            float rng = _timeOffset;
+
+            Transform[] children = GetComponentsInChildren<Transform>(includeInactive: false);
+            foreach (Transform t in children)
+            {
+                if (t == transform) continue; // skip root
+
+                string n = t.name.ToLower();
+                PartAnim pa = new PartAnim
+                {
+                    target       = t,
+                    baseLocalPos = t.localPosition,
+                    baseLocalRot = t.localRotation,
+                };
+
+                // Side detection (left vs right vs center)
+                bool isLeft  = n.EndsWith("_l") || n.Contains("_l_") || n.Contains("_0") || n.Contains("dish_l") || n.Contains("antenna_l") || n.Contains("wing_l") || n.Contains("blade_l");
+                bool isRight = n.EndsWith("_r") || n.Contains("_r_") || n.Contains("_1") || n.Contains("dish_r") || n.Contains("antenna_r") || n.Contains("wing_r") || n.Contains("blade_r");
+                pa.sideSign  = isLeft ? 1f : (isRight ? -1f : 0f);
+
+                bool registered = false;
+
+                // ── LEGS: thighs, shins, bipedal & hydraulic legs ──
+                if (n.Contains("thigh") || n.Contains("shin") || n.Contains("hydraulicleg") || n.Contains("leg_") || n.Contains("talon"))
+                {
+                    float side   = pa.sideSign != 0f ? pa.sideSign : 1f;
+                    pa.rotAxis   = new Vector3(side, 0, 0);
+                    pa.rotAmp    = 6f;
+                    pa.rotFreq   = 1.2f;
+                    pa.rotPhase  = isLeft ? 0f : Mathf.PI;
+                    pa.partType  = PT_LEG;
+                    registered   = true;
+                }
+                // ── FEET: subtle rock front/back ──
+                else if (n.Contains("foot") || n.Contains("toe") || n.Contains("heel"))
+                {
+                    pa.rotAxis   = Vector3.right;
+                    pa.rotAmp    = 3.5f;
+                    pa.rotFreq   = 1.2f;
+                    pa.rotPhase  = rng;
+                    pa.partType  = PT_FOOT;
+                    registered   = true;
+                }
+                // ── ARMS: upper arm, forearm, gauntlet ──
+                else if (n.Contains("upperarm") || n.Contains("upper_arm") || n.Contains("forearm") || n.Contains("gauntlet"))
+                {
+                    float side   = pa.sideSign != 0f ? pa.sideSign : 1f;
+                    pa.rotAxis   = new Vector3(0, 0, side);
+                    pa.rotAmp    = 4.5f;
+                    pa.rotFreq   = 0.9f;
+                    pa.rotPhase  = isLeft ? 0f : Mathf.PI;
+                    pa.partType  = PT_ARM;
+                    registered   = true;
+                }
+                // ── PAULDRONS / SHOULDER ARMOR: subtle up/down bob ──
+                else if (n.Contains("pauldron") || n.Contains("shoulder"))
+                {
+                    pa.rotAxis   = Vector3.forward;
+                    pa.rotAmp    = 3.5f;
+                    pa.rotFreq   = 0.8f;
+                    pa.rotPhase  = isLeft ? 0f : Mathf.PI;
+                    pa.partType  = PT_SHOULDER;
+                    registered   = true;
+                }
+                // ── HEAD / HELMET / NECK ──
+                else if ((n.Contains("head") || n.Contains("neck") || n.Contains("helmet") || n.Contains("steed")) && !n.Contains("crown"))
+                {
+                    pa.rotAxis   = Vector3.up;
+                    pa.rotAmp    = 7f;
+                    pa.rotFreq   = 0.55f;
+                    pa.rotPhase  = rng * 0.7f;
+                    pa.partType  = PT_HEAD;
+                    registered   = true;
+                }
+                // ── VISOR / OPTICS / SENSORS ──
+                else if (n.Contains("visor") || n.Contains("sensor") || n.Contains("optic") || n.Contains("eye"))
+                {
+                    pa.rotAxis   = Vector3.zero;
+                    pa.posAxis   = Vector3.forward;
+                    pa.posAmp    = 0.012f;
+                    pa.posFreq   = 2.2f;
+                    pa.posPhase  = rng;
+                    pa.partType  = PT_HEAD;
+                    registered   = true;
+                }
+                // ── WINGS (Queen) ──
+                else if (n.Contains("wing"))
+                {
+                    float side   = pa.sideSign != 0f ? pa.sideSign : 1f;
+                    pa.rotAxis   = new Vector3(0, 0, side);
+                    pa.rotAmp    = 6f;
+                    pa.rotFreq   = 1.4f;
+                    pa.rotPhase  = isLeft ? 0f : Mathf.PI;
+                    pa.partType  = PT_WING;
+                    registered   = true;
+                }
+                // ── CANNONS / MISSILES (Rook) ──
+                else if (n.Contains("cannon") || n.Contains("barrel") || n.Contains("missile"))
+                {
+                    pa.rotAxis   = Vector3.right;
+                    pa.rotAmp    = 2.5f;
+                    pa.rotFreq   = 0.6f;
+                    pa.rotPhase  = rng * 0.4f;
+                    pa.partType  = PT_CANNON;
+                    registered   = true;
+                }
+                // ── WEAPONS: Greatsword, arm blades, mane blades ──
+                else if (n.Contains("sword") || n.Contains("blade") || n.Contains("mane"))
+                {
+                    pa.rotAxis   = new Vector3(0, 1f, 0);
+                    pa.rotAmp    = 4f;
+                    pa.rotFreq   = 0.85f;
+                    pa.rotPhase  = rng * 0.9f;
+                    pa.partType  = PT_WEAPON;
+                    registered   = true;
+                }
+                // ── RADIATOR FINS (Pawn) ──
+                else if (n.Contains("fin") || n.Contains("radiator"))
+                {
+                    float side   = pa.sideSign != 0f ? pa.sideSign : 1f;
+                    pa.rotAxis   = new Vector3(0, side, 0);
+                    pa.rotAmp    = 4.5f;
+                    pa.rotFreq   = 1.1f;
+                    pa.rotPhase  = isLeft ? 0f : Mathf.PI;
+                    pa.partType  = PT_FIN;
+                    registered   = true;
+                }
+                // ── REACTOR CORE / RESONANCE CORE ──
+                else if (n.Contains("reactor") || n.Contains("resonance") || n.Contains("core"))
+                {
+                    pa.rotAxis   = Vector3.zero;
+                    pa.posAxis   = Vector3.forward;
+                    pa.posAmp    = 0.015f;
+                    pa.posFreq   = 1.8f;
+                    pa.posPhase  = rng * 1.3f;
+                    pa.partType  = PT_CORE;
+                    registered   = true;
+                }
+                // ── ANTENNA / DISH (Bishop) ──
+                else if (n.Contains("antenna") || n.Contains("dish"))
+                {
+                    float side   = pa.sideSign != 0f ? pa.sideSign : 1f;
+                    pa.rotAxis   = new Vector3(0, 0, side);
+                    pa.rotAmp    = 5f;
+                    pa.rotFreq   = 0.7f;
+                    pa.rotPhase  = isLeft ? rng : rng + Mathf.PI;
+                    pa.partType  = PT_GENERIC;
+                    registered   = true;
+                }
+                // ── ORBIT RINGS (Bishop): continuous spin ──
+                else if (n.Contains("orbitring") || n.Contains("orbit_ring"))
+                {
+                    pa.rotAxis   = GetOrbitRingAxis(n);
+                    pa.rotAmp    = -1f; // sentinel: continuous spin
+                    pa.rotFreq   = GetOrbitRingSpeed(n);
+                    pa.rotPhase  = 0f;
+                    pa.partType  = PT_GENERIC;
+                    registered   = true;
+                }
+                // ── HOLOGRAM RING (King base): continuous spin ──
+                else if (n.Contains("holo") && n.Contains("ring"))
+                {
+                    pa.rotAxis   = Vector3.up;
+                    pa.rotAmp    = -1f;
+                    pa.rotFreq   = 35f;
+                    pa.rotPhase  = 0f;
+                    pa.partType  = PT_GENERIC;
+                    registered   = true;
+                }
+                // ── CROWN SPIRES ──
+                else if (n.Contains("crownspire") || n.Contains("crown_spire"))
+                {
+                    pa.rotAxis   = new Vector3(1f, 0, 0);
+                    pa.rotAmp    = 2.5f;
+                    pa.rotFreq   = 0.9f;
+                    pa.rotPhase  = rng + t.GetSiblingIndex() * 0.4f;
+                    pa.partType  = PT_GENERIC;
+                    registered   = true;
+                }
+
+                if (registered) _partAnims.Add(pa);
+            }
+        }
+
+        private static Vector3 GetOrbitRingAxis(string name)
+        {
+            if (name.Contains("_1")) return Vector3.up;
+            if (name.Contains("_2")) return new Vector3(0.5f, 0.5f, 0).normalized;
+            return new Vector3(0, 0.3f, 0.7f).normalized;
+        }
+
+        private static float GetOrbitRingSpeed(string name)
+        {
+            if (name.Contains("_1")) return 55f;
+            if (name.Contains("_2")) return -40f;
+            return 70f;
+        }
+
+        /// <summary>
+        /// Advances all registered sub-part animations by one frame.
+        /// Seamlessly blends between idle breathing, active locomotion strides,
+        /// and dynamic piece-specific combat choreographies.
+        /// </summary>
+        private void UpdatePartAnims()
+        {
+            float t = Time.time + _timeOffset;
+
+            for (int i = 0; i < _partAnims.Count; i++)
+            {
+                PartAnim pa = _partAnims[i];
+                if (pa.target == null) continue;
+
+                // ── Continuous spin (orbit rings, holo rings) ──
+                if (pa.rotAmp < 0f)
+                {
+                    float speedMult = _inCombat ? 3.5f : (_locoWeight > 0.05f ? 2.2f : 1.0f);
+                    pa.target.Rotate(pa.rotAxis, pa.rotFreq * speedMult * Time.deltaTime, Space.Self);
+                    continue;
+                }
+
+                // ── Base idle sine-wave ──
+                float idleAngle = 0f;
+                if (pa.rotAxis != Vector3.zero && pa.rotAmp > 0f)
+                    idleAngle = Mathf.Sin(t * pa.rotFreq * Mathf.PI * 2f + pa.rotPhase) * pa.rotAmp;
+
+                float finalAngle = idleAngle;
+                Vector3 finalPosOffset = Vector3.zero;
+                float side = pa.sideSign != 0f ? pa.sideSign : 1f;
+
+                // ── 1. ACTIVE LOCOMOTION OVERRIDES ──
+                if (_locoWeight > 0.001f && !_inCombat)
+                {
+                    float stride    = Mathf.Sin(_locoPhase);
+                    float strideCos = Mathf.Cos(_locoPhase);
+
+                    switch (pa.partType)
+                    {
+                        case PT_LEG:
+                            // Alternating fluid walk/run stride
+                            float legStride = side * stride * 24f;
+                            if (pa.target.name.ToLower().Contains("shin"))
+                            {
+                                float kneeFlex = Mathf.Clamp01(-side * stride) * 22f;
+                                legStride += kneeFlex;
+                            }
+                            finalAngle = Mathf.Lerp(idleAngle, legStride, _locoWeight);
+                            break;
+
+                        case PT_FOOT:
+                            float footRock = -side * strideCos * 14f;
+                            finalAngle = Mathf.Lerp(idleAngle, footRock, _locoWeight);
+                            break;
+
+                        case PT_ARM:
+                            // Counter-swing opposite to legs
+                            float armSwing = -side * stride * 18f;
+                            finalAngle = Mathf.Lerp(idleAngle, armSwing, _locoWeight);
+                            break;
+
+                        case PT_SHOULDER:
+                            float shoulderBob = side * strideCos * 5f;
+                            finalAngle = Mathf.Lerp(idleAngle, shoulderBob, _locoWeight);
+                            break;
+
+                        case PT_WING:
+                            // Graceful flapping and aerodynamic spread
+                            float flap = side * (22f + Mathf.Sin(_locoPhase * 1.5f) * 16f);
+                            finalAngle = Mathf.Lerp(idleAngle, flap, _locoWeight);
+                            break;
+
+                        case PT_FIN:
+                            // Sweep back into streamlined cruise shape
+                            float finSweep = -side * 28f;
+                            finalAngle = Mathf.Lerp(idleAngle, finSweep, _locoWeight);
+                            break;
+
+                        case PT_CANNON:
+                            float cannonPitch = Mathf.Sin(_locoPhase * 2f) * 3f;
+                            finalAngle = Mathf.Lerp(idleAngle, cannonPitch, _locoWeight);
+                            break;
+
+                        case PT_WEAPON:
+                            float weaponSway = side * stride * 8f;
+                            finalAngle = Mathf.Lerp(idleAngle, weaponSway, _locoWeight);
+                            break;
+                    }
+                }
+
+                // ── 2. DYNAMIC COMBAT CHOREOGRAPHY OVERRIDES ──
+                if (_inCombat)
+                {
+                    float u = _cbtProgress;
+
+                    if (_cbtRole == CombatRole.Attacker)
+                    {
+                        // ── ATTACKER CHOREOGRAPHY ──
+                        switch (_cbtPhase)
+                        {
+                            case CombatPhase.Dash:
+                            {
+                                // SPRINT CHARGE: legs pump 3× speed, arms & wings stream back
+                                switch (pa.partType)
+                                {
+                                    case PT_LEG:
+                                        finalAngle = Mathf.Sin(u * 28f + (side > 0 ? 0 : Mathf.PI)) * 26f;
+                                        break;
+                                    case PT_ARM:
+                                        finalAngle = -38f * u; // arms swept back in slipstream
+                                        break;
+                                    case PT_WING:
+                                        finalAngle = -side * 25f * u;
+                                        break;
+                                    case PT_FIN:
+                                        finalAngle = -side * 32f * u;
+                                        break;
+                                    case PT_WEAPON:
+                                        finalAngle = 25f * u;
+                                        break;
+                                }
+                                break;
+                            }
+
+                            case CombatPhase.Clash:
+                            {
+                                // CLASH & BRACE: weapon strikes forward, limbs brace against impact
+                                switch (pa.partType)
+                                {
+                                    case PT_LEG:
+                                        finalAngle = side * 15f; // braced wide stance
+                                        break;
+                                    case PT_ARM:
+                                        finalAngle = (side > 0) ? -20f : 55f; // right arm strikes forward
+                                        break;
+                                    case PT_SHOULDER:
+                                        finalAngle = side * 12f;
+                                        break;
+                                    case PT_WEAPON:
+                                        finalAngle = 65f;
+                                        break;
+                                }
+                                break;
+                            }
+
+                            case CombatPhase.Finisher:
+                            {
+                                // SIGNATURE FINISHER PER PIECE TYPE
+                                switch (_cbtPieceType)
+                                {
+                                    case PieceType.Pawn: // Scout Drone: high-speed ram & laser eye blast
+                                        if (pa.partType == PT_FIN)
+                                        {
+                                            float spread = (u < 0.6f) ? (side * 35f * (u / 0.6f)) : (-side * 30f);
+                                            finalAngle = spread;
+                                        }
+                                        else if (pa.partType == PT_HEAD)
+                                        {
+                                            finalPosOffset = Vector3.forward * (Mathf.Sin(u * Mathf.PI) * 0.04f);
+                                        }
+                                        break;
+
+                                    case PieceType.Knight: // Strike Strider: vault leap & mane-blade execution
+                                        if (pa.partType == PT_LEG)
+                                        {
+                                            float legAng = (u < 0.5f) ? (-40f * (u / 0.5f)) : (Mathf.Lerp(-40f, 55f, (u - 0.5f) / 0.5f));
+                                            finalAngle = legAng;
+                                        }
+                                        else if (pa.partType == PT_HEAD)
+                                        {
+                                            float headAng = (u < 0.5f) ? (-25f * (u / 0.5f)) : (Mathf.Lerp(-25f, 35f, (u - 0.5f) / 0.5f));
+                                            finalAngle = headAng;
+                                        }
+                                        else if (pa.partType == PT_WEAPON)
+                                        {
+                                            finalAngle = Mathf.Lerp(20f, 85f, u);
+                                        }
+                                        break;
+
+                                    case PieceType.Bishop: // Tactical Relay: orbital convergence & beam focus
+                                        if (pa.partType == PT_GENERIC && (pa.target.name.ToLower().Contains("antenna") || pa.target.name.ToLower().Contains("dish")))
+                                        {
+                                            finalAngle = 35f * Mathf.Clamp01(u * 1.5f);
+                                        }
+                                        else if (pa.partType == PT_CORE)
+                                        {
+                                            finalPosOffset = Vector3.forward * (Mathf.Sin(u * Mathf.PI) * 0.05f);
+                                        }
+                                        break;
+
+                                    case PieceType.Rook: // Siege Bastion: anchor protocol & artillery recoil
+                                        if (pa.partType == PT_LEG)
+                                        {
+                                            finalAngle = side * 22f; // anchor out
+                                        }
+                                        else if (pa.partType == PT_CANNON)
+                                        {
+                                            if (u < 0.55f)
+                                            {
+                                                finalAngle = 18f * (u / 0.55f); // elevate
+                                            }
+                                            else
+                                            {
+                                                float recoilT = (u - 0.55f) / 0.45f;
+                                                finalPosOffset = -Vector3.forward * (Mathf.Sin(recoilT * Mathf.PI) * 0.22f); // violent backward jerk
+                                                finalAngle = 18f - 8f * recoilT;
+                                            }
+                                        }
+                                        break;
+
+                                    case PieceType.Queen: // Valkyrie: aerial ascent & dual-blade X-cross execution
+                                        if (pa.partType == PT_WING)
+                                        {
+                                            finalAngle = side * (35f + Mathf.Sin(u * Mathf.PI) * 15f); // full glorious wingspan
+                                        }
+                                        else if (pa.partType == PT_ARM)
+                                        {
+                                            if (u < 0.5f)
+                                            {
+                                                // Raise dual blades high in X-cross
+                                                finalAngle = -55f * (u / 0.5f);
+                                            }
+                                            else
+                                            {
+                                                // Violent diagonal downward execution
+                                                float slashT = (u - 0.5f) / 0.5f;
+                                                finalAngle = Mathf.Lerp(-55f, 65f, slashT * slashT);
+                                            }
+                                        }
+                                        break;
+
+                                    case PieceType.King: // Overlord Titan: two-handed Greatsword earth splitter
+                                        if (pa.partType == PT_LEG)
+                                        {
+                                            finalAngle = side * 20f; // massive titan power stance
+                                        }
+                                        else if (pa.partType == PT_SHOULDER)
+                                        {
+                                            finalAngle = 15f * Mathf.Sin(u * Mathf.PI);
+                                        }
+                                        else if (pa.partType == PT_ARM || pa.partType == PT_WEAPON)
+                                        {
+                                            if (u < 0.7f)
+                                            {
+                                                // Hoist Greatsword overhead with both arms
+                                                finalAngle = -75f * (u / 0.7f);
+                                            }
+                                            else
+                                            {
+                                                // Catastrophic ground-cleaving slam
+                                                float strikeT = (u - 0.7f) / 0.3f;
+                                                finalAngle = Mathf.Lerp(-75f, 65f, strikeT * strikeT);
+                                            }
+                                        }
+                                        break;
+                                }
+                                break;
+                            }
+
+                            case CombatPhase.Aftermath:
+                            {
+                                // Settle smoothly from combat pose back to idle
+                                finalAngle = Mathf.Lerp(finalAngle, idleAngle, u);
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // ── DEFENDER CHOREOGRAPHY ──
+                        switch (_cbtPhase)
+                        {
+                            case CombatPhase.Dash:
+                            {
+                                // Defensive crouch & guard
+                                if (pa.partType == PT_LEG) finalAngle = 14f * u;
+                                else if (pa.partType == PT_ARM) finalAngle = -28f * u; // raise guard
+                                break;
+                            }
+
+                            case CombatPhase.Clash:
+                            {
+                                // Bracing against attacker
+                                if (pa.partType == PT_LEG) finalAngle = 18f;
+                                else if (pa.partType == PT_ARM) finalAngle = -35f;
+                                else if (pa.partType == PT_HEAD) finalAngle = -8f;
+                                break;
+                            }
+
+                            case CombatPhase.Finisher:
+                            {
+                                if (u >= 0.7f)
+                                {
+                                    // CRITICAL IMPACT REACTION: body thrown backward, limbs blown outward
+                                    float hitT = (u - 0.7f) / 0.3f;
+                                    float hitCurve = Mathf.SmoothStep(0f, 1f, hitT);
+                                    if (pa.partType == PT_ARM) finalAngle = -45f * hitCurve;
+                                    else if (pa.partType == PT_LEG) finalAngle = 26f * hitCurve;
+                                    else if (pa.partType == PT_HEAD) finalAngle = -25f * hitCurve;
+                                    else if (pa.partType == PT_SHOULDER) finalAngle = -side * 18f * hitCurve;
+                                }
+                                break;
+                            }
+
+                            case CombatPhase.Aftermath:
+                            {
+                                // Staggered and reeling into disintegration
+                                if (pa.partType == PT_ARM) finalAngle = -45f;
+                                else if (pa.partType == PT_LEG) finalAngle = 26f;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Apply rotation
+                pa.target.localRotation = pa.rotAxis != Vector3.zero
+                    ? pa.baseLocalRot * Quaternion.AngleAxis(finalAngle, pa.rotAxis)
+                    : pa.baseLocalRot;
+
+                // Apply position oscillation / recoil
+                Vector3 basePos = pa.baseLocalPos + finalPosOffset;
+                if (pa.posAxis != Vector3.zero && pa.posAmp > 0f)
+                {
+                    float posOsc = Mathf.Sin(t * pa.posFreq * Mathf.PI * 2f + pa.posPhase) * pa.posAmp;
+                    pa.target.localPosition = basePos + pa.posAxis * posOsc;
+                }
+                else
+                {
+                    pa.target.localPosition = basePos;
+                }
             }
         }
 
@@ -150,13 +793,30 @@ namespace MechChess.ProceduralMech
 
         private void Update()
         {
-            if (_isMoving || _isDestroyed) return;
+            if (_isDestroyed) return;
+
+            // Lazy-initialize sub-part animations on first tick
+            // (done here so all child GameObjects are guaranteed to exist)
+            if (!_subPartsInitialized) InitializeSubPartAnimations();
+
+            // Sub-part animations run ALWAYS (idle + moving + attacking).
+            // Attack/move coroutines only touch the ROOT transform and the
+            // dynamically-created blade object — never the registered child parts —
+            // so there is zero conflict and sub-parts keep moving during combat.
+            UpdatePartAnims();
+
+            if (_isMoving)
+            {
+                // Root hover/sway is suppressed while a coroutine drives the root.
+                // Hologram ring also skipped during movement (not visible anyway).
+                return;
+            }
 
             // Idle Hovering / Breathing Sine Wave with preserved base orientation
             float t = (Time.time + _timeOffset) * hoverFrequency;
             float yOffset = Mathf.Sin(t) * hoverAmplitude;
-            float roll = Mathf.Sin(t * 0.75f) * swayAngle;
-            float pitch = Mathf.Cos(t * 0.5f) * (swayAngle * 0.6f);
+            float roll    = Mathf.Sin(t * 0.75f) * swayAngle;
+            float pitch   = Mathf.Cos(t * 0.5f) * (swayAngle * 0.6f);
 
             // Smooth physical elevation when selected
             float targetLift = _isSelected ? 0.16f : 0f;
@@ -224,11 +884,19 @@ namespace MechChess.ProceduralMech
         private IEnumerator MoveRoutine(Vector3 targetWorldPos, float duration, Action onComplete)
         {
             _isMoving = true;
+            ResetCombatPoses();
             if (_moveSparks != null) _moveSparks.Play();
 
             Vector3 startPos = transform.position;
+            Vector3 delta = targetWorldPos - startPos;
+            delta.y = 0f;
+            float dist = delta.magnitude;
+            Vector3 moveDir = dist > 0.001f ? delta.normalized : transform.forward;
+            Quaternion targetFacing = Quaternion.LookRotation(moveDir, Vector3.up);
+            Quaternion initialRot = transform.localRotation;
+
             float elapsed = 0f;
-            float jumpHeight = 0.65f;
+            float jumpHeight = 0.55f;
 
             while (elapsed < duration)
             {
@@ -239,14 +907,26 @@ namespace MechChess.ProceduralMech
                 float smoothT = Mathf.SmoothStep(0f, 1f, progress);
                 Vector3 current = Vector3.Lerp(startPos, targetWorldPos, smoothT);
                 current.y += Mathf.Sin(progress * Mathf.PI) * jumpHeight;
-
                 transform.position = current;
+
+                // Dynamic facing and forward lean while moving
+                float forwardLean = Mathf.Sin(progress * Mathf.PI) * 15f;
+                Quaternion facing = Quaternion.Slerp(initialRot, targetFacing, Mathf.Clamp01(progress * 2.5f));
+                transform.localRotation = facing * Quaternion.Euler(forwardLean, 0f, 0f);
+
+                // Drive full-body locomotion (running legs, swinging arms, flapping wings)
+                float locoWeight = Mathf.Sin(progress * Mathf.PI);
+                float strideCycle = progress * (dist * 2.5f + 2.0f) * Mathf.PI * 2f;
+                SetLocomotion(locoWeight, strideCycle);
+
                 yield return null;
             }
 
             transform.position = targetWorldPos;
             _baseLocalPosition = transform.localPosition;
             transform.localRotation = _baseLocalRotation;
+
+            ResetCombatPoses();
 
             if (_moveSparks != null) _moveSparks.Stop();
             _isMoving = false;
@@ -259,10 +939,18 @@ namespace MechChess.ProceduralMech
 
         /// <summary>
         /// Plays an in-place 3D sci-fi combat clash directly on the chessboard.
-        /// The attacking piece charges forward, brandishes an energy blade, slashes the target,
+        /// The attacking piece charges forward, brandishes its signature weapon, executes its finisher,
         /// and settles cleanly into the captured square.
         /// </summary>
         public void AnimateAttackAndCapture(Vector3 defenderWorldPos, MechPieceAnimator defender, Action onImpact, Action onComplete)
+        {
+            ChessPiece3D selfPiece = GetComponent<ChessPiece3D>();
+            ChessPiece3D defPiece = defender != null ? defender.GetComponent<ChessPiece3D>() : null;
+            if (CaptureCutsceneDirector.TryPlay(selfPiece, defPiece, onImpact, onComplete)) return;
+            AnimateAttackAndCaptureClassic(defenderWorldPos, defender, onImpact, onComplete);
+        }
+
+        public void AnimateAttackAndCaptureClassic(Vector3 defenderWorldPos, MechPieceAnimator defender, Action onImpact, Action onComplete)
         {
             SetSelected(false);
             if (_activeAnimationRoutine != null) StopCoroutine(_activeAnimationRoutine);
@@ -275,7 +963,11 @@ namespace MechChess.ProceduralMech
         private IEnumerator AttackAndCaptureRoutine(Vector3 defenderWorldPos, MechPieceAnimator defender, Action onImpact, Action onComplete)
         {
             _isMoving = true;
+            ResetCombatPoses();
             if (_moveSparks != null) _moveSparks.Play();
+
+            PieceType attType = PieceType;
+            PieceType defType = defender != null ? defender.PieceType : PieceType.Pawn;
 
             Vector3 startPos = transform.position;
             Vector3 toTarget = defenderWorldPos - startPos;
@@ -285,10 +977,10 @@ namespace MechChess.ProceduralMech
 
             Quaternion attackFacingRot = Quaternion.LookRotation(targetDir, Vector3.up);
 
-            // Phase 1: Charge towards defender (stopping at melee slash distance)
+            // ── Phase 1: Charge towards defender ─────────────────────────────────
             float approachDist = Mathf.Max(0.1f, toTarget.magnitude - 0.42f);
             Vector3 meleePos = startPos + targetDir * approachDist;
-            float approachDuration = 0.22f;
+            float approachDuration = 0.25f;
             float elapsed = 0f;
 
             Quaternion initialRot = transform.localRotation;
@@ -297,6 +989,9 @@ namespace MechChess.ProceduralMech
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / approachDuration);
                 float smoothT = Mathf.SmoothStep(0f, 1f, t);
+
+                DriveCombatChoreography(attType, CombatRole.Attacker, CombatPhase.Dash, t);
+                if (defender != null) defender.DriveCombatChoreography(defType, CombatRole.Defender, CombatPhase.Dash, t);
 
                 Vector3 curPos = Vector3.Lerp(startPos, meleePos, smoothT);
                 curPos.y += Mathf.Sin(t * Mathf.PI) * 0.15f;
@@ -311,21 +1006,23 @@ namespace MechChess.ProceduralMech
             transform.position = meleePos;
             transform.localRotation = attackFacingRot;
 
-            // Phase 2: Brandish energy blade
-            GameObject bladeObj = CreateEnergyBlade();
-            bladeObj.transform.SetParent(transform, false);
-            _activeBladeObj = bladeObj;
+            // ── Phase 2: Weapon deployment & clash ────────────────────────────────
+            GameObject bladeObj = (attType != PieceType.Bishop && attType != PieceType.Rook) ? CreateEnergyBlade() : null;
+            if (bladeObj != null)
+            {
+                bladeObj.transform.SetParent(transform, false);
+                _activeBladeObj = bladeObj;
+            }
 
             PlayCombatAudio(CombatAudioType.Slash);
 
-            // Phase 3: Wind-up & Slash across target
-            float slashDuration = 0.24f;
+            // ── Phase 3: Signature Finisher (per piece type) ─────────────────────
+            float slashDuration = 0.28f;
             elapsed = 0f;
             bool impactTriggered = false;
 
             Vector3 windupBladePos = new Vector3(0.25f, 0.45f, 0.15f);
             Quaternion windupBladeRot = Quaternion.Euler(-45f, 35f, 25f);
-
             Vector3 finishBladePos = new Vector3(-0.35f, 0.25f, 0.55f);
             Quaternion finishBladeRot = Quaternion.Euler(45f, -65f, -60f);
 
@@ -334,31 +1031,37 @@ namespace MechChess.ProceduralMech
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / slashDuration);
 
-                if (t < 0.30f)
-                {
-                    float wT = t / 0.30f;
-                    bladeObj.transform.localPosition = Vector3.Lerp(Vector3.zero, windupBladePos, wT);
-                    bladeObj.transform.localRotation = Quaternion.Slerp(Quaternion.identity, windupBladeRot, wT);
-                    transform.localRotation = attackFacingRot * Quaternion.Euler(-8f * wT, 15f * wT, 0);
-                }
-                else
-                {
-                    float sT = (t - 0.30f) / 0.70f;
-                    float powerCurve = sT * sT;
-                    bladeObj.transform.localPosition = Vector3.Lerp(windupBladePos, finishBladePos, powerCurve);
-                    bladeObj.transform.localRotation = Quaternion.Slerp(windupBladeRot, finishBladeRot, powerCurve);
-                    transform.localRotation = attackFacingRot * Quaternion.Euler(18f * powerCurve, -25f * powerCurve, 0);
+                DriveCombatChoreography(attType, CombatRole.Attacker, CombatPhase.Finisher, t);
+                if (defender != null) defender.DriveCombatChoreography(defType, CombatRole.Defender, CombatPhase.Finisher, t);
 
-                    if (!impactTriggered && sT >= 0.45f)
+                if (bladeObj != null)
+                {
+                    if (t < 0.30f)
                     {
-                        impactTriggered = true;
-                        Vector3 hitPoint = Vector3.Lerp(transform.position, defenderWorldPos, 0.65f) + Vector3.up * 0.40f;
-                        SpawnSlashImpact(hitPoint, _glowColor);
-                        PlayCombatAudio(CombatAudioType.Impact);
-                        var impact = onImpact ?? _onImpactCallback;
-                        _onImpactCallback = null;
-                        impact?.Invoke();
+                        float wT = t / 0.30f;
+                        bladeObj.transform.localPosition = Vector3.Lerp(Vector3.zero, windupBladePos, wT);
+                        bladeObj.transform.localRotation = Quaternion.Slerp(Quaternion.identity, windupBladeRot, wT);
+                        transform.localRotation = attackFacingRot * Quaternion.Euler(-8f * wT, 15f * wT, 0);
                     }
+                    else
+                    {
+                        float sT = (t - 0.30f) / 0.70f;
+                        float powerCurve = sT * sT;
+                        bladeObj.transform.localPosition = Vector3.Lerp(windupBladePos, finishBladePos, powerCurve);
+                        bladeObj.transform.localRotation = Quaternion.Slerp(windupBladeRot, finishBladeRot, powerCurve);
+                        transform.localRotation = attackFacingRot * Quaternion.Euler(18f * powerCurve, -25f * powerCurve, 0);
+                    }
+                }
+
+                if (!impactTriggered && t >= 0.65f)
+                {
+                    impactTriggered = true;
+                    Vector3 hitPoint = Vector3.Lerp(transform.position, defenderWorldPos, 0.65f) + Vector3.up * 0.40f;
+                    SpawnSlashImpact(hitPoint, _glowColor);
+                    PlayCombatAudio(CombatAudioType.Impact);
+                    var impact = onImpact ?? _onImpactCallback;
+                    _onImpactCallback = null;
+                    impact?.Invoke();
                 }
 
                 yield return null;
@@ -378,8 +1081,8 @@ namespace MechChess.ProceduralMech
             if (bladeObj != null) Destroy(bladeObj);
             _activeBladeObj = null;
 
-            // Phase 4: Settle cleanly into the target square
-            float settleDuration = 0.20f;
+            // ── Phase 4: Settle cleanly into square ──────────────────────────────
+            float settleDuration = 0.22f;
             elapsed = 0f;
             Vector3 preSettlePos = transform.position;
             Quaternion preSettleRot = transform.localRotation;
@@ -390,10 +1093,16 @@ namespace MechChess.ProceduralMech
                 float t = Mathf.Clamp01(elapsed / settleDuration);
                 float smoothT = Mathf.SmoothStep(0f, 1f, t);
 
+                DriveCombatChoreography(attType, CombatRole.Attacker, CombatPhase.Aftermath, t);
+                if (defender != null) defender.DriveCombatChoreography(defType, CombatRole.Defender, CombatPhase.Aftermath, t);
+
                 transform.position = Vector3.Lerp(preSettlePos, defenderWorldPos, smoothT);
                 transform.localRotation = Quaternion.Slerp(preSettleRot, _baseLocalRotation, smoothT);
                 yield return null;
             }
+
+            ResetCombatPoses();
+            if (defender != null) defender.ResetCombatPoses();
 
             transform.position = defenderWorldPos;
             _baseLocalPosition = transform.localPosition;
@@ -409,7 +1118,7 @@ namespace MechChess.ProceduralMech
             done?.Invoke();
         }
 
-        private GameObject CreateEnergyBlade()
+        internal GameObject CreateEnergyBlade()
         {
             GameObject bladeRoot = new GameObject("CombatEnergyBlade");
 
@@ -468,7 +1177,7 @@ namespace MechChess.ProceduralMech
             return mat;
         }
 
-        private void SpawnSlashImpact(Vector3 hitPoint, Color color)
+        internal void SpawnSlashImpact(Vector3 hitPoint, Color color)
         {
             GameObject impactObj = new GameObject("CombatSlashImpact");
             impactObj.transform.position = hitPoint;
@@ -502,12 +1211,12 @@ namespace MechChess.ProceduralMech
             Destroy(impactObj, 0.55f);
         }
 
-        private enum CombatAudioType { Slash, Impact }
+        internal enum CombatAudioType { Slash, Impact }
         private static AudioSource _combatAudioSource;
         private static AudioClip _slashClip;
         private static AudioClip _impactClip;
 
-        private static void PlayCombatAudio(CombatAudioType type)
+        internal static void PlayCombatAudio(CombatAudioType type)
         {
             try
             {
@@ -642,6 +1351,31 @@ namespace MechChess.ProceduralMech
             transform.localPosition = originalPos;
         }
 
+        public Color GlowColor { get { return _glowColor; } }
+        public Quaternion BaseLocalRotation { get { return _baseLocalRotation; } }
+
+        /// <summary>Hands control of this piece's transform to the capture cutscene.</summary>
+        public void BeginCutscene(bool thrusters)
+        {
+            SetSelected(false);
+            if (_activeAnimationRoutine != null) { StopCoroutine(_activeAnimationRoutine); _activeAnimationRoutine = null; }
+            _onImpactCallback = null;
+            _onCompleteCallback = null;
+            _isMoving = true;
+            if (thrusters && _moveSparks != null) _moveSparks.Play();
+        }
+
+        /// <summary>Returns control to the idle animation and rests the piece on the given square.</summary>
+        public void EndCutscene(Vector3 restWorldPos)
+        {
+            if (this == null) return;
+            transform.position = restWorldPos;
+            _baseLocalPosition = transform.localPosition;
+            transform.localRotation = _baseLocalRotation;
+            if (_moveSparks != null) _moveSparks.Stop();
+            _isMoving = false;
+        }
+
         private void CreateMoveSparkParticles()
         {
             GameObject pObj = new GameObject("ThrusterSparks");
@@ -656,6 +1390,7 @@ namespace MechChess.ProceduralMech
             main.startColor = _glowColor;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.playOnAwake = false;
+            main.stopAction = ParticleSystemStopAction.None;
 
             var emission = _moveSparks.emission;
             emission.rateOverTime = 35;
@@ -668,10 +1403,14 @@ namespace MechChess.ProceduralMech
             renderer.renderMode = ParticleSystemRenderMode.Billboard;
             Material mat = GetParticleMaterial();
             if (mat != null) renderer.material = mat;
+
+            // Make sure it's not playing at idle — only plays during movement
+            _moveSparks.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
 
+
         private static Material _particleMat;
-        private static Material GetParticleMaterial()
+        internal static Material GetParticleMaterial()
         {
             if (_particleMat == null)
             {
