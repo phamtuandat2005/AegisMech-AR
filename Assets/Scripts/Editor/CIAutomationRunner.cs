@@ -137,9 +137,21 @@ namespace MechChess.EditorTests
             // 5. Exit or Notify
             if (Application.isBatchMode)
             {
-                int exitCode = (totalFailed == 0) ? 0 : 1;
-                Debug.Log($"[CI] Exiting Unity BatchMode with code: {exitCode}");
-                EditorApplication.Exit(exitCode);
+                bool isRunningUnderUTF = Environment.CommandLine.Contains("-runTests");
+                if (!isRunningUnderUTF)
+                {
+                    int exitCode = (totalFailed == 0) ? 0 : 1;
+                    Debug.Log($"[CI] Standalone BatchMode execution complete. Exiting with code: {exitCode}");
+                    EditorApplication.Exit(exitCode);
+                }
+                else
+                {
+                    Debug.Log("[CI] Running under Unity Test Runner harness (-runTests). Yielding control to test runner.");
+                    if (totalFailed > 0)
+                    {
+                        throw new Exception($"[CI] Audit Test Suite Failed: {totalFailed} out of {totalTests} tests failed!");
+                    }
+                }
             }
             else
             {
