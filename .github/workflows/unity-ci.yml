@@ -2,7 +2,7 @@ name: Unity CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'feature/**' ]
     paths:
       - 'Assets/**'
       - 'Packages/**'
