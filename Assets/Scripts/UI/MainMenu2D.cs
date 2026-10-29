@@ -376,9 +376,6 @@ namespace MechChess.UI
         private Action _postLoginAction;
 
         private GameObject _onlineChoiceModal;
-        private Text _onlineServerInfoTxt;
-        private GameObject _serverIpConfigModal;
-        private InputField _serverIpInput;
         private GameObject _matchmakingModal;
         private Text _matchmakingTimerTxt;
         private Text _matchmakingStatusTxt;
@@ -894,7 +891,6 @@ namespace MechChess.UI
             BuildMatchmakingModal(_menuCanvasObj.transform, font);
             BuildFriendModal(_menuCanvasObj.transform, font);
             BuildOnlineChoiceModal(_menuCanvasObj.transform, font);
-            BuildServerIpConfigModal(_menuCanvasObj.transform, font);
             BuildIncomingChallengeModal(_menuCanvasObj.transform, font);
             BuildSeasonLeaderboardModal(_menuCanvasObj.transform, font);
 
@@ -7163,11 +7159,6 @@ namespace MechChess.UI
                 ShowMatchmakingModal();
                 return;
             }
-            if (_onlineServerInfoTxt != null)
-            {
-                string host = OnlineMultiplayerManager.GetCurrentServerHost();
-                _onlineServerInfoTxt.text = AegisLocalization.T($"🌐 Máy chủ: <b><color=#00e5ff>{host}</color></b>", $"🌐 Server: <b><color=#00e5ff>{host}</color></b>");
-            }
             _onlineChoiceModal.SetActive(true);
             AegisAudioManager.PlayModalOpen();
         }
@@ -7180,31 +7171,14 @@ namespace MechChess.UI
             cardObj.transform.SetParent(_onlineChoiceModal.transform, false);
 
             Image cardImg = cardObj.AddComponent<Image>();
-            cardImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(620, 480, 24f, ColGlassFill, ColCyanBorder, 2f);
+            cardImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(620, 380, 24f, ColGlassFill, ColCyanBorder, 2f);
             cardImg.type = Image.Type.Sliced;
 
             RectTransform cardRt = cardObj.GetComponent<RectTransform>();
             cardRt.anchoredPosition = Vector2.zero;
-            cardRt.sizeDelta = new Vector2(620f, 480f);
+            cardRt.sizeDelta = new Vector2(620f, 380f);
 
             CreateModalHeader(cardObj.transform, AegisLocalization.T("ĐẤU TRƯỜNG ONLINE MULTIPLAYER", "ONLINE MULTIPLAYER ARENA"), () => _onlineChoiceModal.SetActive(false), font);
-
-            // Server Address bar
-            GameObject sBox = new GameObject("ServerBar");
-            sBox.transform.SetParent(cardObj.transform, false);
-            Image sBg = sBox.AddComponent<Image>();
-            sBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(540, 42, 10f, new Color(0.04f, 0.10f, 0.18f, 0.90f), ColMutedBorder, 1.2f);
-            sBg.type = Image.Type.Sliced;
-            RectTransform sRt = sBox.GetComponent<RectTransform>();
-            sRt.anchoredPosition = new Vector2(0f, 150f);
-            sRt.sizeDelta = new Vector2(540f, 42f);
-
-            _onlineServerInfoTxt = CreateTextComp(sBox.transform, AegisLocalization.T($"🌐 Máy chủ: <b><color=#00e5ff>{OnlineMultiplayerManager.GetCurrentServerHost()}</color></b>", $"🌐 Server: <b><color=#00e5ff>{OnlineMultiplayerManager.GetCurrentServerHost()}</color></b>"), 15, FontStyle.Normal, ColTextWhite, font, new Vector2(-60f, 0f), new Vector2(380f, 32f), TextAnchor.MiddleLeft);
-
-            CreateMenuActionButton(sBox.transform, "BtnChangeIp", AegisLocalization.T("⚙️ ĐỔI IP", "⚙️ EDIT IP"), new Vector2(205f, 0f), new Vector2(100f, 32f), ColCyanBorder, ColDarkBtnText, 14, () =>
-            {
-                OpenServerIpModal();
-            }, font, ColCyanGlow, 1.2f);
 
             // Ranked Matchmaking Button (Big Card)
             GameObject rBtnObj = new GameObject("BtnRanked");
@@ -7220,7 +7194,7 @@ namespace MechChess.UI
             });
             rBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform rRt = rBtnObj.GetComponent<RectTransform>();
-            rRt.anchoredPosition = new Vector2(0f, 60f);
+            rRt.anchoredPosition = new Vector2(0f, 50f);
             rRt.sizeDelta = new Vector2(540f, 95f);
 
             CreateTextComp(rBtnObj.transform, AegisLocalization.T("⚔️  GHÉP ĐẤU XẾP HẠNG (RANKED)", "⚔️  RANKED MATCHMAKING"), 20, FontStyle.Bold, ColGoldCta, font, new Vector2(0f, 16f), new Vector2(500f, 28f), TextAnchor.MiddleCenter);
@@ -7240,77 +7214,16 @@ namespace MechChess.UI
             });
             fBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform fRt = fBtnObj.GetComponent<RectTransform>();
-            fRt.anchoredPosition = new Vector2(0f, -50f);
+            fRt.anchoredPosition = new Vector2(0f, -60f);
             fRt.sizeDelta = new Vector2(540f, 95f);
 
             CreateTextComp(fBtnObj.transform, AegisLocalization.T("👥  THÁCH ĐẤU BẠN BÈ (FRIEND DUEL)", "👥  CHALLENGE FRIEND (DUEL)"), 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 16f), new Vector2(500f, 28f), TextAnchor.MiddleCenter);
             CreateTextComp(fBtnObj.transform, AegisLocalization.T("Xem người chơi trực tuyến hoặc nhập tên tài khoản để mời", "View online players or invite directly by player username"), 14, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -14f), new Vector2(500f, 22f), TextAnchor.MiddleCenter);
 
-            // LAN / Multi-device Tip
-            CreateTextComp(cardObj.transform, AegisLocalization.T("💡 Để chơi 2 máy: Bật backend (start-backend.bat) trên Máy 1, máy 2 bấm 'ĐỔI IP' nhập IPv4 của Máy 1.", "💡 2-Device play: Run start-backend.bat on PC 1, on PC 2 click 'EDIT IP' and enter PC 1's IPv4."), 13, FontStyle.Italic, new Color(0.70f, 0.85f, 0.95f, 0.85f), font, new Vector2(0f, -130f), new Vector2(540f, 36f), TextAnchor.MiddleCenter);
-
             // Close Button
-            CreateMenuActionButton(cardObj.transform, "BtnCloseChoice", AegisLocalization.T("ĐÓNG", "CLOSE"), new Vector2(0f, -190f), new Vector2(160f, 44f), ColGlassFill, ColTextMuted, 16, () => _onlineChoiceModal.SetActive(false), font, ColMutedBorder, 1.2f);
+            CreateMenuActionButton(cardObj.transform, "BtnCloseChoice", AegisLocalization.T("ĐÓNG", "CLOSE"), new Vector2(0f, -140f), new Vector2(160f, 44f), ColGlassFill, ColTextMuted, 16, () => _onlineChoiceModal.SetActive(false), font, ColMutedBorder, 1.2f);
 
             _onlineChoiceModal.SetActive(false);
-        }
-
-        public void OpenServerIpModal()
-        {
-            if (_serverIpConfigModal == null) return;
-            if (_serverIpInput != null)
-            {
-                _serverIpInput.text = OnlineMultiplayerManager.GetCurrentServerHost();
-            }
-            _serverIpConfigModal.SetActive(true);
-            AegisAudioManager.PlayModalOpen();
-        }
-
-        private void BuildServerIpConfigModal(Transform parent, Font font)
-        {
-            _serverIpConfigModal = CreateModalOverlay(parent, "ServerIpConfigModalOverlay");
-
-            GameObject cardObj = new GameObject("ServerIpCard");
-            cardObj.transform.SetParent(_serverIpConfigModal.transform, false);
-
-            Image cardImg = cardObj.AddComponent<Image>();
-            cardImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(540, 360, 20f, ColGlassFill, ColCyanBorder, 2f);
-            cardImg.type = Image.Type.Sliced;
-
-            RectTransform cardRt = cardObj.GetComponent<RectTransform>();
-            cardRt.anchoredPosition = Vector2.zero;
-            cardRt.sizeDelta = new Vector2(540f, 360f);
-
-            CreateModalHeader(cardObj.transform, AegisLocalization.T("CẤU HÌNH MÁY CHỦ ONLINE", "CONFIGURE ONLINE SERVER"), () => _serverIpConfigModal.SetActive(false), font);
-
-            CreateTextComp(cardObj.transform, AegisLocalization.T("Nhập IP và Port của máy chủ Backend:\n(Ví dụ: 192.168.1.15:8000 hoặc ngrok/domain Internet)", "Enter Backend Server IP and Port:\n(E.g.: 192.168.1.15:8000 or ngrok/domain)"), 15, FontStyle.Normal, ColTextWhite, font, new Vector2(0f, 75f), new Vector2(480f, 46f), TextAnchor.MiddleCenter);
-
-            _serverIpInput = CreateInputField(cardObj.transform, "ServerIpInput", "192.168.1.x:8000...", new Vector2(0f, 15f), new Vector2(460f, 48f), font);
-            _serverIpInput.text = OnlineMultiplayerManager.GetCurrentServerHost();
-
-            CreateMenuActionButton(cardObj.transform, "BtnSaveServerIp", AegisLocalization.T("LƯU & KẾT NỐI", "SAVE & CONNECT"), new Vector2(120f, -80f), new Vector2(200f, 48f), ColGoldCta, ColDarkBtnText, 17, () =>
-            {
-                string target = _serverIpInput != null ? _serverIpInput.text.Trim() : "";
-                if (string.IsNullOrEmpty(target)) target = "localhost:8000";
-
-                if (OnlineMultiplayerManager.Instance != null)
-                {
-                    OnlineMultiplayerManager.Instance.SetServerHost(target);
-                }
-                if (_onlineServerInfoTxt != null)
-                {
-                    _onlineServerInfoTxt.text = AegisLocalization.T($"🌐 Máy chủ: <b><color=#00e5ff>{OnlineMultiplayerManager.GetCurrentServerHost()}</color></b>", $"🌐 Server: <b><color=#00e5ff>{OnlineMultiplayerManager.GetCurrentServerHost()}</color></b>");
-                }
-                ShowToast(AegisLocalization.T($"Đã đổi máy chủ: {target}", $"Server changed: {target}"), ToastType.Success);
-                _serverIpConfigModal.SetActive(false);
-            }, font, ColGoldBorder, 1.5f);
-
-            CreateMenuActionButton(cardObj.transform, "BtnCancelServerIp", AegisLocalization.T("HỦY", "CANCEL"), new Vector2(-120f, -80f), new Vector2(160f, 48f), ColGlassFill, ColTextMuted, 17, () =>
-            {
-                _serverIpConfigModal.SetActive(false);
-            }, font, ColMutedBorder, 1.2f);
-
-            _serverIpConfigModal.SetActive(false);
         }
 
         private void ShowMatchmakingModal()

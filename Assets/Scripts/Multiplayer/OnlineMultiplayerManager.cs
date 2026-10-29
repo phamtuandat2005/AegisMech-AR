@@ -134,7 +134,10 @@ namespace MechChess.Multiplayer
         {
             if (string.IsNullOrWhiteSpace(rawHost)) rawHost = "aegismech-ar.onrender.com";
             rawHost = rawHost.Trim();
-            bool isSecure = rawHost.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || rawHost.StartsWith("wss://", StringComparison.OrdinalIgnoreCase);
+            bool isSecure = rawHost.StartsWith("https://", StringComparison.OrdinalIgnoreCase) 
+                         || rawHost.StartsWith("wss://", StringComparison.OrdinalIgnoreCase)
+                         || rawHost.Contains(".onrender.com")
+                         || (!rawHost.Contains("localhost") && !rawHost.Contains("127.0.0.1") && !rawHost.StartsWith("192.168."));
             string clean = rawHost;
             if (clean.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) clean = clean.Substring(7);
             else if (clean.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) clean = clean.Substring(8);
@@ -175,7 +178,7 @@ namespace MechChess.Multiplayer
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
                 string savedHost = PlayerPrefs.GetString(PrefsKeyServerHost, "");
-                if (string.IsNullOrEmpty(savedHost) || savedHost == "localhost:8000" || savedHost == "127.0.0.1:8000")
+                if (string.IsNullOrEmpty(savedHost) || savedHost.Contains("localhost") || savedHost.Contains("127.0.0.1") || savedHost.StartsWith("192.168."))
                 {
                     savedHost = "aegismech-ar.onrender.com";
                 }

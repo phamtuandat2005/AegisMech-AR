@@ -118,7 +118,7 @@ Dự án đã được triển khai sẵn sàng trên các nền tảng điện 
 ### Các đột phá công nghệ nổi bật:
 1. **100% Procedural 3D Mechs & Hologram Standees:** Toàn bộ 32 quân cờ chiến đấu được kiến tạo theo thời gian thực (Procedural Mesh Generation) qua thuật toán C# thuần túy từ các khối hình học cơ bản kết hợp vật liệu URP PBR Metallic và rãnh phát quang Neon Emission (Cyan Neon & Crimson Neon). **Tuyệt đối không nhập bất kỳ file mô hình 3D (.fbx, .obj, .blend) dựng sẵn từ ngoài**.
 2. **Bộ Luật Cờ Vua Quốc Tế Chuẩn FIDE (F01 - F12):** Thực thi đầy đủ 100% quy tắc cờ vua quốc tế: di chuyển hợp lệ, phát hiện chiếu/chiếu bí (Check/Checkmate), nhập thành gần/xa (Castling O-O, O-O-O) kèm thuật toán quét ô đi qua không bị tấn công, bắt tốt qua đường (En Passant) tự hết hạn lượt đi, modal phong cấp tốt (Pawn Promotion: Hậu/Xe/Tượng/Mã), hòa do hết nước (Stalemate), thiếu quân, quy tắc 50 nước đi và bộ đệm khôi phục ván đấu chuẩn chuỗi FEN (*Forsyth–Edwards Notation*).
-3. **Đấu Mạng Trực Tuyến Đám Mây Đa Nền Tảng (Cross-Device Cloud Multiplayer):** Triển khai trực tiếp trên máy chủ **Render.com Cloud (Singapore)** kết hợp **Supabase PostgreSQL**. Hỗ trợ trải nghiệm chuẩn game thương mại: mở game là tự động kết nối, ghép trận ngẫu nhiên cân bằng ELO (Ranked Matchmaking) hoặc thách đấu bạn bè trực tiếp qua tên người chơi (Friend Duel). Tích hợp sẵn bộ chuyển đổi Server IP `[ ⚙️ ĐỔI IP ]` linh hoạt ngay trong game.
+3. **Đấu Mạng Trực Tuyến Đám Mây Đa Nền Tảng (Cross-Device Cloud Multiplayer):** Triển khai trực tiếp trên máy chủ **Render.com Cloud (Singapore)** kết hợp **Supabase PostgreSQL**. Hỗ trợ trải nghiệm chuẩn game thương mại: mở game là tự động kết nối, ghép trận ngẫu nhiên cân bằng ELO (Ranked Matchmaking) hoặc thách đấu bạn bè trực tiếp qua tên người chơi (Friend Duel). Kết nối trực tiếp, ổn định 24/7 tới hạ tầng Cloud Production mà không yêu cầu bất kỳ thiết lập mạng thủ công nào.
 4. **Hybrid AR Foundation + Webcam Fallback (Tiết Kiệm Năng Lượng & Bảo Mật):** Cho phép đặt bàn cờ lên mặt sàn thực tế qua ARCore/ARKit trên điện thoại di động, đồng thời hỗ trợ chuyển đổi tức thì sang chế độ **Webcam AR Fallback** sử dụng `WebCamTexture` để chạy thử nghiệm và chấm điểm trực tiếp trên máy tính xách tay hoặc Unity Editor. Camera được tự động tắt ngay khi kết thúc trận đấu để bảo vệ quyền riêng tư và tối ưu hóa thời lượng pin.
 5. **AI Vision Deep Learning & Minimax Alpha-Beta:** Hệ thống AI đóng gói trong Docker Container gồm mô hình Học sâu PyTorch (**MobileNetV3**) nhận dạng thẻ bài chiến thuật qua camera, kết hợp thuật toán **Minimax Alpha-Beta Pruning** với bảng điểm vị trí quân cờ (Piece-Square Tables: PST) cung cấp 4 cấp độ tư duy từ Novice (800) đến Grandmaster (2000). Đi kèm bảng chọn thời gian thi đấu Arcane Dropdown linh hoạt (3 phút, 5 phút, 10 phút, 15 phút, Không giới hạn).
 6. **Bộ Sưu Tập Chiến Tướng & Ngoại Trang (Armory Collection):** Hệ thống 4 phân khu (Quân cờ, Bàn cờ, Hiệu ứng, Khung viền) với cơ chế ngắt dòng thông minh (Responsive Word Wrapping) đảm bảo mô tả chiến thuật và hiệu ứng không bao giờ bị tràn khung, cho phép người chơi tùy biến và trang bị vật phẩm theo thời gian thực.
@@ -279,7 +279,7 @@ d:6-2027\cong-nghe-moi\AegisMech AR├── Dockerfile                       
 │   │   │   └── AdafruitIOCloudConnector.cs    # Tự động nạp khóa từ adafruit_key.txt, đồng bộ 4 feed và nhận lệnh bão từ
 │   │   ├── Multiplayer/                       # Module thi đấu Online qua WebSocket Cloud & Xác thực
 │   │   │   ├── UserAccountManager.cs          # Quản lý đăng nhập Gmail, JWT Token, lưu trữ ELO & CSDL Supabase
-│   │   │   └── OnlineMultiplayerManager.cs    # Sảnh chờ trực tuyến Render Cloud, ghép trận ELO, thách đấu bạn bè, đổi IP
+│   │   │   └── OnlineMultiplayerManager.cs    # Sảnh chờ trực tuyến Render Cloud, ghép trận ELO, thách đấu bạn bè
 │   │   ├── UI/                                # Module giao diện Arcane Dark Fantasy 15 màn hình
 │   │   │   ├── MainMenu2D.cs                  # Điều hướng 15 màn hình, Carousel vuốt, Dropdown Arcane, Armory Inspector
 │   │   │   ├── UIManager2D.cs                 # HUD trong trận: đồng hồ 2 bên, bảng lịch sử nước đi, ngăn kéo chiến thuật
@@ -325,11 +325,11 @@ Giao diện người dùng được thiết kế tỉ mỉ theo phong cách **Ar
 | **02** | **Màn Hình Chính** *(Main Menu)* | `MainMenu2D.cs` | Bối cảnh Thành trì Arcane Citadel huyền bí, khung huy hiệu người chơi, số dư vàng/ngọc, thanh điều hướng kính mờ mạ vàng và cụm nút thao tác nhanh (Hộp thư, Phần thưởng, Cài đặt). |
 | **03** | **Chọn Chế Độ Chơi** *(Mode Select)* | `MainMenu2D.cs` | **Carousel trượt ngang mượt mà chứa 5 thẻ chế độ** (hiển thị 4 thẻ chính, kéo sang trái để xem thẻ thứ 5): **Đấu Với Máy AI**, **Đấu Online Cloud**, **Hai Người** (Pass & Play), **AR** (Camera bàn thật), và **Học Cờ & Puzzle**. |
 | **04** | **Cấu Hình Đấu Với Máy** *(AI Setup)* | `MainMenu2D.cs` | 4 nấc Elo chuẩn quốc tế (*Novice 800*, *Adept 1200*, *Master 1600*, *Grandmaster 2000*), phe Trắng/Đen/Ngẫu nhiên, và **Arcane Dropdown chọn thời gian thi đấu** (3 phút Blitz, 5 phút Blitz, 10 phút Rapid, 15 phút Rapid, Không giới hạn) kèm mũi tên kính viền vàng. |
-| **05** | **Cài Đặt** *(Settings Modal)* | `MainMenu2D.cs`<br/>`AegisLocalization.cs` | 5 tab danh mục: **Trò chơi** (Độ khó, Hiệu ứng, Rung, Cấu hình IP máy chủ), **Đồ họa** (Khử răng cưa, Bloom, Framerate), **Âm thanh** (BGM, SFX), **Điều khiển** (Độ nhạy xoay 3D, Gợi ý nước đi), và **Chuyển đổi song ngữ tức thì (Tiếng Việt / English)**. |
+| **05** | **Cài Đặt** *(Settings Modal)* | `MainMenu2D.cs`<br/>`AegisLocalization.cs` | 5 tab danh mục: **Trò chơi** (Độ khó, Hiệu ứng, Rung), **Đồ họa** (Khử răng cưa, Bloom, Framerate), **Âm thanh** (BGM, SFX), **Điều khiển** (Độ nhạy xoay 3D, Gợi ý nước đi), và **Chuyển đổi song ngữ tức thì (Tiếng Việt / English)**. |
 | **06** | **Đấu Trường 3D / HUD** *(In-Game HUD)* | `UIManager2D.cs`<br/>`ChessBoard3DManager.cs` | Đồng hồ đếm ngược 2 bên, bảng ghi nhận nước đi Algebraic, thanh ngăn kéo chiến thuật (Tactical Drawer), nút đổi góc nhìn Camera, đầu hàng/xin hòa. **Tự động ngắt Camera AR ngay khi kết thúc trận đấu** để tiết kiệm pin và đảm bảo bảo mật. |
 | **07** | **Cửa Hàng Ngoại Trang** *(Shop Modal)* | `MainMenu2D.cs` | 3 phân khu: **Skin quân cờ** (*Knight of Light*, *Dark Legion*, *Arcane Paladin*, *Forest Spirit*), **Bàn cờ** (*Arcane Citadel*, *Obsidian Void*, *Sun Temple*, *Cyber Grid*), và **Hiệu ứng kỹ năng**; đồng bộ số dư Vàng, Kim Cương. |
 | **08** | **Bộ Sưu Tập Chiến Tướng** *(Armory Collection)* | `MainMenu2D.cs` | 4 tab (Quân cờ, Bàn cờ, Hiệu ứng, Khung viền): Xem chi tiết vật phẩm (Armory Inspector) với **cơ chế ngắt dòng tự động (Responsive Word-Wrapping)** đảm bảo mô tả chiến thuật và hiệu ứng không bao giờ bị tràn khung; nút Trang bị / Đang dùng đồng bộ tức thì. |
-| **09** | **Sảnh Đấu Online Cloud** *(Online Hub Modal)* | `MainMenu2D.cs`<br/>`OnlineMultiplayerManager.cs` | Thanh hiển thị máy chủ thời gian thực (`wss://aegismech-ar.onrender.com`), nút **[ ⚙️ ĐỔI IP ]** linh hoạt cho nhà phát triển, và 2 lựa chọn lớn: **⚔️ Ghép đấu xếp hạng (Ranked Matchmaking)** và **👥 Thách đấu bạn bè (Friend Duel)**. |
+| **09** | **Sảnh Đấu Online Cloud** *(Online Hub Modal)* | `MainMenu2D.cs`<br/>`OnlineMultiplayerManager.cs` | Tự động kết nối máy chủ Cloud Production, cung cấp 2 lựa chọn thi đấu trực tuyến: **⚔️ Ghép đấu xếp hạng (Ranked Matchmaking)** và **👥 Thách đấu bạn bè (Friend Duel)**. |
 | **10** | **Thách Đấu Bạn Bè & Sảnh Chờ** *(Friend Modal)* | `OnlineMultiplayerManager.cs` | Hiển thị tên tài khoản và Elo của bạn, danh sách người chơi đang trực tuyến trên Cloud thời gian thực, ô tìm kiếm và nút **[ MỜI ĐẤU ]** gửi lời mời tức thời qua WebSocket. |
 | **11** | **Kết Quả Trận Đấu** *(Result Screen)* | `MainMenu2D.cs`<br/>`UserAccountManager.cs` | Biểu tượng Kỵ sĩ Chiến thắng/Thất bại, điểm Elo cộng/trừ, kinh nghiệm nhận được, thống kê số nước đi và thời gian thi đấu; tự động tắt camera AR và lưu ván đấu lên Supabase. |
 | **12** | **Hồ Sơ Người Chơi** *(Profile Modal)* | `MainMenu2D.cs`<br/>`UserAccountManager.cs` | Tải dữ liệu thật từ CSDL Supabase: Huy hiệu Rank Crest, Bảng ELO & Thống kê 2 dòng phân tách rõ ràng (**Dòng 1: Đấu Online** với ELO/Thắng/Thua/Hòa; **Dòng 2: Đấu với máy AI** với Thắng/Thua/Hòa), và danh sách lịch sử trận đấu thực tế theo ngày giờ. |
@@ -436,7 +436,10 @@ Nếu muốn phát triển và thử nghiệm backend offline trên máy tính:
    curl http://localhost:8000/health
    # Phản hồi: {"status":"healthy","uptime_sec":...}
    ```
-3. Trong game Unity, tại màn hình chọn Đấu Online, bấm **[ ⚙️ ĐỔI IP ]** và nhập: `localhost:8000` ➔ Bấm **Lưu & Kết Nối**.
+3. Chạy bộ kiểm thử tự động của backend:
+   ```bash
+   pytest test_backend.py
+   ```
 
 ---
 

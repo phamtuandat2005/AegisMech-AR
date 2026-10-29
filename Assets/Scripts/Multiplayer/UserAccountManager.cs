@@ -169,14 +169,17 @@ namespace MechChess.Multiplayer
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
                 string savedHost = PlayerPrefs.GetString("AegisMech_ServerHost", "");
-                if (string.IsNullOrEmpty(savedHost) || savedHost == "localhost:8000" || savedHost == "127.0.0.1:8000")
+                if (string.IsNullOrEmpty(savedHost) || savedHost.Contains("localhost") || savedHost.Contains("127.0.0.1") || savedHost.StartsWith("192.168."))
                 {
                     savedHost = "aegismech-ar.onrender.com";
                 }
                 if (!string.IsNullOrEmpty(savedHost))
                 {
                     string clean = savedHost.Trim();
-                    bool isSecure = clean.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || clean.StartsWith("wss://", StringComparison.OrdinalIgnoreCase);
+                    bool isSecure = clean.StartsWith("https://", StringComparison.OrdinalIgnoreCase) 
+                                 || clean.StartsWith("wss://", StringComparison.OrdinalIgnoreCase)
+                                 || clean.Contains(".onrender.com")
+                                 || (!clean.Contains("localhost") && !clean.Contains("127.0.0.1") && !clean.StartsWith("192.168."));
                     if (clean.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) clean = clean.Substring(7);
                     else if (clean.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) clean = clean.Substring(8);
                     else if (clean.StartsWith("ws://", StringComparison.OrdinalIgnoreCase)) clean = clean.Substring(5);
