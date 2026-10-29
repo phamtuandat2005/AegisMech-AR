@@ -21,3 +21,4 @@ backend-ai-docker/.venv/
 **/*.pyd
 **/.pytest_cache/
 **/*.db
+

@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "AegisMech-AR.slnx"
+    "dotnet.defaultSolution": "AegisMech AR.slnx"
 }

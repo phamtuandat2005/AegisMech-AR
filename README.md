@@ -1,4 +1,4 @@
-# ⚔️ 3D MECH AR CHESS (CỜ VUA CHIẾN ĐẤU CƠ KHÍ & MA PHÁP HUYỀN BÍ AR)
+# ⚔️ 3D MECH AR CHESS
 
 > **Hệ thống Game Cờ Vua Robot & Ma Pháp Tương tác Thực Tế Tăng Cường (AR) tích hợp AI Deep Learning, Đấu Mạng Trực Tuyến Thời Gian Thực, Điện Toán Đám Mây IoT Adafruit & Cơ Sở Dữ Liệu Đám Mây Supabase PostgreSQL**  
 > *Đồ án Xuất sắc đạt điểm tối đa 100/100 theo tiêu chuẩn học phần Công nghệ Mới - Hoàn thiện 100% không sử dụng bất kỳ asset 3D dựng sẵn từ bên ngoài.*

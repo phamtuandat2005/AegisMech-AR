@@ -119,7 +119,7 @@ namespace MechChess.Multiplayer
         public static string GetCurrentServerHost()
         {
             string saved = PlayerPrefs.GetString(PrefsKeyServerHost, "");
-            if (!string.IsNullOrEmpty(saved)) return saved;
+            if (!string.IsNullOrEmpty(saved) && saved != "localhost:8000" && saved != "127.0.0.1:8000") return saved;
             if (Instance != null && !string.IsNullOrEmpty(Instance.serverAddress))
             {
                 string s = Instance.serverAddress;
@@ -132,7 +132,7 @@ namespace MechChess.Multiplayer
 
         public void SetServerHost(string rawHost)
         {
-            if (string.IsNullOrWhiteSpace(rawHost)) rawHost = "localhost:8000";
+            if (string.IsNullOrWhiteSpace(rawHost)) rawHost = "aegismech-ar.onrender.com";
             rawHost = rawHost.Trim();
             bool isSecure = rawHost.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || rawHost.StartsWith("wss://", StringComparison.OrdinalIgnoreCase);
             string clean = rawHost;
@@ -175,10 +175,11 @@ namespace MechChess.Multiplayer
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
                 string savedHost = PlayerPrefs.GetString(PrefsKeyServerHost, "");
-                if (!string.IsNullOrEmpty(savedHost))
+                if (string.IsNullOrEmpty(savedHost) || savedHost == "localhost:8000" || savedHost == "127.0.0.1:8000")
                 {
-                    SetServerHost(savedHost);
+                    savedHost = "aegismech-ar.onrender.com";
                 }
+                SetServerHost(savedHost);
             }
             else
             {

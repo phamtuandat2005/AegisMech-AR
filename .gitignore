@@ -148,6 +148,4 @@ adafruit_key.txt
 *.sqlite3
 skills-lock.json
 .claude/
-agent/
 .agents/
-skills-lock.json    

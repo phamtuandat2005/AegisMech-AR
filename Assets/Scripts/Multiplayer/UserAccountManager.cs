@@ -169,6 +169,10 @@ namespace MechChess.Multiplayer
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
                 string savedHost = PlayerPrefs.GetString("AegisMech_ServerHost", "");
+                if (string.IsNullOrEmpty(savedHost) || savedHost == "localhost:8000" || savedHost == "127.0.0.1:8000")
+                {
+                    savedHost = "aegismech-ar.onrender.com";
+                }
                 if (!string.IsNullOrEmpty(savedHost))
                 {
                     string clean = savedHost.Trim();
