@@ -164,6 +164,20 @@ namespace MechChess.Chess3D
                 UIManager2D.Instance.OnResetGameClicked += ResetBoard;
                 UIManager2D.Instance.OnTriggerAIClicked += TriggerAIMove;
             }
+
+            // Link Lichess Online Opponent Moves
+            if (MechChess.Multiplayer.LichessBridge.Instance != null)
+            {
+                MechChess.Multiplayer.LichessBridge.Instance.OnOpponentMoved += (uciMove, san) =>
+                {
+                    if (!string.IsNullOrEmpty(uciMove) && uciMove.Length >= 4)
+                    {
+                        string fromSq = uciMove.Substring(0, 2);
+                        string toSq = uciMove.Substring(2, 2);
+                        ExecuteRemoteMove(fromSq, toSq);
+                    }
+                };
+            }
         }
 
         private void InitializeBoardMaterials()
@@ -932,6 +946,16 @@ namespace MechChess.Chess3D
                 string fromSq = GetAlgebraic(startFile, startRank);
                 string toSq = GetAlgebraic(targetFile, targetRank);
                 MechChess.Multiplayer.OnlineMultiplayerManager.Instance.SendMove(fromSq, toSq, notation);
+            }
+
+            // Sync with Lichess Opponent over Lichess Board API
+            if (MechChess.Multiplayer.LichessBridge.Instance != null 
+                && MechChess.Multiplayer.LichessBridge.Instance.IsInLichessMatch 
+                && !_isExecutingRemoteMove)
+            {
+                string fromSq = GetAlgebraic(startFile, startRank);
+                string toSq = GetAlgebraic(targetFile, targetRank);
+                MechChess.Multiplayer.LichessBridge.Instance.SendMove(fromSq + toSq);
             }
 
             PieceColor opponent = (currentTurn == PieceColor.White) ? PieceColor.Black : PieceColor.White;

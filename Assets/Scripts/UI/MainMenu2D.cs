@@ -385,6 +385,8 @@ namespace MechChess.UI
         private int _loginActiveTab = 0;
 
         private GameObject _onlineChoiceModal;
+        private GameObject _lichessTokenModal;
+        private InputField _lichessTokenInputField;
         private GameObject _matchmakingModal;
         private Text _matchmakingTimerTxt;
         private Text _matchmakingStatusTxt;
@@ -840,6 +842,8 @@ namespace MechChess.UI
             if (_learnScreenModal != null) _learnScreenModal.SetActive(false);
             if (_confirmDialogModal != null) _confirmDialogModal.SetActive(false);
             if (_loginModal != null) _loginModal.SetActive(false);
+            if (_onlineChoiceModal != null) _onlineChoiceModal.SetActive(false);
+            if (_lichessTokenModal != null) _lichessTokenModal.SetActive(false);
             if (_matchmakingModal != null) _matchmakingModal.SetActive(false);
             if (_friendModal != null) _friendModal.SetActive(false);
             if (_challengeModal != null) _challengeModal.SetActive(false);
@@ -900,6 +904,7 @@ namespace MechChess.UI
             BuildMatchmakingModal(_menuCanvasObj.transform, font);
             BuildFriendModal(_menuCanvasObj.transform, font);
             BuildOnlineChoiceModal(_menuCanvasObj.transform, font);
+            BuildLichessTokenModal(_menuCanvasObj.transform, font);
             BuildIncomingChallengeModal(_menuCanvasObj.transform, font);
             BuildSeasonLeaderboardModal(_menuCanvasObj.transform, font);
 
@@ -7245,7 +7250,16 @@ namespace MechChess.UI
         }
         private void OpenOnlineMatchChoiceModal()
         {
-            ShowMatchmakingModal();
+            if (_onlineChoiceModal != null)
+            {
+                CloseAllModals();
+                _onlineChoiceModal.SetActive(true);
+                AegisAudioManager.PlayModalOpen();
+            }
+            else
+            {
+                ShowMatchmakingModal();
+            }
         }
 
         public void OpenOnlineChoiceModal()
@@ -7321,20 +7335,7 @@ namespace MechChess.UI
             lBtn.onClick.AddListener(() =>
             {
                 _onlineChoiceModal.SetActive(false);
-                if (LichessBridge.Instance != null && LichessBridge.Instance.HasToken)
-                {
-                    ShowToast(AegisLocalization.T("Đang tìm đối thủ người thật trên Lichess.org...", "Seeking real human opponent on Lichess.org..."), ToastType.Info);
-                    LichessBridge.Instance.SeekHumanMatch(10, 0, (ok, msg) =>
-                    {
-                        ShowToast(msg, ok ? ToastType.Success : ToastType.Error);
-                        if (ok) LaunchGame(GameLaunchMode.OnlineMultiplayer);
-                    });
-                }
-                else
-                {
-                    ShowToast(AegisLocalization.T("Cần Lichess Token để tìm người trên Lichess. Đang tìm đối thủ trên Server Aegis / Web...", "Lichess Token required! Finding opponent on Aegis Server / Web..."), ToastType.Info);
-                    ShowMatchmakingModal();
-                }
+                ShowLichessTokenModal();
             });
             lBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform lRt = lBtnObj.GetComponent<RectTransform>();
@@ -7348,6 +7349,85 @@ namespace MechChess.UI
             CreateMenuActionButton(cardObj.transform, "BtnCloseChoice", AegisLocalization.T("ĐÓNG", "CLOSE"), new Vector2(0f, -195f), new Vector2(160f, 44f), ColGlassFill, ColTextMuted, 16, () => _onlineChoiceModal.SetActive(false), font, ColMutedBorder, 1.2f);
 
             _onlineChoiceModal.SetActive(false);
+        }
+
+        public void ShowLichessTokenModal()
+        {
+            if (_lichessTokenModal == null) return;
+            CloseAllModals();
+            if (_lichessTokenInputField != null && LichessBridge.Instance != null)
+            {
+                _lichessTokenInputField.text = LichessBridge.Instance.GetSavedToken();
+            }
+            _lichessTokenModal.SetActive(true);
+            AegisAudioManager.PlayModalOpen();
+        }
+
+        private void BuildLichessTokenModal(Transform parent, Font font)
+        {
+            _lichessTokenModal = CreateModalOverlay(parent, "LichessTokenModalOverlay");
+
+            GameObject cardObj = new GameObject("LichessTokenCard");
+            cardObj.transform.SetParent(_lichessTokenModal.transform, false);
+
+            Image cardImg = cardObj.AddComponent<Image>();
+            cardImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(620, 480, 24f, ColGlassFill, new Color(0.85f, 0.45f, 0.95f), 2f);
+            cardImg.type = Image.Type.Sliced;
+
+            RectTransform cardRt = cardObj.GetComponent<RectTransform>();
+            cardRt.anchoredPosition = Vector2.zero;
+            cardRt.sizeDelta = new Vector2(620f, 480f);
+
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("KẾT NỐI LICHESS.ORG", "CONNECT LICHESS.ORG"), () => _lichessTokenModal.SetActive(false), font);
+
+            CreateTextComp(cardObj.transform, 
+                AegisLocalization.T("Nhập hoặc dán mã Personal Access Token (quyền board:play)\nđể tìm và đấu cờ người thật trên Lichess:",
+                                   "Enter or paste your Lichess Personal Access Token (scope 'board:play')\nto match and play with real players on Lichess:"),
+                14, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, 130f), new Vector2(540f, 45f), TextAnchor.MiddleCenter);
+
+            _lichessTokenInputField = CreateInputField(cardObj.transform, "InputLichessToken", "Dán mã Token (lip_...) vào đây", new Vector2(0f, 65f), new Vector2(540f, 50f), font);
+
+            // Nút Dán từ Clipboard
+            CreateMenuActionButton(cardObj.transform, "BtnPasteClipboard", AegisLocalization.T("📋  DÁN TỪ BỘ NHỚ TẠM (CLIPBOARD)", "📋  PASTE FROM CLIPBOARD"), new Vector2(0f, 0f), new Vector2(540f, 48f), new Color(0.12f, 0.18f, 0.28f, 0.95f), ColCyanGlow, 15, () =>
+            {
+                string clip = GUIUtility.systemCopyBuffer;
+                if (!string.IsNullOrEmpty(clip) && _lichessTokenInputField != null)
+                {
+                    _lichessTokenInputField.text = clip.Trim();
+                    ShowToast(AegisLocalization.T("Đã dán Token từ Clipboard!", "Pasted Token from Clipboard!"), ToastType.Success);
+                }
+                else
+                {
+                    ShowToast(AegisLocalization.T("Bộ nhớ tạm trống hoặc không có chữ!", "Clipboard is empty!"), ToastType.Warning);
+                }
+            }, font, ColCyanBorder, 1.2f);
+
+            // Nút Lưu & Bắt đầu tìm trận
+            CreateMenuActionButton(cardObj.transform, "BtnSaveAndSeek", AegisLocalization.T("⚔️  LƯU & BẮT ĐẦU TÌM ĐỐI THỦ THẬT", "⚔️  SAVE & SEEK REAL OPPONENT"), new Vector2(0f, -65f), new Vector2(540f, 54f), ColGoldCta, Color.black, 17, () =>
+            {
+                string tok = _lichessTokenInputField != null ? _lichessTokenInputField.text.Trim() : "";
+                if (string.IsNullOrEmpty(tok))
+                {
+                    ShowToast(AegisLocalization.T("Vui lòng nhập Token Lichess!", "Please enter your Lichess Token!"), ToastType.Warning);
+                    return;
+                }
+                if (LichessBridge.Instance != null)
+                {
+                    LichessBridge.Instance.SaveToken(tok);
+                    _lichessTokenModal.SetActive(false);
+                    ShowToast(AegisLocalization.T("Đang kết nối và tìm người trên Lichess...", "Connecting & seeking match on Lichess..."), ToastType.Info);
+                    LichessBridge.Instance.SeekHumanMatch(10, 0, (ok, msg) =>
+                    {
+                        ShowToast(msg, ok ? ToastType.Success : ToastType.Error);
+                        if (ok) LaunchGame(GameLaunchMode.OnlineMultiplayer);
+                    });
+                }
+            }, font, ColGoldBorder, 1.5f);
+
+            // Nút Đóng
+            CreateMenuActionButton(cardObj.transform, "BtnCloseLichess", AegisLocalization.T("ĐÓNG", "CLOSE"), new Vector2(0f, -150f), new Vector2(180f, 44f), ColGlassFill, ColTextMuted, 16, () => _lichessTokenModal.SetActive(false), font, ColMutedBorder, 1.2f);
+
+            _lichessTokenModal.SetActive(false);
         }
 
         private void ShowMatchmakingModal()
