@@ -493,7 +493,15 @@ def read_root():
 
 @app.get("/health")
 def healthcheck():
-    return {"status": "healthy", "uptime_sec": time.time()}
+    return {
+        "status": "healthy",
+        "uptime_sec": time.time(),
+        "google_oauth": {
+            "configured": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
+            "has_client_id": bool(GOOGLE_CLIENT_ID),
+            "has_client_secret": bool(GOOGLE_CLIENT_SECRET)
+        }
+    }
 
 @app.post("/api/recognize-card", response_model=CardRecognizeResponse)
 async def recognize_card(payload: CardRecognizeRequest):
@@ -1092,6 +1100,13 @@ async def google_callback(
     else:
         callback_url = f"{proto}://{host}/api/auth/google/callback"
 
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        err_msg = "Máy chủ chưa nhận diện được GOOGLE_CLIENT_ID hoặc GOOGLE_CLIENT_SECRET. Vui lòng kiểm tra Environment Variables trên Render."
+        logger.error(err_msg)
+        if session_id:
+            google_auth_sessions[session_id] = {"status": "error", "message": err_msg, "created_at": time.time()}
+        return HTMLResponse(content=render_google_auth_html(False, err_msg))
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             token_resp = await client.post(
@@ -1106,7 +1121,12 @@ async def google_callback(
             )
             if token_resp.status_code != 200:
                 logger.error(f"Google token exchange failed: {token_resp.text}")
-                err_msg = "Không thể lấy thông tin xác thực từ Google."
+                try:
+                    err_json = token_resp.json()
+                    err_detail = err_json.get("error_description") or err_json.get("error") or token_resp.text
+                except Exception:
+                    err_detail = token_resp.text
+                err_msg = f"Google từ chối mã xác thực: {err_detail} (HTTP {token_resp.status_code})"
                 if session_id:
                     google_auth_sessions[session_id] = {"status": "error", "message": err_msg, "created_at": time.time()}
                 return HTMLResponse(content=render_google_auth_html(False, err_msg))
