@@ -7385,7 +7385,7 @@ namespace MechChess.UI
                                    "Enter or paste your Lichess Personal Access Token (scope 'board:play')\nto match and play with real players on Lichess:"),
                 14, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, 130f), new Vector2(540f, 45f), TextAnchor.MiddleCenter);
 
-            _lichessTokenInputField = CreateInputField(cardObj.transform, "InputLichessToken", "Dán mã Token (lip_...) vào đây", new Vector2(0f, 65f), new Vector2(540f, 50f), font);
+            _lichessTokenInputField = CreateInputField(cardObj.transform, "InputLichessToken", "Dán mã Token (lip_...) vào đây", new Vector2(0f, 65f), new Vector2(540f, 50f), font, isPassword: true);
 
             // Nút Dán từ Clipboard
             CreateMenuActionButton(cardObj.transform, "BtnPasteClipboard", AegisLocalization.T("📋  DÁN TỪ BỘ NHỚ TẠM (CLIPBOARD)", "📋  PASTE FROM CLIPBOARD"), new Vector2(0f, 0f), new Vector2(540f, 48f), new Color(0.12f, 0.18f, 0.28f, 0.95f), ColCyanGlow, 15, () =>

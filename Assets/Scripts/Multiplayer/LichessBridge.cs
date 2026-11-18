@@ -42,8 +42,10 @@ namespace MechChess.Multiplayer
     {
         public static LichessBridge Instance { get; private set; }
 
-        private const string PrefsKeyLichessToken = "MECH_LICHESS_TOKEN";
+        private const string PrefsKeyLichessToken = "MECH_LICHESS_TOKEN_SEC";
+        private const string PrefsKeyLichessTokenLegacy = "MECH_LICHESS_TOKEN";
         private const string LichessApiBase = "https://lichess.org/api";
+        private static readonly byte[] ObfKey = Encoding.UTF8.GetBytes("AegisMechAR_SecKey_2026");
 
         [Header("State")]
         public bool IsInLichessMatch { get; private set; } = false;
@@ -76,12 +78,57 @@ namespace MechChess.Multiplayer
 
         public string GetSavedToken()
         {
-            return PlayerPrefs.GetString(PrefsKeyLichessToken, "");
+            string enc = PlayerPrefs.GetString(PrefsKeyLichessToken, "");
+            if (!string.IsNullOrEmpty(enc))
+            {
+                try
+                {
+                    byte[] cipherBytes = Convert.FromBase64String(enc);
+                    byte[] plainBytes = new byte[cipherBytes.Length];
+                    for (int i = 0; i < cipherBytes.Length; i++)
+                    {
+                        plainBytes[i] = (byte)(cipherBytes[i] ^ ObfKey[i % ObfKey.Length]);
+                    }
+                    return Encoding.UTF8.GetString(plainBytes);
+                }
+                catch
+                {
+                    // Fallback if decode failed
+                }
+            }
+
+            // Fallback legacy plaintext
+            string legacy = PlayerPrefs.GetString(PrefsKeyLichessTokenLegacy, "");
+            if (!string.IsNullOrEmpty(legacy))
+            {
+                SaveToken(legacy); // Auto-migrate to encrypted storage
+                PlayerPrefs.DeleteKey(PrefsKeyLichessTokenLegacy);
+                PlayerPrefs.Save();
+                return legacy;
+            }
+
+            return "";
         }
 
         public void SaveToken(string token)
         {
-            PlayerPrefs.SetString(PrefsKeyLichessToken, (token ?? "").Trim());
+            string clean = (token ?? "").Trim();
+            if (string.IsNullOrEmpty(clean))
+            {
+                PlayerPrefs.DeleteKey(PrefsKeyLichessToken);
+                PlayerPrefs.DeleteKey(PrefsKeyLichessTokenLegacy);
+            }
+            else
+            {
+                byte[] plainBytes = Encoding.UTF8.GetBytes(clean);
+                byte[] cipherBytes = new byte[plainBytes.Length];
+                for (int i = 0; i < plainBytes.Length; i++)
+                {
+                    cipherBytes[i] = (byte)(plainBytes[i] ^ ObfKey[i % ObfKey.Length]);
+                }
+                PlayerPrefs.SetString(PrefsKeyLichessToken, Convert.ToBase64String(cipherBytes));
+                PlayerPrefs.DeleteKey(PrefsKeyLichessTokenLegacy);
+            }
             PlayerPrefs.Save();
         }
 
