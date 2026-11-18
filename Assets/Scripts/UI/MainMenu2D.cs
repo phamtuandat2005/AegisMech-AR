@@ -677,6 +677,14 @@ namespace MechChess.UI
                 OnlineMultiplayerManager.Instance.OnOnlinePlayersUpdatedEvent += UpdateOnlinePlayersUI;
             }
 
+            if (LichessBridge.Instance != null)
+            {
+                LichessBridge.Instance.OnGameStarted += (oppName, oppElo, isWhite) =>
+                {
+                    HandleLichessMatchFound(oppName, oppElo, isWhite);
+                };
+            }
+
             // Ensure app keeps running in background for smooth multiplayer testing
             Application.runInBackground = true;
 
@@ -7250,21 +7258,12 @@ namespace MechChess.UI
         }
         private void OpenOnlineMatchChoiceModal()
         {
-            if (_onlineChoiceModal != null)
-            {
-                CloseAllModals();
-                _onlineChoiceModal.SetActive(true);
-                AegisAudioManager.PlayModalOpen();
-            }
-            else
-            {
-                ShowMatchmakingModal();
-            }
+            StartFastOnlineMatchmaking();
         }
 
         public void OpenOnlineChoiceModal()
         {
-            ShowMatchmakingModal();
+            StartFastOnlineMatchmaking();
         }
 
         private void BuildOnlineChoiceModal(Transform parent, Font font)
@@ -7430,17 +7429,49 @@ namespace MechChess.UI
             _lichessTokenModal.SetActive(false);
         }
 
-        private void ShowMatchmakingModal()
+        public void StartFastOnlineMatchmaking()
         {
+            CloseAllModals();
             if (_matchmakingModal == null) return;
+
+            // 1. Queue on Aegis & Web players pool
             if (OnlineMultiplayerManager.Instance != null)
             {
                 OnlineMultiplayerManager.Instance.StartRandomMatchmaking("10 + 0");
             }
+
+            // 2. In parallel, if Lichess is configured, seek human opponent on Lichess
+            if (LichessBridge.Instance != null && LichessBridge.Instance.HasToken)
+            {
+                LichessBridge.Instance.SeekHumanMatch(10, 0, (ok, msg) =>
+                {
+                    if (ok && _matchmakingModal != null && _matchmakingModal.activeSelf)
+                    {
+                        if (OnlineMultiplayerManager.Instance != null && OnlineMultiplayerManager.Instance.IsSearchingMatch)
+                        {
+                            OnlineMultiplayerManager.Instance.CancelRandomMatchmaking();
+                        }
+                    }
+                });
+            }
+
+            if (_matchmakingStatusTxt != null)
+            {
+                _matchmakingStatusTxt.text = AegisLocalization.T(
+                    "Đang quét tìm kiếm đối thủ online trên toàn mạng...",
+                    "Scanning for active online opponents across the network..."
+                );
+            }
+
             if (_matchmakingTimerCoroutine != null) StopCoroutine(_matchmakingTimerCoroutine);
             _matchmakingTimerCoroutine = StartCoroutine(AnimateMatchmakingTimer());
             _matchmakingModal.SetActive(true);
             AegisAudioManager.PlayModalOpen();
+        }
+
+        private void ShowMatchmakingModal()
+        {
+            StartFastOnlineMatchmaking();
         }
 
         private IEnumerator AnimateMatchmakingTimer()
@@ -7797,6 +7828,40 @@ namespace MechChess.UI
                 UIManager2D.Instance.SetOnlineOpponent(oppName, oppElo);
                 string colorStr = (role == PieceColor.White) ? AegisLocalization.T("TRẮNG (đi trước)", "WHITE (plays first)") : AegisLocalization.T("ĐEN (đi sau)", "BLACK (plays second)");
                 UIManager2D.Instance.RecordMove(AegisLocalization.T($"[TRẬN ĐẤU ONLINE] Bạn cầm quân {colorStr} đấu với {oppName} (Elo {oppElo}) | Phòng: {roomId}", $"[ONLINE MATCH] You play {colorStr} vs {oppName} (Elo {oppElo}) | Room: {roomId}"));
+            }
+
+            ShowToast(AegisLocalization.T($"Trận đấu bắt đầu! Đối thủ: {oppName}", $"Match started! Opponent: {oppName}"), ToastType.Success);
+        }
+
+        private void HandleLichessMatchFound(string oppName, int oppElo, bool isWhite)
+        {
+            if (_matchmakingModal != null) _matchmakingModal.SetActive(false);
+            if (_friendModal != null) _friendModal.SetActive(false);
+            if (_challengeModal != null) _challengeModal.SetActive(false);
+            if (_matchmakingTimerCoroutine != null) StopCoroutine(_matchmakingTimerCoroutine);
+
+            if (OnlineMultiplayerManager.Instance != null && OnlineMultiplayerManager.Instance.IsSearchingMatch)
+            {
+                OnlineMultiplayerManager.Instance.CancelRandomMatchmaking();
+            }
+
+            _lastLaunchMode = GameLaunchMode.OnlineMultiplayer;
+            HideMenu();
+
+            if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+            {
+                var board = MechChess.Chess3D.ChessBoard3DManager.Instance;
+                board.ResetBoard();
+                board.isVsAI = false;
+            }
+
+            if (UIManager2D.Instance != null)
+            {
+                UIManager2D.Instance.isRankedMode = true;
+                UIManager2D.Instance.ConfigureTimeControl("10 + 0");
+                UIManager2D.Instance.SetOnlineOpponent(oppName, oppElo);
+                string colorStr = isWhite ? AegisLocalization.T("TRẮNG (đi trước)", "WHITE (plays first)") : AegisLocalization.T("ĐEN (đi sau)", "BLACK (plays second)");
+                UIManager2D.Instance.RecordMove(AegisLocalization.T($"[TRẬN ĐẤU LICHESS] Bạn cầm quân {colorStr} đấu với {oppName} (Elo {oppElo})", $"[LICHESS MATCH] You play {colorStr} vs {oppName} (Elo {oppElo})"));
             }
 
             ShowToast(AegisLocalization.T($"Trận đấu bắt đầu! Đối thủ: {oppName}", $"Match started! Opponent: {oppName}"), ToastType.Success);

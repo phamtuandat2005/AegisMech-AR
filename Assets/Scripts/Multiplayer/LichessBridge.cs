@@ -69,6 +69,24 @@ namespace MechChess.Multiplayer
             {
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
+
+                if (!HasToken)
+                {
+                    try
+                    {
+                        string localPath = Path.Combine(Application.dataPath, "..", ".env.local");
+                        if (File.Exists(localPath))
+                        {
+                            string t = File.ReadAllText(localPath).Trim();
+                            if (!string.IsNullOrEmpty(t) && t.StartsWith("lip_"))
+                            {
+                                SaveToken(t);
+                                Debug.Log("[Lichess] Local token successfully initialized.");
+                            }
+                        }
+                    }
+                    catch { }
+                }
             }
             else
             {
