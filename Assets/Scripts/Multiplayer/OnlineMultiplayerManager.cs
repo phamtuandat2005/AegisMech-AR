@@ -816,6 +816,15 @@ namespace MechChess.Multiplayer
             }
         }
 
+        public void AlignCameraForWhitePlayer()
+        {
+            var touch = Camera.main != null ? Camera.main.GetComponent<MechChess.Mobile.MobileTouchInput>() : null;
+            if (touch != null)
+            {
+                touch.SetOrientation(0f, 45f);
+            }
+        }
+
         public async void SendMove(string fromSquare, string toSquare, string moveNotation)
         {
             if (!IsGameConnected || !IsOnlineMatch) return;

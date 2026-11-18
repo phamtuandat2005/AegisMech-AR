@@ -11,13 +11,33 @@ using MechChess.UI;
 namespace MechChess.Multiplayer
 {
     [Serializable]
+    public class LichessPlayingResponse
+    {
+        public LichessNowPlaying[] nowPlaying;
+        public int nbMyTurn;
+    }
+
+    [Serializable]
+    public class LichessNowPlaying
+    {
+        public string fullId;
+        public string gameId;
+        public string fen;
+        public string color;
+        public string lastMove;
+        public bool isMyTurn;
+        public int secondsLeft;
+        public LichessPlayer opponent;
+    }
+
+    [Serializable]
     public class LichessGameState
     {
         public string type;
         public string id;
         public string speed;
         public string moves;
-        public string status; // "created", "started", "mate", "resign", "outoftime", "draw"
+        public string status; // "created", "started", "mate", "resign", "outoftime", "draw", "aborted"
         public string winner; // "white", "black"
         public LichessPlayer white;
         public LichessPlayer black;
@@ -28,7 +48,8 @@ namespace MechChess.Multiplayer
     {
         public string id;
         public string name;
-        public int rating = 400;
+        public string username;
+        public int rating = 1500;
     }
 
     /// <summary>
@@ -52,15 +73,19 @@ namespace MechChess.Multiplayer
         public string ActiveGameId { get; private set; } = "";
         public bool IsPlayerWhite { get; private set; } = true;
         public string OpponentName { get; private set; } = "Lichess Player";
-        public int OpponentElo { get; private set; } = 400;
+        public int OpponentElo { get; private set; } = 1500;
         public bool IsMyTurn { get; private set; } = true;
 
         public event Action<string, int, bool> OnGameStarted; // oppName, oppElo, isWhite
         public event Action<string, string> OnOpponentMoved;   // uciMove, san
         public event Action<string, int, int> OnGameEnded;     // result ("win"/"loss"/"draw"), eloChange, goldGained
 
+        private Coroutine _pollGameCoroutine;
         private Coroutine _streamCoroutine;
+        private Coroutine _seekHttpCoroutine;
+
         private int _lastMoveCount = 0;
+        private string _lastProcessedMove = "";
         private float _matchStartTime = 0f;
 
         private void Awake()
@@ -125,6 +150,21 @@ namespace MechChess.Multiplayer
                 return legacy;
             }
 
+            // Check .env.local as environment fallback
+            try
+            {
+                string localPath = Path.Combine(Application.dataPath, "..", ".env.local");
+                if (File.Exists(localPath))
+                {
+                    string t = File.ReadAllText(localPath).Trim();
+                    if (!string.IsNullOrEmpty(t) && t.StartsWith("lip_"))
+                    {
+                        return t;
+                    }
+                }
+            }
+            catch { }
+
             return "";
         }
 
@@ -157,6 +197,9 @@ namespace MechChess.Multiplayer
             IsInLichessMatch = false;
             ActiveGameId = "";
             StopAllCoroutines();
+            _pollGameCoroutine = null;
+            _streamCoroutine = null;
+            _seekHttpCoroutine = null;
         }
 
         /// <summary>
@@ -164,12 +207,27 @@ namespace MechChess.Multiplayer
         /// </summary>
         public void SeekHumanMatch(int timeMinutes, int incrementSec, Action<bool, string> onComplete)
         {
-            SeekHumanMatch(timeMinutes, incrementSec, 400, onComplete);
+            SeekHumanMatch(timeMinutes, incrementSec, 1500, onComplete);
         }
 
-        public void SeekHumanMatch(int timeMinutes = 10, int incrementSec = 0, int targetElo = 400, Action<bool, string> onComplete = null)
+        public void SeekHumanMatch(int timeMinutes = 10, int incrementSec = 0, int targetElo = 1500, Action<bool, string> onComplete = null)
         {
-            StartCoroutine(SeekMatchRoutine(timeMinutes, incrementSec, targetElo, onComplete));
+            if (IsInLichessMatch)
+            {
+                onComplete?.Invoke(true, "Đang trong trận đấu!");
+                return;
+            }
+
+            string token = GetSavedToken();
+            if (string.IsNullOrEmpty(token))
+            {
+                onComplete?.Invoke(false, "Vui lòng nhập Lichess Personal Token (với quyền 'board:play') để tìm người đấu online!");
+                return;
+            }
+
+            StopAllCoroutines();
+            _pollGameCoroutine = StartCoroutine(PollActiveGameRoutine(timeMinutes, incrementSec, onComplete));
+            _seekHttpCoroutine = StartCoroutine(SeekMatchRoutine(timeMinutes, incrementSec, targetElo, onComplete));
         }
 
         /// <summary>
@@ -181,49 +239,163 @@ namespace MechChess.Multiplayer
             StartCoroutine(ChallengeAiRoutine(aiLevel, onComplete));
         }
 
+        private IEnumerator PollActiveGameRoutine(int timeMinutes, int incrementSec, Action<bool, string> onComplete)
+        {
+            string token = GetSavedToken();
+            if (string.IsNullOrEmpty(token)) yield break;
+
+            string url = $"{LichessApiBase}/account/playing";
+            float timeout = 120f;
+            float startTime = Time.time;
+
+            while (!IsInLichessMatch && (Time.time - startTime < timeout))
+            {
+                using (UnityWebRequest req = UnityWebRequest.Get(url))
+                {
+                    req.SetRequestHeader("Authorization", "Bearer " + token);
+                    req.timeout = 5;
+                    yield return req.SendWebRequest();
+
+                    if (req.result == UnityWebRequest.Result.Success)
+                    {
+                        string json = req.downloadHandler.text;
+                        if (!string.IsNullOrEmpty(json) && json.Contains("\"gameId\":"))
+                        {
+                            bool ok = ParseAndStartFromNowPlaying(json);
+                            if (ok && IsInLichessMatch)
+                            {
+                                onComplete?.Invoke(true, $"Đã ghép trận thành công với {OpponentName} ({OpponentElo})!");
+                                yield break;
+                            }
+                        }
+                    }
+                }
+                yield return new WaitForSeconds(1.0f);
+            }
+        }
+
         private IEnumerator SeekMatchRoutine(int timeMinutes, int incrementSec, int targetElo, Action<bool, string> onComplete)
         {
             string token = GetSavedToken();
-            if (string.IsNullOrEmpty(token))
-            {
-                onComplete?.Invoke(false, "Vui lòng nhập Lichess Personal Token (với quyền 'board:play') để tìm người đấu online!");
-                yield break;
-            }
+            if (string.IsNullOrEmpty(token)) yield break;
 
             string url = $"{LichessApiBase}/board/seek";
             WWWForm form = new WWWForm();
             form.AddField("time", timeMinutes);
             form.AddField("increment", incrementSec);
-            form.AddField("rated", "false"); // Unrated for third-party client play
+            form.AddField("rated", "true"); // Ranked match pool -> 1-3s instantaneous matchmaking!
 
-            if (targetElo >= 600)
-            {
-                int minRating = Mathf.Max(600, targetElo - 300);
-                int maxRating = targetElo + 300;
-                form.AddField("ratingRange", $"{minRating}-{maxRating}");
-            }
+            Debug.Log("[Lichess] Posting seek request to Lichess rated matchmaking pool...");
+            onComplete?.Invoke(true, "Đang quét tìm kỳ thủ trên Lichess.org...");
 
             using (UnityWebRequest req = UnityWebRequest.Post(url, form))
             {
                 req.SetRequestHeader("Authorization", "Bearer " + token);
-                req.timeout = 30;
+                req.timeout = 120; // Keep HTTP connection open for Lichess seek pool
 
                 yield return req.SendWebRequest();
 
                 if (req.result == UnityWebRequest.Result.Success)
                 {
-                    // Lichess will stream incoming events or assign a game ID
-                    Debug.Log("[Lichess] Seek request sent successfully. Waiting for match pairing...");
-                    onComplete?.Invoke(true, "Đang tìm đối thủ trên Lichess.org...");
-                    StartListeningToEvents();
+                    Debug.Log("[Lichess] Seek stream completed or accepted.");
                 }
                 else
                 {
-                    string err = req.downloadHandler != null ? req.downloadHandler.text : req.error;
-                    Debug.LogWarning($"[Lichess] Seek failed: {err}");
-                    onComplete?.Invoke(false, $"Không thể kết nối Lichess: {err}");
+                    if (!IsInLichessMatch)
+                    {
+                        string err = req.downloadHandler != null ? req.downloadHandler.text : req.error;
+                        Debug.LogWarning($"[Lichess] Seek notice: {err}");
+                    }
                 }
             }
+        }
+
+        private bool ParseAndStartFromNowPlaying(string json)
+        {
+            try
+            {
+                var resp = JsonUtility.FromJson<LichessPlayingResponse>(json);
+                if (resp != null && resp.nowPlaying != null && resp.nowPlaying.Length > 0)
+                {
+                    var game = resp.nowPlaying[0];
+                    string gid = game.gameId;
+                    bool isWhite = (game.color == "white");
+                    string oppName = "Lichess Player";
+                    int oppElo = 1500;
+
+                    if (game.opponent != null)
+                    {
+                        if (!string.IsNullOrEmpty(game.opponent.username)) oppName = game.opponent.username;
+                        else if (!string.IsNullOrEmpty(game.opponent.name)) oppName = game.opponent.name;
+                        if (game.opponent.rating > 0) oppElo = game.opponent.rating;
+                    }
+
+                    if (!string.IsNullOrEmpty(gid))
+                    {
+                        StartGameSession(gid, isWhite, oppName, oppElo);
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Lichess] JsonUtility parse error: {ex.Message}. Trying fallback parser...");
+            }
+
+            // Fallback substring parser
+            try
+            {
+                string gid = "";
+                string oppName = "Lichess Player";
+                int oppElo = 1500;
+                bool isWhite = true;
+
+                int gIdx = json.IndexOf("\"gameId\":\"", StringComparison.OrdinalIgnoreCase);
+                if (gIdx > 0)
+                {
+                    string sub = json.Substring(gIdx + 10);
+                    int end = sub.IndexOf("\"");
+                    if (end > 0) gid = sub.Substring(0, end);
+                }
+
+                int cIdx = json.IndexOf("\"color\":\"", StringComparison.OrdinalIgnoreCase);
+                if (cIdx > 0)
+                {
+                    string sub = json.Substring(cIdx + 9);
+                    int end = sub.IndexOf("\"");
+                    if (end > 0) isWhite = (sub.Substring(0, end).ToLower() == "white");
+                }
+
+                int uIdx = json.IndexOf("\"username\":\"", StringComparison.OrdinalIgnoreCase);
+                if (uIdx > 0)
+                {
+                    string sub = json.Substring(uIdx + 12);
+                    int end = sub.IndexOf("\"");
+                    if (end > 0) oppName = sub.Substring(0, end);
+                }
+
+                int rIdx = json.IndexOf("\"rating\":", StringComparison.OrdinalIgnoreCase);
+                if (rIdx > 0)
+                {
+                    string sub = json.Substring(rIdx + 9).Trim();
+                    string digits = "";
+                    foreach (char c in sub)
+                    {
+                        if (char.IsDigit(c)) digits += c;
+                        else break;
+                    }
+                    if (int.TryParse(digits, out int r)) oppElo = r;
+                }
+
+                if (!string.IsNullOrEmpty(gid))
+                {
+                    StartGameSession(gid, isWhite, oppName, oppElo);
+                    return true;
+                }
+            }
+            catch { }
+
+            return false;
         }
 
         private IEnumerator ChallengeAiRoutine(int aiLevel, Action<bool, string> onComplete)
@@ -254,7 +426,7 @@ namespace MechChess.Multiplayer
                         var state = JsonUtility.FromJson<LichessGameState>(json);
                         if (state != null && !string.IsNullOrEmpty(state.id))
                         {
-                            StartGameSession(state.id, true, $"Lichess Stockfish (Lv {aiLevel})", 400 + (aiLevel - 1) * 200);
+                            StartGameSession(state.id, true, $"Lichess Stockfish (Lv {aiLevel})", 1200 + (aiLevel - 1) * 150);
                             onComplete?.Invoke(true, $"Đã ghép trận với Lichess Stockfish Level {aiLevel}!");
                         }
                         else
@@ -281,10 +453,11 @@ namespace MechChess.Multiplayer
             ActiveGameId = gameId;
             IsPlayerWhite = playerIsWhite;
             OpponentName = string.IsNullOrEmpty(oppName) ? "Lichess Opponent" : oppName;
-            OpponentElo = oppElo > 0 ? oppElo : 400;
+            OpponentElo = oppElo > 0 ? oppElo : 1500;
             IsInLichessMatch = true;
             IsMyTurn = playerIsWhite;
             _lastMoveCount = 0;
+            _lastProcessedMove = "";
             _matchStartTime = Time.time;
 
             Debug.Log($"[Lichess] Game started! ID: {gameId} | White: {playerIsWhite} | Opponent: {OpponentName} (Elo: {OpponentElo})");
@@ -294,144 +467,138 @@ namespace MechChess.Multiplayer
             _streamCoroutine = StartCoroutine(StreamGameRoutine(gameId));
         }
 
-        private void StartListeningToEvents()
-        {
-            // Event listener loop for Lichess board events
-            if (_streamCoroutine != null) StopCoroutine(_streamCoroutine);
-            _streamCoroutine = StartCoroutine(StreamEventRoutine());
-        }
-
-        private IEnumerator StreamEventRoutine()
-        {
-            string token = GetSavedToken();
-            if (string.IsNullOrEmpty(token)) yield break;
-
-            string url = $"{LichessApiBase}/stream/event";
-            using (UnityWebRequest req = UnityWebRequest.Get(url))
-            {
-                req.SetRequestHeader("Authorization", "Bearer " + token);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                var op = req.SendWebRequest();
-
-                while (!op.isDone)
-                {
-                    string text = req.downloadHandler.text;
-                    if (!string.IsNullOrEmpty(text) && text.Contains("\"gameStart\""))
-                    {
-                        string gid = "";
-                        string oppName = "Lichess Opponent";
-                        int oppElo = 400;
-                        bool playerIsWhite = true;
-
-                        // Parse game ID
-                        int idx = text.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase);
-                        if (idx > 0)
-                        {
-                            string sub = text.Substring(idx + 6);
-                            int end = sub.IndexOf("\"");
-                            if (end > 0) gid = sub.Substring(0, end);
-                        }
-
-                        // Parse assigned color
-                        int idxCol = text.IndexOf("\"color\":\"", StringComparison.OrdinalIgnoreCase);
-                        if (idxCol > 0)
-                        {
-                            string sub = text.Substring(idxCol + 9);
-                            int end = sub.IndexOf("\"");
-                            if (end > 0)
-                            {
-                                string col = sub.Substring(0, end).ToLower();
-                                playerIsWhite = (col == "white");
-                            }
-                        }
-
-                        // Parse opponent name & rating
-                        int idxOpp = text.IndexOf("\"opponent\":", StringComparison.OrdinalIgnoreCase);
-                        if (idxOpp > 0)
-                        {
-                            string subOpp = text.Substring(idxOpp);
-                            int endOpp = subOpp.IndexOf("}");
-                            if (endOpp > 0)
-                            {
-                                string oppBlock = subOpp.Substring(0, endOpp);
-                                int idxUname = oppBlock.IndexOf("\"username\":\"", StringComparison.OrdinalIgnoreCase);
-                                if (idxUname < 0) idxUname = oppBlock.IndexOf("\"name\":\"", StringComparison.OrdinalIgnoreCase);
-                                if (idxUname > 0)
-                                {
-                                    int uStart = oppBlock.IndexOf("\"", idxUname + 6) + 1;
-                                    int uEnd = oppBlock.IndexOf("\"", uStart);
-                                    if (uEnd > uStart) oppName = oppBlock.Substring(uStart, uEnd - uStart);
-                                }
-
-                                int idxRating = oppBlock.IndexOf("\"rating\":", StringComparison.OrdinalIgnoreCase);
-                                if (idxRating > 0)
-                                {
-                                    string rSub = oppBlock.Substring(idxRating + 9).Trim();
-                                    string digits = "";
-                                    foreach (char c in rSub)
-                                    {
-                                        if (char.IsDigit(c)) digits += c;
-                                        else break;
-                                    }
-                                    if (int.TryParse(digits, out int r)) oppElo = r;
-                                }
-                            }
-                        }
-
-                        if (!string.IsNullOrEmpty(gid))
-                        {
-                            StartGameSession(gid, playerIsWhite, oppName, oppElo);
-                            yield break;
-                        }
-                    }
-                    yield return new WaitForSeconds(0.5f);
-                }
-            }
-        }
-
         private IEnumerator StreamGameRoutine(string gameId)
         {
             string token = GetSavedToken();
-            string url = $"{LichessApiBase}/board/game/stream/{gameId}";
+            string streamUrl = $"{LichessApiBase}/board/game/stream/{gameId}";
+            string playingUrl = $"{LichessApiBase}/account/playing";
 
-            while (IsInLichessMatch && !string.IsNullOrEmpty(ActiveGameId))
+            float lastPollTime = 0f;
+
+            using (UnityWebRequest req = UnityWebRequest.Get(streamUrl))
             {
-                using (UnityWebRequest req = UnityWebRequest.Get(url))
+                if (!string.IsNullOrEmpty(token))
                 {
-                    if (!string.IsNullOrEmpty(token))
-                    {
-                        req.SetRequestHeader("Authorization", "Bearer " + token);
-                    }
-                    req.downloadHandler = new DownloadHandlerBuffer();
-                    var op = req.SendWebRequest();
+                    req.SetRequestHeader("Authorization", "Bearer " + token);
+                }
+                req.downloadHandler = new DownloadHandlerBuffer();
+                var op = req.SendWebRequest();
 
-                    int processedBytes = 0;
-                    while (!op.isDone && IsInLichessMatch)
-                    {
-                        if (req.downloadHandler != null && req.downloadHandler.data != null)
-                        {
-                            int currentLen = req.downloadHandler.data.Length;
-                            if (currentLen > processedBytes)
-                            {
-                                string chunk = Encoding.UTF8.GetString(req.downloadHandler.data, processedBytes, currentLen - processedBytes);
-                                processedBytes = currentLen;
-                                ProcessStreamChunk(chunk);
-                            }
-                        }
-                        yield return new WaitForSeconds(0.2f);
-                    }
-
+                int processedBytes = 0;
+                while (!op.isDone && IsInLichessMatch)
+                {
+                    // 1. Process stream chunks
                     if (req.downloadHandler != null && req.downloadHandler.data != null)
                     {
                         int currentLen = req.downloadHandler.data.Length;
                         if (currentLen > processedBytes)
                         {
                             string chunk = Encoding.UTF8.GetString(req.downloadHandler.data, processedBytes, currentLen - processedBytes);
+                            processedBytes = currentLen;
                             ProcessStreamChunk(chunk);
                         }
                     }
+
+                    // 2. Dual check via /account/playing every 1.0s to guarantee zero missed moves
+                    if (Time.time - lastPollTime >= 1.0f)
+                    {
+                        lastPollTime = Time.time;
+                        StartCoroutine(PollGameMove(gameId));
+                    }
+
+                    yield return new WaitForSeconds(0.2f);
                 }
-                yield return new WaitForSeconds(1.0f);
+
+                if (req.downloadHandler != null && req.downloadHandler.data != null)
+                {
+                    int currentLen = req.downloadHandler.data.Length;
+                    if (currentLen > processedBytes)
+                    {
+                        string chunk = Encoding.UTF8.GetString(req.downloadHandler.data, processedBytes, currentLen - processedBytes);
+                        ProcessStreamChunk(chunk);
+                    }
+                }
+            }
+        }
+
+        private IEnumerator PollGameMove(string gameId)
+        {
+            string token = GetSavedToken();
+            if (string.IsNullOrEmpty(token) || !IsInLichessMatch) yield break;
+
+            using (UnityWebRequest req = UnityWebRequest.Get($"{LichessApiBase}/account/playing"))
+            {
+                req.SetRequestHeader("Authorization", "Bearer " + token);
+                req.timeout = 3;
+                yield return req.SendWebRequest();
+
+                if (req.result == UnityWebRequest.Result.Success)
+                {
+                    string json = req.downloadHandler.text;
+                    if (!string.IsNullOrEmpty(json))
+                    {
+                        // Check if game is still active
+                        if (!json.Contains(gameId))
+                        {
+                            // Game finished on Lichess!
+                            StartCoroutine(FetchGameResult(gameId));
+                            yield break;
+                        }
+
+                        // Parse latest move
+                        try
+                        {
+                            var resp = JsonUtility.FromJson<LichessPlayingResponse>(json);
+                            if (resp != null && resp.nowPlaying != null)
+                            {
+                                foreach (var p in resp.nowPlaying)
+                                {
+                                    if (p.gameId == gameId && !string.IsNullOrEmpty(p.lastMove))
+                                    {
+                                        if (p.lastMove != _lastProcessedMove)
+                                        {
+                                            _lastProcessedMove = p.lastMove;
+                                            IsMyTurn = p.isMyTurn;
+                                            if (p.isMyTurn)
+                                            {
+                                                Debug.Log($"[Lichess] Polled opponent move: {p.lastMove}");
+                                                OnOpponentMoved?.Invoke(p.lastMove, p.lastMove);
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+        }
+
+        private IEnumerator FetchGameResult(string gameId)
+        {
+            string token = GetSavedToken();
+            using (UnityWebRequest req = UnityWebRequest.Get($"{LichessApiBase}/board/game/stream/{gameId}"))
+            {
+                if (!string.IsNullOrEmpty(token)) req.SetRequestHeader("Authorization", "Bearer " + token);
+                req.timeout = 5;
+                yield return req.SendWebRequest();
+
+                string result = "draw";
+                if (req.result == UnityWebRequest.Result.Success)
+                {
+                    string text = req.downloadHandler.text;
+                    if (text.Contains("\"winner\":\"white\""))
+                    {
+                        result = IsPlayerWhite ? "win" : "loss";
+                    }
+                    else if (text.Contains("\"winner\":\"black\""))
+                    {
+                        result = !IsPlayerWhite ? "win" : "loss";
+                    }
+                }
+                EndGameSession(result);
             }
         }
 
@@ -467,9 +634,10 @@ namespace MechChess.Multiplayer
                                     _lastMoveCount = moveList.Length;
                                     IsMyTurn = !wasOpponentMove;
 
-                                    if (wasOpponentMove)
+                                    if (wasOpponentMove && latestMove != _lastProcessedMove)
                                     {
-                                        Debug.Log($"[Lichess] Opponent move received: {latestMove}");
+                                        _lastProcessedMove = latestMove;
+                                        Debug.Log($"[Lichess] Stream opponent move received: {latestMove}");
                                         OnOpponentMoved?.Invoke(latestMove, latestMove);
                                     }
                                 }
@@ -478,7 +646,9 @@ namespace MechChess.Multiplayer
                     }
 
                     // Check game conclusion status
-                    if (trimmed.Contains("\"winner\":") || trimmed.Contains("\"status\":\"mate\"") || trimmed.Contains("\"status\":\"resign\""))
+                    if (trimmed.Contains("\"winner\":") || trimmed.Contains("\"status\":\"mate\"") || 
+                        trimmed.Contains("\"status\":\"resign\"") || trimmed.Contains("\"status\":\"outoftime\"") || 
+                        trimmed.Contains("\"status\":\"aborted\""))
                     {
                         string result = "draw";
                         if (trimmed.Contains("\"winner\":\"white\""))
@@ -512,6 +682,7 @@ namespace MechChess.Multiplayer
                 return;
             }
 
+            _lastProcessedMove = uciMove.ToLower();
             StartCoroutine(SendMoveRoutine(ActiveGameId, uciMove, onComplete));
         }
 

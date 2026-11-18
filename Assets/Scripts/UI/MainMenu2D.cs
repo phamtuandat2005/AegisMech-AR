@@ -7876,6 +7876,10 @@ namespace MechChess.UI
             {
                 OnlineMultiplayerManager.Instance.AlignCameraForBlackPlayer();
             }
+            else if (isWhite && OnlineMultiplayerManager.Instance != null)
+            {
+                OnlineMultiplayerManager.Instance.AlignCameraForWhitePlayer();
+            }
 
             if (UIManager2D.Instance != null)
             {

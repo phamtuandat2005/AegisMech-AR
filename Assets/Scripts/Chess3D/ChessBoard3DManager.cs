@@ -174,7 +174,16 @@ namespace MechChess.Chess3D
                     {
                         string fromSq = uciMove.Substring(0, 2);
                         string toSq = uciMove.Substring(2, 2);
-                        ExecuteRemoteMove(fromSq, toSq);
+                        PieceType promo = PieceType.Queen;
+                        if (uciMove.Length >= 5)
+                        {
+                            char p = char.ToLower(uciMove[4]);
+                            if (p == 'r') promo = PieceType.Rook;
+                            else if (p == 'b') promo = PieceType.Bishop;
+                            else if (p == 'n') promo = PieceType.Knight;
+                            else promo = PieceType.Queen;
+                        }
+                        ExecuteRemoteMove(fromSq, toSq, promo);
                     }
                 };
             }
@@ -656,12 +665,12 @@ namespace MechChess.Chess3D
 
         private bool _isExecutingRemoteMove = false;
 
-        public void ExecuteRemoteMove(string fromSquare, string toSquare)
+        public void ExecuteRemoteMove(string fromSquare, string toSquare, PieceType promoteTo = PieceType.Queen)
         {
             _isExecutingRemoteMove = true;
             try
             {
-                ExecuteAlgebraicMove(fromSquare, toSquare);
+                ExecuteAlgebraicMove(fromSquare, toSquare, promoteTo);
             }
             finally
             {
@@ -974,7 +983,12 @@ namespace MechChess.Chess3D
             {
                 string fromSq = GetAlgebraic(startFile, startRank);
                 string toSq = GetAlgebraic(targetFile, targetRank);
-                MechChess.Multiplayer.LichessBridge.Instance.SendMove(fromSq + toSq);
+                string uciMove = (fromSq + toSq).ToLower();
+                if (_moveHistoryStack.Count > 0 && _moveHistoryStack.Peek().wasPromotion)
+                {
+                    uciMove += "q";
+                }
+                MechChess.Multiplayer.LichessBridge.Instance.SendMove(uciMove);
             }
 
             PieceColor opponent = (currentTurn == PieceColor.White) ? PieceColor.Black : PieceColor.White;
@@ -2246,7 +2260,7 @@ namespace MechChess.Chess3D
             PlayerPrefs.Save();
         }
 
-        public void ExecuteAlgebraicMove(string fromSquare, string toSquare)
+        public void ExecuteAlgebraicMove(string fromSquare, string toSquare, PieceType promoteTo = PieceType.Queen)
         {
             if (fromSquare.Length < 2 || toSquare.Length < 2) return;
 
@@ -2255,12 +2269,21 @@ namespace MechChess.Chess3D
             int f2 = char.ToUpper(toSquare[0]) - 'A';
             int r2 = int.Parse(toSquare[1].ToString()) - 1;
 
+            if (toSquare.Length >= 3)
+            {
+                char pChar = char.ToLower(toSquare[2]);
+                if (pChar == 'q') promoteTo = PieceType.Queen;
+                else if (pChar == 'r') promoteTo = PieceType.Rook;
+                else if (pChar == 'b') promoteTo = PieceType.Bishop;
+                else if (pChar == 'n') promoteTo = PieceType.Knight;
+            }
+
             if (IsOnBoard(f1, r1) && IsOnBoard(f2, r2))
             {
                 ChessPiece3D piece = boardPieces[f1, r1];
                 if (piece != null)
                 {
-                    ExecuteMove(piece, f2, r2);
+                    ExecuteMove(piece, f2, r2, promoteTo);
                 }
             }
         }
