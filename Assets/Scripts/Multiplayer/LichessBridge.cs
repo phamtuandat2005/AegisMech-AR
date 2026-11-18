@@ -305,6 +305,15 @@ namespace MechChess.Multiplayer
                     {
                         string err = req.downloadHandler != null ? req.downloadHandler.text : req.error;
                         Debug.LogWarning($"[Lichess] Seek notice: {err}");
+                        if (err.Contains("Banned from playing") || err.Contains("Too many aborts"))
+                        {
+                            onComplete?.Invoke(false, "Lichess: Tài khoản bị tạm khóa tìm trận công khai do hủy ván thử nghiệm. Đang kết nối Lichess Stockfish AI...");
+                            ChallengeLichessAI(2);
+                        }
+                        else
+                        {
+                            onComplete?.Invoke(false, $"Lichess: {err}");
+                        }
                     }
                 }
             }
@@ -423,10 +432,26 @@ namespace MechChess.Multiplayer
                     Debug.Log($"[Lichess] AI Game created: {json}");
                     try
                     {
+                        string gid = "";
                         var state = JsonUtility.FromJson<LichessGameState>(json);
                         if (state != null && !string.IsNullOrEmpty(state.id))
                         {
-                            StartGameSession(state.id, true, $"Lichess Stockfish (Lv {aiLevel})", 1200 + (aiLevel - 1) * 150);
+                            gid = state.id;
+                        }
+                        if (string.IsNullOrEmpty(gid))
+                        {
+                            int idx = json.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase);
+                            if (idx > 0)
+                            {
+                                string sub = json.Substring(idx + 6);
+                                int end = sub.IndexOf("\"");
+                                if (end > 0) gid = sub.Substring(0, end);
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(gid))
+                        {
+                            StartGameSession(gid, true, $"Lichess Stockfish (Lv {aiLevel})", 1200 + (aiLevel - 1) * 150);
                             onComplete?.Invoke(true, $"Đã ghép trận với Lichess Stockfish Level {aiLevel}!");
                         }
                         else

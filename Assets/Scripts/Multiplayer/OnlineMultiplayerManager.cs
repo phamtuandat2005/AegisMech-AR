@@ -277,9 +277,14 @@ namespace MechChess.Multiplayer
                         Debug.Log("[OnlineMultiplayer] Retrying Lobby connection without AuthToken parameter...");
                         _lobbyWebSocket?.Dispose();
                         _lobbyWebSocket = new ClientWebSocket();
-                        string fallbackUri = $"{cleanHost}/ws/lobby/{Uri.EscapeDataString(playerName)}";
+                        if (_lobbyCts == null || _lobbyCts.IsCancellationRequested)
+                        {
+                            _lobbyCts = new CancellationTokenSource();
+                        }
+                        string safeName = !string.IsNullOrEmpty(playerName) ? playerName : "Player";
+                        string fallbackUri = $"{cleanHost}/ws/lobby/{Uri.EscapeDataString(safeName)}";
                         await _lobbyWebSocket.ConnectAsync(new Uri(fallbackUri), _lobbyCts.Token);
-                        Debug.Log($"[OnlineMultiplayer] Connected to Lobby WebSocket without token as '{playerName}'");
+                        Debug.Log($"[OnlineMultiplayer] Connected to Lobby WebSocket without token as '{safeName}'");
                         _reconnectDelay = 2.0f;
                         _ = ReceiveLobbyLoop(_lobbyWebSocket, _lobbyCts.Token);
                         _ = SendHeartbeatLoop(_lobbyWebSocket, _lobbyCts.Token);
