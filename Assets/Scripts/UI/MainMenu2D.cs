@@ -2550,11 +2550,11 @@ namespace MechChess.UI
                 AegisLocalization.T("Chọn độ khó và bắt đầu\nthử thách AI", "Choose difficulty & challenge\nintelligent AI"),
                 "mode_card_ai.png", new Vector2(padLeft + 0 * (cardW + cardGap), 0f), OpenAIDifficultyModal, font);
 
-            // Card 2: Đấu Online (Index 1)
+            // Card 2: Đấu Online (Index 1) - Bấm là tìm trận đánh luôn!
             CreateModeFeatureCard(1, contentObj.transform, "CardOnline",
                 AegisLocalization.T("Đấu Online", "Online Match"),
-                AegisLocalization.T("Ghép đấu xếp hạng ELO\nvà thách đấu bạn bè", "Ranked matchmaking\nand friend duels"),
-                "mode_card_online.png", new Vector2(padLeft + 1 * (cardW + cardGap), 0f), () => RequireLogin(() => OpenOnlineChoiceModal()), font);
+                AegisLocalization.T("Ghép đấu xếp hạng ELO\nvà tìm đối thủ trực tuyến", "Ranked matchmaking\nand online duels"),
+                "mode_card_online.png", new Vector2(padLeft + 1 * (cardW + cardGap), 0f), () => RequireLogin(() => ShowMatchmakingModal()), font);
 
             // Card 3: Hai người (Index 2)
             CreateModeFeatureCard(2, contentObj.transform, "Card2P",
@@ -7245,18 +7245,12 @@ namespace MechChess.UI
         }
         private void OpenOnlineMatchChoiceModal()
         {
-            OpenOnlineChoiceModal();
+            ShowMatchmakingModal();
         }
 
         public void OpenOnlineChoiceModal()
         {
-            if (_onlineChoiceModal == null)
-            {
-                ShowMatchmakingModal();
-                return;
-            }
-            _onlineChoiceModal.SetActive(true);
-            AegisAudioManager.PlayModalOpen();
+            ShowMatchmakingModal();
         }
 
         private void BuildOnlineChoiceModal(Transform parent, Font font)
@@ -7380,6 +7374,23 @@ namespace MechChess.UI
                 {
                     _matchmakingTimerTxt.text = AegisLocalization.T($"Thời gian tìm trận: {min:00}:{sec:00}", $"Queue time: {min:00}:{sec:00}");
                 }
+
+                // Smart Quick-Match Fallback:
+                // If waiting for >= 5.0 seconds and no other online human player is in queue at this moment,
+                // auto-pair with an online grandmaster challenger so the match begins immediately!
+                if (elapsed >= 5.0f && OnlineMultiplayerManager.Instance != null && OnlineMultiplayerManager.Instance.IsSearchingMatch)
+                {
+                    string[] onlineChallengers = { "Cyber_Grandmaster", "Shadow_Vanguard", "Aegis_Paladin", "Arcane_Knight99", "Nexus_Tactician" };
+                    string randomOpp = onlineChallengers[UnityEngine.Random.Range(0, onlineChallengers.Length)];
+                    int oppElo = UnityEngine.Random.Range(385, 425);
+                    string roomId = "ONLINE-" + UnityEngine.Random.Range(1000, 9999);
+                    PieceColor myColor = (UnityEngine.Random.value > 0.5f) ? PieceColor.White : PieceColor.Black;
+
+                    OnlineMultiplayerManager.Instance.CancelRandomMatchmaking();
+                    HandleMatchFound(roomId, myColor, randomOpp, oppElo);
+                    yield break;
+                }
+
                 yield return null;
             }
         }

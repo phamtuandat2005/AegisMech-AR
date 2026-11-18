@@ -487,7 +487,7 @@ namespace MechChess.Multiplayer
                             IsSearchingMatch = false;
                             PieceColor assignedRole = (packet.role == "white") ? PieceColor.White : PieceColor.Black;
                             OpponentName = packet.opponent;
-                            OpponentElo = packet.opponent_elo > 0 ? packet.opponent_elo : 1200;
+                            OpponentElo = packet.opponent_elo > 0 ? packet.opponent_elo : 400;
                             currentRoomId = packet.room_id;
 
                             OnMatchFoundEvent?.Invoke(packet.room_id, assignedRole, OpponentName, OpponentElo);

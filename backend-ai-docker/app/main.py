@@ -503,6 +503,17 @@ def healthcheck():
         }
     }
 
+@app.get("/play", response_class=HTMLResponse)
+async def web_play_route():
+    """
+    Serves the live Web Chess deck for browsers on mobile and PC,
+    allowing online players to matchmake and play directly against Unity/AR players.
+    """
+    html_file = BASE_DIR / "app" / "web_play.html"
+    if html_file.exists():
+        return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<h3>Web Chess Client not found.</h3>", status_code=404)
+
 @app.post("/api/recognize-card", response_model=CardRecognizeResponse)
 async def recognize_card(payload: CardRecognizeRequest):
     """
