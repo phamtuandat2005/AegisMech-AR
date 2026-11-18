@@ -568,7 +568,8 @@ namespace MechChess.UI
 
         public void UpdateOpponentDisplay()
         {
-            bool isVsAI = true;
+            bool isOnline = (MechChess.Multiplayer.OnlineMultiplayerManager.Instance != null && MechChess.Multiplayer.OnlineMultiplayerManager.Instance.IsOnlineMatch);
+            bool isVsAI = !isOnline;
             if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
             {
                 isVsAI = MechChess.Chess3D.ChessBoard3DManager.Instance.isVsAI;
@@ -580,8 +581,29 @@ namespace MechChess.UI
                 pName = MechChess.Multiplayer.UserAccountManager.Instance.CurrentUsername;
             }
 
-            string oppName = isVsAI ? "AI" : AegisLocalization.T("Người chơi 2", "Player 2");
-            string oppLevel = "Lv. 5";
+            string oppName;
+            string oppLevel;
+            Sprite oppSprite;
+
+            if (isOnline)
+            {
+                var online = MechChess.Multiplayer.OnlineMultiplayerManager.Instance;
+                oppName = string.IsNullOrEmpty(online.OpponentName) ? "Online Rival" : online.OpponentName;
+                oppLevel = $"Elo {online.OpponentElo}";
+                oppSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png") ?? ArcaneAssetLoader.LoadArcaneSprite("user_avatar.png");
+            }
+            else if (isVsAI)
+            {
+                oppName = "AI";
+                oppLevel = "Lv. 5";
+                oppSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_vs_ai_round.png") ?? ArcaneAssetLoader.LoadArcaneSprite("ai_portrait_full.png");
+            }
+            else
+            {
+                oppName = AegisLocalization.T("Người chơi 2", "Player 2");
+                oppLevel = "PvP Local";
+                oppSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png") ?? ArcaneAssetLoader.LoadArcaneSprite("user_avatar.png");
+            }
 
             if (_playerNameText != null) _playerNameText.text = pName;
             if (_arPlayerNameText != null) _arPlayerNameText.text = pName;
@@ -591,10 +613,17 @@ namespace MechChess.UI
             if (_arOpponentNameText != null) _arOpponentNameText.text = oppName;
             if (_arOpponentLevelText != null) _arOpponentLevelText.text = oppLevel;
 
-            Sprite oppSprite = isVsAI
-                ? (ArcaneAssetLoader.LoadArcaneSprite("profile_vs_ai_round.png") ?? ArcaneAssetLoader.LoadArcaneSprite("ai_portrait_full.png"))
-                : (ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png") ?? ArcaneAssetLoader.LoadArcaneSprite("user_avatar.png"));
+            if (_opponentAvatarImg != null && oppSprite != null) _opponentAvatarImg.sprite = oppSprite;
+            if (_arOpponentAvatarImg != null && oppSprite != null) _arOpponentAvatarImg.sprite = oppSprite;
+        }
 
+        public void SetOnlineOpponent(string oppName, int oppElo)
+        {
+            if (_opponentNameText != null) _opponentNameText.text = oppName;
+            if (_opponentLevelText != null) _opponentLevelText.text = $"Elo {oppElo}";
+            if (_arOpponentNameText != null) _arOpponentNameText.text = oppName;
+            if (_arOpponentLevelText != null) _arOpponentLevelText.text = $"Elo {oppElo}";
+            Sprite oppSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png") ?? ArcaneAssetLoader.LoadArcaneSprite("user_avatar.png");
             if (_opponentAvatarImg != null && oppSprite != null) _opponentAvatarImg.sprite = oppSprite;
             if (_arOpponentAvatarImg != null && oppSprite != null) _arOpponentAvatarImg.sprite = oppSprite;
         }

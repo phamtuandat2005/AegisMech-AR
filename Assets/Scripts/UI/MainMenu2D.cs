@@ -7374,22 +7374,6 @@ namespace MechChess.UI
                 {
                     _matchmakingTimerTxt.text = AegisLocalization.T($"Thời gian tìm trận: {min:00}:{sec:00}", $"Queue time: {min:00}:{sec:00}");
                 }
-
-                // If after 8 seconds no human player is available in queue, auto-pair with an autonomous Online Challenger
-                // so the player gets an active opponent that moves automatically, never leaving it as a 2-player pass & play!
-                if (elapsed >= 8.0f && OnlineMultiplayerManager.Instance != null && OnlineMultiplayerManager.Instance.IsSearchingMatch)
-                {
-                    string[] onlineChallengers = { "Cyber_Grandmaster", "Shadow_Vanguard", "Aegis_Paladin", "Arcane_Knight99", "Nexus_Tactician" };
-                    string randomOpp = onlineChallengers[UnityEngine.Random.Range(0, onlineChallengers.Length)];
-                    int oppElo = UnityEngine.Random.Range(385, 425);
-                    string roomId = "ONLINE-" + UnityEngine.Random.Range(1000, 9999);
-                    PieceColor myColor = (UnityEngine.Random.value > 0.5f) ? PieceColor.White : PieceColor.Black;
-
-                    OnlineMultiplayerManager.Instance.CancelRandomMatchmaking();
-                    HandleMatchFound(roomId, myColor, randomOpp, oppElo);
-                    yield break;
-                }
-
                 yield return null;
             }
         }
@@ -7718,39 +7702,18 @@ namespace MechChess.UI
             _lastLaunchMode = GameLaunchMode.OnlineMultiplayer;
             HideMenu();
 
-            bool isRealNetworkMatch = (OnlineMultiplayerManager.Instance != null && 
-                                      (OnlineMultiplayerManager.Instance.IsOnlineMatch || roomId.StartsWith("MATCH_") || roomId.StartsWith("ROOM-")));
-
             if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
             {
                 var board = MechChess.Chess3D.ChessBoard3DManager.Instance;
                 board.ResetBoard();
-
-                if (isRealNetworkMatch)
-                {
-                    // Real 2-player network match: Opponent moves are delivered via WebSocket
-                    board.isVsAI = false;
-                }
-                else
-                {
-                    // Autonomous Online Bot Challenger: The opponent MUST think and move automatically!
-                    // Player can ONLY move their assigned role (White or Black)
-                    board.isVsAI = true;
-                    board.aiColor = (role == PieceColor.White) ? PieceColor.Black : PieceColor.White;
-                    board.aiLevel = 2;
-
-                    // If local player is Black, the AI plays White and takes the first move immediately!
-                    if (role == PieceColor.Black)
-                    {
-                        board.TriggerAIMove();
-                    }
-                }
+                board.isVsAI = false;
             }
 
             if (UIManager2D.Instance != null)
             {
                 UIManager2D.Instance.isRankedMode = true;
                 UIManager2D.Instance.ConfigureTimeControl("10 + 0");
+                UIManager2D.Instance.SetOnlineOpponent(oppName, oppElo);
                 string colorStr = (role == PieceColor.White) ? AegisLocalization.T("TRẮNG (đi trước)", "WHITE (plays first)") : AegisLocalization.T("ĐEN (đi sau)", "BLACK (plays second)");
                 UIManager2D.Instance.RecordMove(AegisLocalization.T($"[TRẬN ĐẤU ONLINE] Bạn cầm quân {colorStr} đấu với {oppName} (Elo {oppElo}) | Phòng: {roomId}", $"[ONLINE MATCH] You play {colorStr} vs {oppName} (Elo {oppElo}) | Room: {roomId}"));
             }
