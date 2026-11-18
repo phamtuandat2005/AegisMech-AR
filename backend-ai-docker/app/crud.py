@@ -103,12 +103,12 @@ async def register_or_login_player(
 
             new_stats = PlayerStats(
                 player_id=new_player.id,
-                elo=1200,
+                elo=400,
                 matches_played=0,
                 wins=0,
                 losses=0,
                 draws=0,
-                highest_elo=1200
+                highest_elo=400
             )
             session.add(new_stats)
             new_player.stats = new_stats
@@ -133,7 +133,7 @@ async def register_or_login_player(
 
             # Ensure stats exist
             if not existing_player.stats:
-                stats = PlayerStats(player_id=existing_player.id, elo=1200)
+                stats = PlayerStats(player_id=existing_player.id, elo=400, highest_elo=400)
                 session.add(stats)
                 existing_player.stats = stats
                 await session.commit()
@@ -158,7 +158,7 @@ async def register_or_login_player(
                 existing_player.updated_at = datetime.now(timezone.utc)
 
         if not existing_player.stats:
-            stats = PlayerStats(player_id=existing_player.id, elo=1200)
+            stats = PlayerStats(player_id=existing_player.id, elo=400, highest_elo=400)
             session.add(stats)
             existing_player.stats = stats
 
@@ -190,12 +190,12 @@ async def register_or_login_player(
 
     new_stats = PlayerStats(
         player_id=new_player.id,
-        elo=1200,
+        elo=400,
         matches_played=0,
         wins=0,
         losses=0,
         draws=0,
-        highest_elo=1200
+        highest_elo=400
     )
     session.add(new_stats)
     new_player.stats = new_stats
@@ -219,7 +219,7 @@ async def register_or_login_google_player(
         if picture and (not existing_player.avatar_url or existing_player.avatar_url == "profile_avatar_round.png"):
             existing_player.avatar_url = picture
         if not existing_player.stats:
-            stats = PlayerStats(player_id=existing_player.id, elo=1200)
+            stats = PlayerStats(player_id=existing_player.id, elo=400, highest_elo=400)
             session.add(stats)
             existing_player.stats = stats
         await session.commit()
@@ -253,12 +253,12 @@ async def register_or_login_google_player(
 
     new_stats = PlayerStats(
         player_id=new_player.id,
-        elo=1200,
+        elo=400,
         matches_played=0,
         wins=0,
         losses=0,
         draws=0,
-        highest_elo=1200
+        highest_elo=400
     )
     session.add(new_stats)
     new_player.stats = new_stats
@@ -269,7 +269,7 @@ async def register_or_login_google_player(
 
 def format_profile_response(player: Player) -> PlayerProfileResponse:
     stats = player.stats
-    elo = stats.elo if stats else 1200
+    elo = stats.elo if stats else 400
     matches_played = stats.matches_played if stats else 0
     wins = stats.wins if stats else 0
     losses = stats.losses if stats else 0
@@ -343,29 +343,81 @@ async def record_match_result(
         return False, f"Người chơi '{data.username}' không tồn tại trong hệ thống!", {}
 
     if not player.stats:
-        player.stats = PlayerStats(player_id=player.id, elo=1200)
+        player.stats = PlayerStats(player_id=player.id, elo=400, highest_elo=400)
         session.add(player.stats)
 
     res_clean = data.result.strip().lower()
     if res_clean not in ("win", "loss", "draw"):
         return False, "Kết quả trận đấu không hợp lệ! (Phải là 'win', 'loss' hoặc 'draw').", {}
 
-    # Elo change formula
-    if res_clean == "win":
-        elo_change = 12
-        exp_gained = 60
-        gold_gained = 50
-        score_str = "1 - 0"
-    elif res_clean == "loss":
-        elo_change = -8
-        exp_gained = 20
-        gold_gained = 15
-        score_str = "0 - 1"
-    else: # draw
-        elo_change = 0
-        exp_gained = 30
-        gold_gained = 25
-        score_str = "½ - ½"
+    # Determine opponent Elo for dynamic Playchess calculation
+    opp_elo = getattr(data, "opponent_elo", None)
+    if opp_elo is None and data.opponent_name and not data.is_ai:
+        opp_player = await get_player_by_username(session, data.opponent_name)
+        if opp_player and opp_player.stats:
+            opp_elo = opp_player.stats.elo
+
+    if opp_elo is None:
+        # Default: equal rating
+        opp_elo = player.stats.elo
+
+    elo_diff = player.stats.elo - opp_elo
+
+    # Playchess Elo & Gold calculation:
+    # 1. Trình ngang nhau (|elo_diff| <= 100):
+    #    Thắng: +8, Thua: -8, Hòa: 0
+    # 2. Người chơi có Elo vượt trội nhiều (elo_diff > 100):
+    #    Thắng: +7, Thua: -9, Hòa: -1
+    # 3. Người chơi có Elo thấp hơn nhiều (elo_diff < -100):
+    #    Thắng: +9, Thua: -7, Hòa: +1
+    if abs(elo_diff) <= 100:
+        if res_clean == "win":
+            elo_change = 8
+            exp_gained = 60
+            gold_gained = 100
+            score_str = "1 - 0"
+        elif res_clean == "loss":
+            elo_change = -8
+            exp_gained = 20
+            gold_gained = 20
+            score_str = "0 - 1"
+        else: # draw
+            elo_change = 0
+            exp_gained = 30
+            gold_gained = 35
+            score_str = "½ - ½"
+    elif elo_diff > 100:
+        if res_clean == "win":
+            elo_change = 7
+            exp_gained = 50
+            gold_gained = 80
+            score_str = "1 - 0"
+        elif res_clean == "loss":
+            elo_change = -9
+            exp_gained = 15
+            gold_gained = 10
+            score_str = "0 - 1"
+        else:
+            elo_change = -1
+            exp_gained = 25
+            gold_gained = 25
+            score_str = "½ - ½"
+    else: # elo_diff < -100 (underdog)
+        if res_clean == "win":
+            elo_change = 9
+            exp_gained = 80
+            gold_gained = 150 # Thắng đối thủ mạnh hơn hẳn: thưởng lớn!
+            score_str = "1 - 0"
+        elif res_clean == "loss":
+            elo_change = -7
+            exp_gained = 25
+            gold_gained = 25
+            score_str = "0 - 1"
+        else:
+            elo_change = 1
+            exp_gained = 35
+            gold_gained = 45
+            score_str = "½ - ½"
 
     # Update stats
     player.stats.matches_played += 1

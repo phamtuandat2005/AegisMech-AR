@@ -22,7 +22,7 @@ namespace MechChess.Multiplayer
         public int gold = 500;
         public int gems = 50;
         public int energy = 100;
-        public int elo = 1200;
+        public int elo = 400;
         public int matches_played = 0;
         public int wins = 0;
         public int losses = 0;
@@ -156,10 +156,36 @@ namespace MechChess.Multiplayer
 
         public string CurrentGmail { get; private set; } = "";
         public string CurrentUsername { get; private set; } = "";
-        public int CurrentElo { get; private set; } = 1200;
+        public int CurrentElo { get; private set; } = 400;
         public string AuthToken { get; private set; } = "";
         public string CurrentMatchTicket { get; private set; } = "";
         public string CurrentMatchId { get; private set; } = "";
+
+        public int CurrentGold => CurrentProfile != null ? CurrentProfile.gold : PlayerPrefs.GetInt(PrefsKeyGold, 500);
+
+        public void AddGold(int amount)
+        {
+            if (amount <= 0) return;
+            int newGold = CurrentGold + amount;
+            if (CurrentProfile != null) CurrentProfile.gold = newGold;
+            PlayerPrefs.SetInt(PrefsKeyGold, newGold);
+            AegisMech.UI.AegisPrefs.Coins = newGold;
+            PlayerPrefs.Save();
+            OnProfileUpdated?.Invoke(CurrentProfile);
+        }
+
+        public bool SpendGold(int amount)
+        {
+            if (amount <= 0) return true;
+            if (CurrentGold < amount) return false;
+            int newGold = CurrentGold - amount;
+            if (CurrentProfile != null) CurrentProfile.gold = newGold;
+            PlayerPrefs.SetInt(PrefsKeyGold, newGold);
+            AegisMech.UI.AegisPrefs.Coins = newGold;
+            PlayerPrefs.Save();
+            OnProfileUpdated?.Invoke(CurrentProfile);
+            return true;
+        }
 
         public UserAccountData CurrentProfile { get; private set; }
 
@@ -209,7 +235,7 @@ namespace MechChess.Multiplayer
         {
             CurrentGmail = PlayerPrefs.GetString(PrefsKeyGmail, "");
             CurrentUsername = PlayerPrefs.GetString(PrefsKeyUsername, "");
-            CurrentElo = PlayerPrefs.GetInt(PrefsKeyElo, 1200);
+            CurrentElo = PlayerPrefs.GetInt(PrefsKeyElo, 400);
             AuthToken = PlayerPrefs.GetString(PrefsKeyAuthToken, "");
 
             if (IsLoggedIn)
@@ -874,12 +900,37 @@ namespace MechChess.Multiplayer
         }
 
         /// <summary>
-        /// Securely records match result to Supabase backend in a database transaction.
-        /// Backend updates Elo, calculates Exp and Gold rewards, and logs history.
+        /// Securely records match result with Playchess-style dynamic Elo & Gold rewards:
+        /// - Trình ngang nhau (|elo_diff| <= 100): Thắng +8, Thua -8, Hòa 0. Vàng: Thắng +100.
+        /// - Elo vượt trội (elo_diff > 100): Thắng +7, Thua -9, Hòa -1.
+        /// - Underdog (elo_diff < -100): Thắng +9, Thua -7, Hòa +1. Vàng: Thắng +150.
         /// </summary>
-        public void RecordMatchResult(string result, string opponentName, bool isAi, string role, int moves, float durationSec, Action<bool, MatchRecordResponse> onComplete = null)
+        public void RecordMatchResult(string result, string opponentName, bool isAi, string role, int moves, float durationSec, int opponentElo = -1, Action<bool, MatchRecordResponse> onComplete = null)
         {
-            int eloDelta = (result == "win") ? 12 : ((result == "loss") ? -8 : 0);
+            if (opponentElo <= 0) opponentElo = CurrentElo;
+            int eloDiff = CurrentElo - opponentElo;
+            int eloDelta;
+            int goldGain;
+
+            if (Mathf.Abs(eloDiff) <= 100)
+            {
+                eloDelta = (result == "win") ? 8 : ((result == "loss") ? -8 : 0);
+                goldGain = (result == "win") ? 100 : ((result == "loss") ? 20 : 35);
+            }
+            else if (eloDiff > 100)
+            {
+                eloDelta = (result == "win") ? 7 : ((result == "loss") ? -9 : -1);
+                goldGain = (result == "win") ? 80 : ((result == "loss") ? 10 : 25);
+            }
+            else
+            {
+                eloDelta = (result == "win") ? 9 : ((result == "loss") ? -7 : 1);
+                goldGain = (result == "win") ? 150 : ((result == "loss") ? 25 : 45);
+            }
+
+            // Grant gold reward
+            AddGold(goldGain);
+
             if (isAi)
             {
                 if (result == "win") PlayerPrefs.SetInt(PrefsKeyAiWins, AiWins + 1);
@@ -918,20 +969,25 @@ namespace MechChess.Multiplayer
                 onComplete?.Invoke(false, null);
                 return;
             }
-            StartCoroutine(RecordMatchRoutine(result, opponentName, isAi, role, moves, durationSec, onComplete));
+            StartCoroutine(RecordMatchRoutine(result, opponentName, isAi, role, moves, durationSec, opponentElo, onComplete));
         }
 
-        private IEnumerator RecordMatchRoutine(string result, string opponentName, bool isAi, string role, int moves, float durationSec, Action<bool, MatchRecordResponse> onComplete)
+        public void RecordMatchResult(string result, string opponentName, bool isAi, string role, int moves, float durationSec, Action<bool, MatchRecordResponse> onComplete)
+        {
+            RecordMatchResult(result, opponentName, isAi, role, moves, durationSec, -1, onComplete);
+        }
+
+        private IEnumerator RecordMatchRoutine(string result, string opponentName, bool isAi, string role, int moves, float durationSec, int opponentElo, Action<bool, MatchRecordResponse> onComplete)
         {
             string url = $"{backendApiBaseUrl.TrimEnd('/')}/api/match/record";
             string jsonBody;
             if (!string.IsNullOrEmpty(CurrentMatchTicket))
             {
-                jsonBody = $"{{\"username\":\"{CurrentUsername}\",\"opponent_name\":\"{opponentName}\",\"is_ai\":{(isAi ? "true" : "false")},\"player_role\":\"{role}\",\"result\":\"{result}\",\"moves_count\":{moves},\"duration_sec\":{durationSec:F1},\"match_ticket\":\"{CurrentMatchTicket}\",\"match_id\":\"{CurrentMatchId}\"}}";
+                jsonBody = $"{{\"username\":\"{CurrentUsername}\",\"opponent_name\":\"{opponentName}\",\"opponent_elo\":{opponentElo},\"is_ai\":{(isAi ? "true" : "false")},\"player_role\":\"{role}\",\"result\":\"{result}\",\"moves_count\":{moves},\"duration_sec\":{durationSec:F1},\"match_ticket\":\"{CurrentMatchTicket}\",\"match_id\":\"{CurrentMatchId}\"}}";
             }
             else
             {
-                jsonBody = $"{{\"username\":\"{CurrentUsername}\",\"opponent_name\":\"{opponentName}\",\"is_ai\":{(isAi ? "true" : "false")},\"player_role\":\"{role}\",\"result\":\"{result}\",\"moves_count\":{moves},\"duration_sec\":{durationSec:F1}}}";
+                jsonBody = $"{{\"username\":\"{CurrentUsername}\",\"opponent_name\":\"{opponentName}\",\"opponent_elo\":{opponentElo},\"is_ai\":{(isAi ? "true" : "false")},\"player_role\":\"{role}\",\"result\":\"{result}\",\"moves_count\":{moves},\"duration_sec\":{durationSec:F1}}}";
             }
 
             using (UnityWebRequest req = new UnityWebRequest(url, "POST"))

@@ -764,7 +764,7 @@ class AccountManager:
                     "gmail": clean_email,
                     "username": target_name,
                     "password_hash": pw_hash,
-                    "elo": 1200,
+                    "elo": 400,
                     "created_at": time.time()
                 }
                 self.users[clean_email] = user_info
@@ -814,7 +814,7 @@ class AccountManager:
         user_info = self.users.get(clean_gmail, {
             "gmail": clean_gmail,
             "username": target_name,
-            "elo": 1200,
+            "elo": 400,
             "created_at": time.time()
         })
         user_info["username"] = target_name
@@ -1181,7 +1181,7 @@ async def google_callback(
                     user_record = {
                         "gmail": email.lower(),
                         "username": derived_name,
-                        "elo": 1200,
+                        "elo": 400,
                         "created_at": time.time()
                     }
                     account_manager.users[email.lower()] = user_record
@@ -1389,7 +1389,7 @@ async def get_player_profile(
                     gold=500,
                     gems=50,
                     energy=100,
-                    elo=u.get("elo", 1200),
+                    elo=u.get("elo", 400),
                     matches_played=0,
                     wins=0,
                     losses=0,
@@ -1421,7 +1421,7 @@ async def get_player_stats(
         raise HTTPException(status_code=404, detail="Không tìm thấy thông tin người chơi!")
 
     stats = player.stats
-    elo = stats.elo if stats else 1200
+    elo = stats.elo if stats else 400
     matches_played = stats.matches_played if stats else 0
     wins = stats.wins if stats else 0
     losses = stats.losses if stats else 0
@@ -1576,7 +1576,7 @@ def search_players(query: str):
             is_online = lower_u in presence_manager.clients
             matches.append({
                 "username": user.get("username", lower_u),
-                "elo": user.get("elo", 1200),
+                "elo": user.get("elo", 400),
                 "is_online": is_online
             })
     return {"matches": matches[:10]}
@@ -1622,7 +1622,7 @@ async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = "
         user_gmail = account_manager.usernames[lower_name]
         user_info = account_manager.users.get(user_gmail)
 
-    elo = user_info.get("elo", 1200) if user_info else 1200
+    elo = user_info.get("elo", 400) if user_info else 400
     display_name = user_info.get("username", username) if user_info else username
     client_ip = websocket.client.host if websocket.client else "127.0.0.1"
 

@@ -78,7 +78,7 @@ def test_live_endpoints():
         r_match = client.post("/api/match/record", json=match_payload, headers=auth_headers)
         assert r_match.status_code == 200
         match_res = r_match.json()
-        assert match_res["elo_change"] == 12
+        assert match_res["elo_change"] == 8
         print(f"[PASS] POST /api/match/record -> +{match_res['elo_change']} Elo (New: {match_res['new_elo']}), +{match_res['gold_gained']} Gold, +{match_res['exp_gained']} EXP")
 
         # 6. Match History

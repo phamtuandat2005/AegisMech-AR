@@ -81,6 +81,7 @@ class MatchHistoryResponse(BaseModel):
 class MatchRecordRequest(BaseModel):
     username: str
     opponent_name: Optional[str] = "Cyber AI"
+    opponent_elo: Optional[int] = None
     is_ai: Optional[bool] = False
     player_role: Optional[str] = "white"
     result: str = Field(..., description="Result: 'win', 'loss', or 'draw'")

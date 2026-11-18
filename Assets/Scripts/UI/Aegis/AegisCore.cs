@@ -40,8 +40,14 @@ namespace AegisMech.UI
 
         public static int Coins
         {
-            get { return GetInt("coins", 1250); }
-            set { SetInt("coins", Mathf.Max(0, value)); if (CoinsChanged != null) CoinsChanged(); }
+            get { return MechChess.Multiplayer.UserAccountManager.Instance != null ? MechChess.Multiplayer.UserAccountManager.Instance.CurrentGold : GetInt("coins", 500); }
+            set 
+            { 
+                SetInt("coins", Mathf.Max(0, value)); 
+                PlayerPrefs.SetInt("MECH_USER_GOLD", Mathf.Max(0, value));
+                PlayerPrefs.Save();
+                if (CoinsChanged != null) CoinsChanged(); 
+            }
         }
 
         public static bool Owns(string id)

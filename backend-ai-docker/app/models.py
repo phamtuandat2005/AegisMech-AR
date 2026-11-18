@@ -83,7 +83,7 @@ class PlayerStats(Base):
         Uuid(as_uuid=True), ForeignKey("players.id", ondelete="CASCADE"), unique=True, index=True, nullable=False
     )
     elo: Mapped[int] = mapped_column(
-        Integer, default=1200, index=True, nullable=False
+        Integer, default=400, index=True, nullable=False
     )
     matches_played: Mapped[int] = mapped_column(
         Integer, default=0, nullable=False
@@ -101,7 +101,7 @@ class PlayerStats(Base):
         Integer, default=0, nullable=False
     )
     highest_elo: Mapped[int] = mapped_column(
-        Integer, default=1200, nullable=False
+        Integer, default=400, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now(), onupdate=func.now(), nullable=False

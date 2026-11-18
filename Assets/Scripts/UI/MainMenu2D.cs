@@ -4607,6 +4607,9 @@ namespace MechChess.UI
 
         private void CreateShopSkinCard(Transform parent, string name, string textureName, string frameSpriteName, int price, Vector2 pos, Font font)
         {
+            string cleanId = "item_" + System.Text.RegularExpressions.Regex.Replace(name.ToLower(), @"[^a-z0-9]", "_");
+            bool isOwned = AegisMech.UI.AegisPrefs.Owns(cleanId);
+
             GameObject card = new GameObject("Skin_" + name);
             card.transform.SetParent(parent, false);
 
@@ -4685,12 +4688,7 @@ namespace MechChess.UI
                 bbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(180, 42, 14f, new Color(0.18f, 0.12f, 0.04f, 0.95f), ColGoldBorder, 1.5f);
                 bbImg.type = Image.Type.Sliced;
             }
-            Button bBtn = buyBtnObj.AddComponent<Button>();
-            bBtn.onClick.AddListener(() =>
-            {
-                ShowToast(AegisLocalization.T($"Đã trang bị skin '{name}'!", $"Equipped skin '{name}'!"), ToastType.Success);
-            });
-            buyBtnObj.AddComponent<MenuButtonEffect>();
+
             RectTransform bbrt = buyBtnObj.GetComponent<RectTransform>();
             bbrt.anchorMin = new Vector2(0.5f, 0f);
             bbrt.anchorMax = new Vector2(0.5f, 0f);
@@ -4712,6 +4710,7 @@ namespace MechChess.UI
             {
                 btnCoinImg.color = ColGoldBorder;
             }
+            btnCoinImg.enabled = !isOwned;
             RectTransform bciRt = btnCoinObj.GetComponent<RectTransform>();
             bciRt.anchorMin = new Vector2(0f, 0.5f);
             bciRt.anchorMax = new Vector2(0f, 0.5f);
@@ -4719,23 +4718,60 @@ namespace MechChess.UI
             bciRt.anchoredPosition = new Vector2(24f, 0f);
             bciRt.sizeDelta = new Vector2(22f, 22f);
 
-            // Price Text
+            // Price / Status Text
             GameObject priceTxtObj = new GameObject("PriceTxt");
             priceTxtObj.transform.SetParent(buyBtnObj.transform, false);
             Text priceComp = priceTxtObj.AddComponent<Text>();
-            priceComp.text = price.ToString();
+            priceComp.text = isOwned ? AegisLocalization.T("ĐÃ SỞ HỮU", "OWNED") : price.ToString();
             priceComp.font = font;
-            priceComp.fontSize = 20;
+            priceComp.fontSize = isOwned ? 17 : 20;
             priceComp.fontStyle = FontStyle.Bold;
-            priceComp.alignment = TextAnchor.MiddleLeft;
-            priceComp.color = ColGoldBorder;
+            priceComp.alignment = isOwned ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft;
+            priceComp.color = isOwned ? ColCyanGlow : ColGoldBorder;
             priceComp.horizontalOverflow = HorizontalWrapMode.Overflow;
             priceComp.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform ptRt = priceTxtObj.GetComponent<RectTransform>();
             ptRt.anchorMin = new Vector2(0f, 0f);
             ptRt.anchorMax = new Vector2(1f, 1f);
-            ptRt.offsetMin = new Vector2(56f, 0f);
+            ptRt.offsetMin = isOwned ? new Vector2(10f, 0f) : new Vector2(56f, 0f);
             ptRt.offsetMax = new Vector2(-10f, 0f);
+
+            Button bBtn = buyBtnObj.AddComponent<Button>();
+            bBtn.onClick.AddListener(() =>
+            {
+                if (AegisMech.UI.AegisPrefs.Owns(cleanId))
+                {
+                    ShowToast(AegisLocalization.T($"Đã trang bị '{name}'!", $"Equipped '{name}'!"), ToastType.Success);
+                    return;
+                }
+
+                int currentGold = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentGold : _currentGold;
+                if (currentGold < price)
+                {
+                    ShowToast(AegisLocalization.T($"Không đủ vàng! Cần {price} vàng (bạn có {currentGold}).", $"Not enough gold! Need {price} gold (you have {currentGold})."), ToastType.Error);
+                    return;
+                }
+
+                bool spent = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.SpendGold(price) : true;
+                if (spent)
+                {
+                    if (UserAccountManager.Instance == null)
+                    {
+                        _currentGold -= price;
+                        AegisMech.UI.AegisPrefs.Coins = _currentGold;
+                    }
+                    AegisMech.UI.AegisPrefs.Own(cleanId);
+                    priceComp.text = AegisLocalization.T("ĐÃ SỞ HỮU", "OWNED");
+                    priceComp.fontSize = 17;
+                    priceComp.alignment = TextAnchor.MiddleCenter;
+                    priceComp.color = ColCyanGlow;
+                    ptRt.offsetMin = new Vector2(10f, 0f);
+                    if (btnCoinImg != null) btnCoinImg.enabled = false;
+                    UpdateUserProfileUI();
+                    ShowToast(AegisLocalization.T($"Mua thành công: '{name}'!", $"Successfully purchased: '{name}'!"), ToastType.Success);
+                }
+            });
+            buyBtnObj.AddComponent<MenuButtonEffect>();
         }
 
         // =========================================================================
@@ -7231,20 +7267,20 @@ namespace MechChess.UI
             cardObj.transform.SetParent(_onlineChoiceModal.transform, false);
 
             Image cardImg = cardObj.AddComponent<Image>();
-            cardImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(620, 380, 24f, ColGlassFill, ColCyanBorder, 2f);
+            cardImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(640, 490, 24f, ColGlassFill, ColCyanBorder, 2f);
             cardImg.type = Image.Type.Sliced;
 
             RectTransform cardRt = cardObj.GetComponent<RectTransform>();
             cardRt.anchoredPosition = Vector2.zero;
-            cardRt.sizeDelta = new Vector2(620f, 380f);
+            cardRt.sizeDelta = new Vector2(640f, 490f);
 
             CreateModalHeader(cardObj.transform, AegisLocalization.T("ĐẤU TRƯỜNG ONLINE MULTIPLAYER", "ONLINE MULTIPLAYER ARENA"), () => _onlineChoiceModal.SetActive(false), font);
 
-            // Ranked Matchmaking Button (Big Card)
+            // Ranked Matchmaking Button (Card 1)
             GameObject rBtnObj = new GameObject("BtnRanked");
             rBtnObj.transform.SetParent(cardObj.transform, false);
             Image rImg = rBtnObj.AddComponent<Image>();
-            rImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(540, 95, 14f, new Color(0.12f, 0.18f, 0.10f, 0.90f), ColGoldBorder, 1.5f);
+            rImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(560, 90, 14f, new Color(0.12f, 0.18f, 0.10f, 0.90f), ColGoldBorder, 1.5f);
             rImg.type = Image.Type.Sliced;
             Button rBtn = rBtnObj.AddComponent<Button>();
             rBtn.onClick.AddListener(() =>
@@ -7254,17 +7290,17 @@ namespace MechChess.UI
             });
             rBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform rRt = rBtnObj.GetComponent<RectTransform>();
-            rRt.anchoredPosition = new Vector2(0f, 50f);
-            rRt.sizeDelta = new Vector2(540f, 95f);
+            rRt.anchoredPosition = new Vector2(0f, 105f);
+            rRt.sizeDelta = new Vector2(560f, 90f);
 
-            CreateTextComp(rBtnObj.transform, AegisLocalization.T("⚔️  GHÉP ĐẤU XẾP HẠNG (RANKED)", "⚔️  RANKED MATCHMAKING"), 20, FontStyle.Bold, ColGoldCta, font, new Vector2(0f, 16f), new Vector2(500f, 28f), TextAnchor.MiddleCenter);
-            CreateTextComp(rBtnObj.transform, AegisLocalization.T("Tự động tìm đối thủ online có mức Rank & Elo tương đồng", "Auto-match with online opponents with similar Elo & Rank"), 14, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -14f), new Vector2(500f, 22f), TextAnchor.MiddleCenter);
+            CreateTextComp(rBtnObj.transform, AegisLocalization.T("⚔️  GHÉP ĐẤU XẾP HẠNG (AEGIS SERVER)", "⚔️  RANKED MATCHMAKING (AEGIS SERVER)"), 19, FontStyle.Bold, ColGoldCta, font, new Vector2(0f, 14f), new Vector2(520f, 26f), TextAnchor.MiddleCenter);
+            CreateTextComp(rBtnObj.transform, AegisLocalization.T("Tự động tìm đối thủ online có mức Rank & Elo tương đồng", "Auto-match with online opponents with similar Elo & Rank"), 13, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -14f), new Vector2(520f, 20f), TextAnchor.MiddleCenter);
 
-            // Friend Duel Button (Big Card)
+            // Friend Duel Button (Card 2)
             GameObject fBtnObj = new GameObject("BtnFriend");
             fBtnObj.transform.SetParent(cardObj.transform, false);
             Image fImg = fBtnObj.AddComponent<Image>();
-            fImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(540, 95, 14f, new Color(0.06f, 0.14f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
+            fImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(560, 90, 14f, new Color(0.06f, 0.14f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
             fImg.type = Image.Type.Sliced;
             Button fBtn = fBtnObj.AddComponent<Button>();
             fBtn.onClick.AddListener(() =>
@@ -7274,14 +7310,47 @@ namespace MechChess.UI
             });
             fBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform fRt = fBtnObj.GetComponent<RectTransform>();
-            fRt.anchoredPosition = new Vector2(0f, -60f);
-            fRt.sizeDelta = new Vector2(540f, 95f);
+            fRt.anchoredPosition = new Vector2(0f, 5f);
+            fRt.sizeDelta = new Vector2(560f, 90f);
 
-            CreateTextComp(fBtnObj.transform, AegisLocalization.T("👥  THÁCH ĐẤU BẠN BÈ (FRIEND DUEL)", "👥  CHALLENGE FRIEND (DUEL)"), 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 16f), new Vector2(500f, 28f), TextAnchor.MiddleCenter);
-            CreateTextComp(fBtnObj.transform, AegisLocalization.T("Xem người chơi trực tuyến hoặc nhập tên tài khoản để mời", "View online players or invite directly by player username"), 14, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -14f), new Vector2(500f, 22f), TextAnchor.MiddleCenter);
+            CreateTextComp(fBtnObj.transform, AegisLocalization.T("👥  THÁCH ĐẤU BẠN BÈ (FRIEND DUEL)", "👥  CHALLENGE FRIEND (DUEL)"), 19, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 14f), new Vector2(520f, 26f), TextAnchor.MiddleCenter);
+            CreateTextComp(fBtnObj.transform, AegisLocalization.T("Xem người chơi trực tuyến hoặc nhập tên tài khoản để mời", "View online players or invite directly by player username"), 13, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -14f), new Vector2(520f, 20f), TextAnchor.MiddleCenter);
+
+            // Lichess Online Battle Button (Card 3)
+            GameObject lBtnObj = new GameObject("BtnLichess");
+            lBtnObj.transform.SetParent(cardObj.transform, false);
+            Image lImg = lBtnObj.AddComponent<Image>();
+            Color colViolet = new Color(0.85f, 0.45f, 0.95f);
+            lImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(560, 90, 14f, new Color(0.18f, 0.08f, 0.22f, 0.90f), colViolet, 1.5f);
+            lImg.type = Image.Type.Sliced;
+            Button lBtn = lBtnObj.AddComponent<Button>();
+            lBtn.onClick.AddListener(() =>
+            {
+                _onlineChoiceModal.SetActive(false);
+                if (LichessBridge.Instance != null)
+                {
+                    ShowToast(AegisLocalization.T("Đang kết nối Lichess.org...", "Connecting to Lichess.org..."), ToastType.Info);
+                    LichessBridge.Instance.ChallengeLichessAI(1, (ok, msg) =>
+                    {
+                        ShowToast(msg, ok ? ToastType.Success : ToastType.Error);
+                        if (ok) LaunchGame(GameLaunchMode.OnlineMultiplayer);
+                    });
+                }
+                else
+                {
+                    ShowToast(AegisLocalization.T("Đang kết nối Lichess Board API...", "Connecting to Lichess Board API..."), ToastType.Info);
+                }
+            });
+            lBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform lRt = lBtnObj.GetComponent<RectTransform>();
+            lRt.anchoredPosition = new Vector2(0f, -95f);
+            lRt.sizeDelta = new Vector2(560f, 90f);
+
+            CreateTextComp(lBtnObj.transform, AegisLocalization.T("♟️  ĐẤU ONLINE VỚI NGƯỜI CHƠI LICHESS.ORG", "♟️  ONLINE MATCH VIA LICHESS.ORG"), 19, FontStyle.Bold, colViolet, font, new Vector2(0f, 14f), new Vector2(520f, 26f), TextAnchor.MiddleCenter);
+            CreateTextComp(lBtnObj.transform, AegisLocalization.T("Đấu với hàng trăm nghìn người chơi web thật (không cần tải game)", "Match with 100k+ real online players on web (no game download needed)"), 13, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -14f), new Vector2(520f, 20f), TextAnchor.MiddleCenter);
 
             // Close Button
-            CreateMenuActionButton(cardObj.transform, "BtnCloseChoice", AegisLocalization.T("ĐÓNG", "CLOSE"), new Vector2(0f, -140f), new Vector2(160f, 44f), ColGlassFill, ColTextMuted, 16, () => _onlineChoiceModal.SetActive(false), font, ColMutedBorder, 1.2f);
+            CreateMenuActionButton(cardObj.transform, "BtnCloseChoice", AegisLocalization.T("ĐÓNG", "CLOSE"), new Vector2(0f, -195f), new Vector2(160f, 44f), ColGlassFill, ColTextMuted, 16, () => _onlineChoiceModal.SetActive(false), font, ColMutedBorder, 1.2f);
 
             _onlineChoiceModal.SetActive(false);
         }
@@ -8370,10 +8439,15 @@ namespace MechChess.UI
             string username = (UserAccountManager.Instance != null && !string.IsNullOrEmpty(UserAccountManager.Instance.CurrentUsername))
                 ? UserAccountManager.Instance.CurrentUsername
                 : "Player001";
-            int elo = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentElo : 1200;
+            int elo = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentElo : 400;
             int level = profile != null ? profile.level : 1;
             int exp = profile != null ? profile.exp : 0;
             int maxExp = profile != null ? Mathf.Max(100, profile.max_exp) : 100;
+
+            int currentGold = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentGold : _currentGold;
+            _currentGold = currentGold;
+            if (_shopGoldTxt != null) _shopGoldTxt.text = currentGold.ToString();
+            if (_collectionGoldTxt != null) _collectionGoldTxt.text = currentGold.ToString();
 
             if (_profileNameTxt != null) _profileNameTxt.text = username;
             if (_profileLevelTxt != null) _profileLevelTxt.text = $"Lv. {level} • Elo {elo}";

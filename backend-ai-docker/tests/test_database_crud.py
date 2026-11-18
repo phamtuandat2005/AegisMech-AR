@@ -39,7 +39,7 @@ async def run_tests():
         assert ok, f"Registration failed: {msg}"
         assert p1.username == test_uname
         assert p1.stats is not None
-        assert p1.stats.elo == 1200
+        assert p1.stats.elo == 400
         print(f"[PASS] Register Player: {p1.username} (Elo: {p1.stats.elo})")
 
         # 3. Test Profile Serialization
@@ -77,9 +77,9 @@ async def run_tests():
         )
         ok_win, msg_win, res_win = await crud.record_match_result(session, req_win)
         assert ok_win, f"Record match failed: {msg_win}"
-        assert res_win["elo_change"] == 12
-        assert res_win["new_elo"] == 1212
-        assert res_win["gold_gained"] == 50
+        assert res_win["elo_change"] == 8
+        assert res_win["new_elo"] == 408
+        assert res_win["gold_gained"] == 100
         print(f"[PASS] Match Win: +{res_win['elo_change']} Elo -> New Elo {res_win['new_elo']}, +{res_win['gold_gained']} Gold")
 
         # 6. Test Match Record (Loss)
@@ -95,7 +95,7 @@ async def run_tests():
         ok_loss, _, res_loss = await crud.record_match_result(session, req_loss)
         assert ok_loss
         assert res_loss["elo_change"] == -8
-        assert res_loss["new_elo"] == 1204
+        assert res_loss["new_elo"] == 400
         print(f"[PASS] Match Loss: {res_loss['elo_change']} Elo -> New Elo {res_loss['new_elo']}")
 
         # 7. Test Match History Retrieval

@@ -37,7 +37,7 @@ class PresenceClient:
         websocket: WebSocket,
         username: str,
         gmail: str,
-        elo: int = 1200,
+        elo: int = 400,
         session_id: Optional[str] = None,
         client_ip: str = "127.0.0.1"
     ):
@@ -162,7 +162,7 @@ class PresenceManager:
             logger.info(f"[Presence] Player '{username}' disconnected -> OFFLINE")
             return client
 
-    def add_client(self, websocket: WebSocket, username: str, gmail: str, elo: int = 1200):
+    def add_client(self, websocket: WebSocket, username: str, gmail: str, elo: int = 400):
         """Synchronous wrapper for legacy compatibility."""
         lower = username.lower()
         client = PresenceClient(websocket, username, gmail, elo)

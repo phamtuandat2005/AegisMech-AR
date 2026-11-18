@@ -80,7 +80,7 @@ namespace MechChess.Multiplayer
         public PieceColor MyRole { get; private set; } = PieceColor.White;
         public bool HasBothPlayers { get; private set; } = false;
         public string OpponentName { get; private set; } = "Opponent";
-        public int OpponentElo { get; private set; } = 1200;
+        public int OpponentElo { get; private set; } = 400;
         public bool IsSearchingMatch { get; private set; } = false;
 
         // WebSocket Connections
