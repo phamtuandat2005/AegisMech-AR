@@ -113,3 +113,14 @@ class LeaderboardItemResponse(BaseModel):
 class LeaderboardResponse(BaseModel):
     total: int
     leaderboard: List[LeaderboardItemResponse]
+
+class GoogleAuthRequest(BaseModel):
+    id_token: Optional[str] = None
+    code: Optional[str] = None
+    redirect_uri: Optional[str] = None
+    access_token: Optional[str] = None
+
+class GooglePollResponse(BaseModel):
+    status: str  # "pending", "completed", "error"
+    message: Optional[str] = None
+    data: Optional[LoginResponse] = None

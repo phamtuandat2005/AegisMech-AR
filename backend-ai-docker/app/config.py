@@ -84,6 +84,10 @@ def get_engine_args() -> Dict[str, Any]:
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 
+# Google OAuth 2.0 Configuration
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
 # ---------------------------------------------------------------------------
 # Security Configuration
 # ---------------------------------------------------------------------------

@@ -15,12 +15,14 @@ import re
 import uuid
 import random
 import asyncio
+import urllib.parse
+import httpx
 from typing import Optional, List, Dict, Any, Tuple
 from contextlib import asynccontextmanager
 
 # pyrefly: ignore[missing-import]
 from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 # pyrefly: ignore[missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore[missing-import]
@@ -34,7 +36,9 @@ from app.config import (
     ALLOWED_ORIGINS,
     MAX_PAYLOAD_SIZE_BYTES,
     sanitize_db_url,
-    DATABASE_URL
+    DATABASE_URL,
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET
 )
 from app.security import (
     hash_password, verify_password,
@@ -57,7 +61,9 @@ from app.schemas import (
     MatchStartResponse,
     MatchRecordRequest,
     MatchRecordResponse,
-    LeaderboardResponse
+    LeaderboardResponse,
+    GoogleAuthRequest,
+    GooglePollResponse
 )
 from app.presence import presence_manager, PlayerStatus, PresenceClient
 from PIL import Image
@@ -908,6 +914,362 @@ async def auth_login(req: DBLoginRequest, db: AsyncSession = Depends(get_db)):
             access_token=fb_token,
             token_type="bearer"
         )
+
+# =============================================================================
+# GOOGLE OAUTH 2.0 AUTHENTICATION ENDPOINTS
+# =============================================================================
+google_auth_sessions: Dict[str, Dict[str, Any]] = {}
+
+def render_google_auth_html(success: bool, message: str) -> str:
+    status_icon = "✓" if success else "✕"
+    status_title = "Đăng Nhập Thành Công!" if success else "Đăng Nhập Thất Bại"
+    status_color = "#00f0ff" if success else "#ff4d4d"
+    glow_color = "rgba(0, 240, 255, 0.4)" if success else "rgba(255, 77, 77, 0.4)"
+    sub_hint = "Bạn có thể đóng cửa sổ này và quay lại game <strong>AegisMech AR</strong> để bắt đầu chiến đấu!" if success else "Vui lòng đóng cửa sổ này và thử lại trong game."
+
+    return f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AegisMech AR - Google Authentication</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            background: #080c14;
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }}
+        .card {{
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9));
+            border: 1px solid {status_color};
+            box-shadow: 0 0 35px {glow_color};
+            border-radius: 16px;
+            max-width: 480px;
+            width: 100%;
+            padding: 40px 32px;
+            text-align: center;
+            backdrop-filter: blur(12px);
+        }}
+        .badge {{
+            width: 72px;
+            height: 72px;
+            line-height: 72px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid {status_color};
+            color: {status_color};
+            font-size: 38px;
+            font-weight: bold;
+            margin: 0 auto 24px auto;
+            box-shadow: 0 0 20px {glow_color};
+        }}
+        h1 {{
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+            color: #ffffff;
+        }}
+        .msg {{
+            font-size: 16px;
+            color: #94a3b8;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }}
+        .hint {{
+            font-size: 14px;
+            color: #cbd5e1;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid {status_color};
+            margin-bottom: 28px;
+        }}
+        .btn {{
+            display: inline-block;
+            background: {status_color};
+            color: #080c14;
+            font-weight: 700;
+            font-size: 15px;
+            padding: 12px 28px;
+            border-radius: 8px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+        }}
+        .btn:hover {{
+            opacity: 0.9;
+            transform: scale(1.02);
+        }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="badge">{status_icon}</div>
+        <h1>{status_title}</h1>
+        <div class="msg">{message}</div>
+        <div class="hint">{sub_hint}</div>
+        <a href="javascript:window.close();" class="btn">Đóng cửa sổ này</a>
+    </div>
+    <script>
+        setTimeout(() => {{
+            try {{ window.close(); }} catch(e) {{}}
+        }}, 4000);
+    </script>
+</body>
+</html>"""
+
+@app.get("/api/auth/google/login")
+async def google_login(request: Request, session_id: Optional[str] = None):
+    """
+    Initiates Google OAuth 2.0 flow for web/desktop/mobile players.
+    Redirects user to Google's account selection page.
+    """
+    if not session_id:
+        session_id = uuid.uuid4().hex
+
+    google_auth_sessions[session_id] = {
+        "status": "pending",
+        "created_at": time.time()
+    }
+
+    base_url = str(request.base_url).rstrip("/")
+    if request.headers.get("x-forwarded-proto") == "https":
+        base_url = base_url.replace("http://", "https://", 1)
+
+    callback_url = f"{base_url}/api/auth/google/callback"
+
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": callback_url,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": session_id,
+        "prompt": "select_account"
+    }
+    encoded_params = urllib.parse.urlencode(params)
+    google_url = f"https://accounts.google.com/o/oauth2/v2/auth?{encoded_params}"
+
+    return RedirectResponse(url=google_url, status_code=307)
+
+@app.get("/api/auth/google/callback", response_class=HTMLResponse)
+async def google_callback(
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Receives authorization callback from Google, exchanges code for user profile,
+    and creates/logs in the player in the database.
+    """
+    session_id = state or ""
+
+    if error or not code:
+        err_msg = error or "Không nhận được mã xác thực từ Google."
+        if session_id:
+            google_auth_sessions[session_id] = {
+                "status": "error",
+                "message": err_msg,
+                "created_at": time.time()
+            }
+        return HTMLResponse(content=render_google_auth_html(False, f"Lỗi xác thực: {err_msg}"))
+
+    base_url = str(request.base_url).rstrip("/")
+    if request.headers.get("x-forwarded-proto") == "https":
+        base_url = base_url.replace("http://", "https://", 1)
+    callback_url = f"{base_url}/api/auth/google/callback"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            token_resp = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": code,
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": callback_url,
+                    "grant_type": "authorization_code",
+                }
+            )
+            if token_resp.status_code != 200:
+                logger.error(f"Google token exchange failed: {token_resp.text}")
+                err_msg = "Không thể lấy thông tin xác thực từ Google."
+                if session_id:
+                    google_auth_sessions[session_id] = {"status": "error", "message": err_msg, "created_at": time.time()}
+                return HTMLResponse(content=render_google_auth_html(False, err_msg))
+
+            token_data = token_resp.json()
+            access_token_google = token_data.get("access_token")
+
+            userinfo_resp = await client.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {access_token_google}"}
+            )
+            if userinfo_resp.status_code != 200:
+                err_msg = "Không thể lấy thông tin tài khoản Google."
+                if session_id:
+                    google_auth_sessions[session_id] = {"status": "error", "message": err_msg, "created_at": time.time()}
+                return HTMLResponse(content=render_google_auth_html(False, err_msg))
+
+            userinfo = userinfo_resp.json()
+            email = userinfo.get("email")
+            name = userinfo.get("name")
+            picture = userinfo.get("picture")
+
+            if not email:
+                err_msg = "Tài khoản Google không có địa chỉ email hợp lệ."
+                if session_id:
+                    google_auth_sessions[session_id] = {"status": "error", "message": err_msg, "created_at": time.time()}
+                return HTMLResponse(content=render_google_auth_html(False, err_msg))
+
+            ok, msg, player = await crud.register_or_login_google_player(
+                db, email=email, name=name, picture=picture
+            )
+            if not ok or not player:
+                if session_id:
+                    google_auth_sessions[session_id] = {"status": "error", "message": msg, "created_at": time.time()}
+                return HTMLResponse(content=render_google_auth_html(False, msg))
+
+            profile = crud.format_profile_response(player)
+
+            account_manager.users[player.gmail.lower()] = {
+                "gmail": player.gmail,
+                "username": player.username,
+                "elo": profile.elo,
+                "created_at": time.time()
+            }
+            account_manager.usernames[player.username.lower()] = player.gmail.lower()
+
+            game_token = create_access_token({
+                "sub": player.username,
+                "username": player.username,
+                "gmail": player.gmail,
+                "player_id": str(player.id)
+            })
+
+            login_res = LoginResponse(
+                success=True,
+                message=msg,
+                user=profile,
+                access_token=game_token,
+                token_type="bearer"
+            )
+
+            if session_id:
+                google_auth_sessions[session_id] = {
+                    "status": "completed",
+                    "data": login_res.model_dump(),
+                    "created_at": time.time()
+                }
+
+            return HTMLResponse(content=render_google_auth_html(
+                True,
+                f"Chào mừng chiến binh <strong>{player.username}</strong>!<br>Email: {player.gmail}<br>Elo: {profile.elo}"
+            ))
+    except Exception as ex:
+        logger.exception("Google callback error")
+        err_msg = f"Lỗi xác thực: {str(ex)}"
+        if session_id:
+            google_auth_sessions[session_id] = {"status": "error", "message": err_msg, "created_at": time.time()}
+        return HTMLResponse(content=render_google_auth_html(False, err_msg))
+
+@app.get("/api/auth/google/poll", response_model=GooglePollResponse)
+async def google_auth_poll(session_id: str):
+    """
+    Polls the status of an ongoing Google OAuth flow initiated by Unity client.
+    """
+    now = time.time()
+    expired = [k for k, v in google_auth_sessions.items() if now - v.get("created_at", 0) > 600]
+    for k in expired:
+        google_auth_sessions.pop(k, None)
+
+    if session_id not in google_auth_sessions:
+        return GooglePollResponse(status="pending")
+
+    session_info = google_auth_sessions[session_id]
+    status_str = session_info.get("status", "pending")
+    if status_str == "completed":
+        data = session_info.get("data")
+        google_auth_sessions.pop(session_id, None)
+        return GooglePollResponse(status="completed", data=data)
+    elif status_str == "error":
+        msg = session_info.get("message", "Lỗi xác thực")
+        google_auth_sessions.pop(session_id, None)
+        return GooglePollResponse(status="error", message=msg)
+
+    return GooglePollResponse(status="pending")
+
+@app.post("/api/auth/google", response_model=LoginResponse)
+async def auth_google_direct(req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Direct Google Token verification (for Android plugins or direct ID token submission).
+    """
+    if not req.id_token and not req.access_token:
+        raise HTTPException(status_code=400, detail="Vui lòng cung cấp Google id_token hoặc access_token")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            if req.id_token:
+                resp = await client.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={req.id_token}")
+            else:
+                resp = await client.get(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    headers={"Authorization": f"Bearer {req.access_token}"}
+                )
+
+            if resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Google Token không hợp lệ hoặc đã hết hạn!")
+
+            data = resp.json()
+            email = data.get("email")
+            name = data.get("name")
+            picture = data.get("picture")
+
+            if not email:
+                raise HTTPException(status_code=400, detail="Tài khoản Google không có email hợp lệ")
+
+            ok, msg, player = await crud.register_or_login_google_player(
+                db, email=email, name=name, picture=picture
+            )
+            if not ok or not player:
+                raise HTTPException(status_code=400, detail=msg)
+
+            profile = crud.format_profile_response(player)
+            account_manager.users[player.gmail.lower()] = {
+                "gmail": player.gmail,
+                "username": player.username,
+                "elo": profile.elo,
+                "created_at": time.time()
+            }
+            account_manager.usernames[player.username.lower()] = player.gmail.lower()
+
+            game_token = create_access_token({
+                "sub": player.username,
+                "username": player.username,
+                "gmail": player.gmail,
+                "player_id": str(player.id)
+            })
+
+            return LoginResponse(
+                success=True,
+                message=msg,
+                user=profile,
+                access_token=game_token,
+                token_type="bearer"
+            )
+    except HTTPException:
+        raise
+    except Exception as ex:
+        logger.exception("Error in direct google auth")
+        raise HTTPException(status_code=500, detail=f"Lỗi xác thực Google: {str(ex)}")
 
 @app.get("/api/player/profile", response_model=PlayerProfileResponse)
 async def get_player_profile(

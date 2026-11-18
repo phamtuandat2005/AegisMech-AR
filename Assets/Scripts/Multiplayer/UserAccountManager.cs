@@ -42,6 +42,14 @@ namespace MechChess.Multiplayer
     }
 
     [Serializable]
+    public class GooglePollResponse
+    {
+        public string status;
+        public string message;
+        public LoginApiResponse data;
+    }
+
+    [Serializable]
     public class MatchStartResponse
     {
         public bool success;
@@ -469,6 +477,87 @@ namespace MechChess.Multiplayer
                 ApplyAccount(cleanGmail, cleanUsername, 1200);
                 onComplete?.Invoke(true, "Đăng nhập thành công (Chế độ Cục Bộ)!");
             }
+        }
+
+        /// <summary>
+        /// Initiates 1-Click Google Sign-In. Opens player's browser for Google OAuth
+        /// and polls backend session until authenticated.
+        /// </summary>
+        public void StartGoogleLogin(Action<bool, string> onComplete)
+        {
+            StartCoroutine(GoogleLoginRoutine(onComplete));
+        }
+
+        private IEnumerator GoogleLoginRoutine(Action<bool, string> onComplete)
+        {
+            string sessionId = Guid.NewGuid().ToString("N");
+            string loginUrl = $"{backendApiBaseUrl.TrimEnd('/')}/api/auth/google/login?session_id={sessionId}";
+
+            Debug.Log($"[UserAccount] Opening browser for Google OAuth: {loginUrl}");
+            Application.OpenURL(loginUrl);
+
+            float elapsed = 0f;
+            float timeout = 90f;
+            string pollUrl = $"{backendApiBaseUrl.TrimEnd('/')}/api/auth/google/poll?session_id={sessionId}";
+
+            while (elapsed < timeout)
+            {
+                yield return new WaitForSeconds(1.2f);
+                elapsed += 1.2f;
+
+                using (UnityWebRequest req = UnityWebRequest.Get(pollUrl))
+                {
+                    yield return req.SendWebRequest();
+
+                    if (req.result == UnityWebRequest.Result.Success)
+                    {
+                        string text = req.downloadHandler.text;
+                        if (!string.IsNullOrEmpty(text) && text.Contains("\"completed\""))
+                        {
+                            try
+                            {
+                                GooglePollResponse pollRes = JsonUtility.FromJson<GooglePollResponse>(text);
+                                if (pollRes != null && pollRes.data != null && pollRes.data.user != null)
+                                {
+                                    if (!string.IsNullOrEmpty(pollRes.data.access_token))
+                                    {
+                                        AuthToken = pollRes.data.access_token;
+                                        PlayerPrefs.SetString(PrefsKeyAuthToken, AuthToken);
+                                        PlayerPrefs.Save();
+                                    }
+
+                                    ApplyAccount(pollRes.data.user.gmail, pollRes.data.user.username, pollRes.data.user.elo, pollRes.data.user);
+                                    onComplete?.Invoke(true, AegisLocalization.T("Đăng nhập Google thành công!", "Google Sign-in successful!"));
+                                    yield break;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.LogError($"[UserAccount] Failed to parse Google poll response: {ex.Message}");
+                            }
+                        }
+                        else if (!string.IsNullOrEmpty(text) && text.Contains("\"error\""))
+                        {
+                            try
+                            {
+                                GooglePollResponse pollRes = JsonUtility.FromJson<GooglePollResponse>(text);
+                                string err = pollRes != null && !string.IsNullOrEmpty(pollRes.message) 
+                                    ? pollRes.message 
+                                    : AegisLocalization.T("Đăng nhập Google không thành công.", "Google sign-in failed.");
+                                onComplete?.Invoke(false, err);
+                                yield break;
+                            }
+                            catch
+                            {
+                                onComplete?.Invoke(false, AegisLocalization.T("Đăng nhập Google thất bại.", "Google sign-in failed."));
+                                yield break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            onComplete?.Invoke(false, AegisLocalization.T("Quá thời gian chờ đăng nhập Google. Vui lòng thử lại!", "Google sign-in timed out. Please try again!"));
         }
 
         private void ApplyAccount(string gmail, string username, int elo, UserAccountData fullProfile = null)

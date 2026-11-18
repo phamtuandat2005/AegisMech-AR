@@ -919,8 +919,8 @@ namespace MechChess.UI
             dhRt.anchoredPosition = new Vector2(0f, -8f);
             dhRt.sizeDelta = new Vector2(-16f, 44f);
 
-            CreateText(drawerHeader.transform, "DrawerTitle", AegisLocalization.T("⚔️ SỔ TAY CHIẾN THUẬT & NHẬT KÝ ⚔️", "⚔️ TACTICAL SCROLL & CHRONICLES ⚔️"), 18, TextAnchor.MiddleLeft, new Vector2(-35f, 0f), new Vector2(320f, 36f), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
-            CreateCyberGameButton(drawerHeader.transform, "BtnCloseDrawer", "✕", AegisLocalization.T("ĐÓNG", "CLOSE"), "", new Vector2(170f, 0f), new Vector2(74f, 32f), CyberButtonColor.Crimson, () => SetTacticalDrawerOpen(false), defaultFont);
+            CreateText(drawerHeader.transform, "DrawerTitle", AegisLocalization.T("BÀN ĐIỀU KHIỂN", "COMMAND DECK"), 20, TextAnchor.MiddleLeft, new Vector2(-28f, 0f), new Vector2(300f, 36f), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
+            CreateCyberGameButton(drawerHeader.transform, "BtnCloseDrawer", "×", "", "", new Vector2(174f, 0f), new Vector2(48f, 32f), CyberButtonColor.Crimson, () => SetTacticalDrawerOpen(false), defaultFont);
 
             // --- Scrollable View Area (Fills space from below header to bottom) ---
             GameObject scrollAreaObj = new GameObject("DrawerScrollArea");
@@ -955,16 +955,14 @@ namespace MechChess.UI
             contentRt.anchorMax = new Vector2(1f, 1f);
             contentRt.pivot = new Vector2(0.5f, 1f);
             contentRt.anchoredPosition = Vector2.zero;
-            contentRt.sizeDelta = new Vector2(0f, 790f);
+            contentRt.sizeDelta = new Vector2(0f, 680f);
 
             scrollRect.viewport = vpRt;
             scrollRect.content = contentRt;
 
-            // --- Section 1: Match Actions (Thao tác trận đấu) ---
-            CreatePanel(contentObj.transform, "Sec1Header", new Vector2(0, -15), new Vector2(426, 24), CyberButtonColor.PanelFrame);
-            CreateText(contentObj.transform, "Sec1Title", AegisLocalization.T("── LỆNH CHIẾN TRƯỜNG ──", "── BATTLEFIELD COMMANDS ──"), 16, TextAnchor.MiddleCenter, new Vector2(0, -15), new Vector2(420, 22), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
-
-            CreateCyberGameButton(contentObj.transform, "DrawerUndo", "↩️", AegisLocalization.T("HOÀN TÁC", "UNDO"), "", new Vector2(-142, -54), new Vector2(136, 44), CyberButtonColor.Cyan, () =>
+            // Core match controls stay together at the top. The spacing is the group cue,
+            // leaving more room for commands and the move record on compact screens.
+            CreateCyberGameButton(contentObj.transform, "DrawerUndo", "↩", AegisLocalization.T("HOÀN TÁC", "UNDO"), "", new Vector2(-142, -28), new Vector2(136, 42), CyberButtonColor.Cyan, () =>
             {
                 if (isRankedMode)
                 {
@@ -975,13 +973,13 @@ namespace MechChess.UI
                     MechChess.Chess3D.ChessBoard3DManager.Instance.UndoMove();
             }, defaultFont);
 
-            CreateCyberGameButton(contentObj.transform, "DrawerDraw", "🤝", AegisLocalization.T("XIN HÒA", "OFFER DRAW"), "", new Vector2(0, -54), new Vector2(136, 44), CyberButtonColor.Amber, () =>
+            CreateCyberGameButton(contentObj.transform, "DrawerDraw", "", AegisLocalization.T("XIN HÒA", "OFFER DRAW"), "", new Vector2(0, -28), new Vector2(136, 42), CyberButtonColor.Amber, () =>
             {
                 if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
                     MechChess.Chess3D.ChessBoard3DManager.Instance.OfferDraw();
             }, defaultFont);
 
-            CreateCyberGameButton(contentObj.transform, "DrawerResign", "🏳️", AegisLocalization.T("ĐẦU HÀNG", "RESIGN"), "", new Vector2(142, -54), new Vector2(136, 44), CyberButtonColor.Crimson, () =>
+            CreateCyberGameButton(contentObj.transform, "DrawerResign", "", AegisLocalization.T("ĐẦU HÀNG", "RESIGN"), "", new Vector2(142, -28), new Vector2(136, 42), CyberButtonColor.Crimson, () =>
             {
                 SetTacticalDrawerOpen(false);
                 if (MechChess.AR.HybridARController.Instance != null)
@@ -992,36 +990,31 @@ namespace MechChess.UI
                     MechChess.Chess3D.ChessBoard3DManager.Instance.Resign(_activeColor);
             }, defaultFont);
 
-            // --- Section 2: Tactical Commands & Modes (Công cụ tác chiến) ---
-            CreatePanel(contentObj.transform, "Sec2Header", new Vector2(0, -96), new Vector2(426, 24), CyberButtonColor.PanelFrame);
-            CreateText(contentObj.transform, "Sec2Title", AegisLocalization.T("── PHÉP THUẬT & PHƯƠNG THỨC ──", "── ARCANUM & MODES ──"), 16, TextAnchor.MiddleCenter, new Vector2(0, -96), new Vector2(420, 22), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
+            CreatePanel(contentObj.transform, "ControlDivider", new Vector2(0, -59), new Vector2(380, 2), CyberButtonColor.PanelFrame);
 
-            // Row 1: AI CV Card Scan & AI Auto Strike
-            CreateCyberGameButton(contentObj.transform, "BtnScanCard", "📜", AegisLocalization.T("QUÉT THẺ", "SCAN CARD"), AegisLocalization.T("NHẬN DIỆN THẺ BÀI", "TACTICAL CARD VISION"), new Vector2(-108, -138), new Vector2(210, 46), CyberButtonColor.Cyan, () =>
+            CreateCyberGameButton(contentObj.transform, "BtnScanCard", "", AegisLocalization.T("QUÉT THẺ", "SCAN CARD"), "", new Vector2(-108, -92), new Vector2(210, 48), CyberButtonColor.Cyan, () =>
             {
                 SetTacticalDrawerOpen(false);
                 OnScanCardClicked?.Invoke();
             }, defaultFont);
 
-            CreateCyberGameButton(contentObj.transform, "BtnAIMove", "🧙‍♂️", AegisLocalization.T("PHÁP LỰC AI", "AI SPELL"), AegisLocalization.T("ĐÒN ĐÁNH STOCKFISH", "STOCKFISH STRIKE"), new Vector2(108, -138), new Vector2(210, 46), CyberButtonColor.Crimson, () =>
+            CreateCyberGameButton(contentObj.transform, "BtnAIMove", "", AegisLocalization.T("PHÁP LỰC AI", "AI SPELL"), "", new Vector2(108, -92), new Vector2(210, 48), CyberButtonColor.Crimson, () =>
             {
                 OnTriggerAIClicked?.Invoke();
             }, defaultFont);
 
-            // Row 2: Online 2P Lobby & AR Matrix View
-            CreateCyberGameButton(contentObj.transform, "BtnOnlineLobby", "🌐", AegisLocalization.T("ONLINE 2P", "ONLINE 2P"), AegisLocalization.T("SẢNH ĐẤU WEBSOCKET", "WEBSOCKET ROOM HUB"), new Vector2(-108, -190), new Vector2(210, 46), CyberButtonColor.Sapphire, () =>
+            CreateCyberGameButton(contentObj.transform, "BtnOnlineLobby", "", AegisLocalization.T("ONLINE 2P", "ONLINE 2P"), "", new Vector2(-108, -146), new Vector2(210, 48), CyberButtonColor.Sapphire, () =>
             {
                 SetTacticalDrawerOpen(false);
                 if (_multiplayerModal != null) _multiplayerModal.SetActive(true);
             }, defaultFont);
 
-            CreateCyberGameButton(contentObj.transform, "BtnToggleAR", "📹", AegisLocalization.T("AR WEBCAM", "AR WEBCAM"), AegisLocalization.T("CHIẾN TRƯỜNG AR", "AR BATTLEFIELD"), new Vector2(108, -190), new Vector2(210, 46), CyberButtonColor.Emerald, () =>
+            CreateCyberGameButton(contentObj.transform, "BtnToggleAR", "", AegisLocalization.T("AR WEBCAM", "AR WEBCAM"), "", new Vector2(108, -146), new Vector2(210, 48), CyberButtonColor.Emerald, () =>
             {
                 OnToggleARClicked?.Invoke();
             }, defaultFont);
 
-            // Row 3: 2D/3D Perspective Toggle
-            CreateCyberGameButton(contentObj.transform, "BtnToggle2DView", "📐", AegisLocalization.T("GÓC NHÌN", "VIEW MODE"), AegisLocalization.T("ĐỔI GÓC CAM", "CYCLE CAM VIEW"), new Vector2(0, -242), new Vector2(426, 46), CyberButtonColor.Violet, () =>
+            CreateCyberGameButton(contentObj.transform, "BtnToggle2DView", "", AegisLocalization.T("ĐỔI GÓC NHÌN", "VIEW MODE"), "", new Vector2(0, -200), new Vector2(426, 48), CyberButtonColor.Violet, () =>
             {
                 if (MechChess.Mobile.MobileTouchInput.Instance != null)
                 {
@@ -1039,8 +1032,7 @@ namespace MechChess.UI
                 }
             }, defaultFont);
 
-            // Row 4: Reset Match & Return to Menu Buttons
-            CreateCyberGameButton(contentObj.transform, "BtnReset", "🔄", AegisLocalization.T("LÀM MỚI", "RESET MATCH"), AegisLocalization.T("BẮT ĐẦU LẠI", "PURGE & RESTART"), new Vector2(-108, -292), new Vector2(210, 42), CyberButtonColor.Gunmetal, () =>
+            CreateCyberGameButton(contentObj.transform, "BtnReset", "", AegisLocalization.T("LÀM MỚI", "RESET MATCH"), "", new Vector2(-108, -254), new Vector2(210, 42), CyberButtonColor.Gunmetal, () =>
             {
                 SetTacticalDrawerOpen(false);
                 if (MechChess.AR.HybridARController.Instance != null)
@@ -1050,29 +1042,26 @@ namespace MechChess.UI
                 OnResetGameClicked?.Invoke();
             }, defaultFont);
 
-            CreateCyberGameButton(contentObj.transform, "BtnExitToMenu", "🚪", AegisLocalization.T("VỀ MENU", "EXIT TO MENU"), AegisLocalization.T("VỀ MÀN HÌNH CHÍNH", "LEAVE TO MAIN MENU"), new Vector2(108, -292), new Vector2(210, 42), CyberButtonColor.Crimson, () =>
+            CreateCyberGameButton(contentObj.transform, "BtnExitToMenu", "", AegisLocalization.T("VỀ MENU", "EXIT TO MENU"), "", new Vector2(108, -254), new Vector2(210, 42), CyberButtonColor.Crimson, () =>
             {
                 SetTacticalDrawerOpen(false);
                 ReturnToMainMenu();
             }, defaultFont);
 
-            // --- Section 3: Battle Telemetry Log (Nhật ký nước đi PGN) ---
-            CreatePanel(contentObj.transform, "Sec3Header", new Vector2(0, -332), new Vector2(426, 24), CyberButtonColor.PanelFrame);
-            CreateText(contentObj.transform, "Sec3Title", AegisLocalization.T("── BIÊN NIÊN SỬ NƯỚC ĐI (PGN) ──", "── MOVE CHRONICLES (PGN) ──"), 16, TextAnchor.MiddleCenter, new Vector2(0, -332), new Vector2(420, 22), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
-
-            CreateText(contentObj.transform, "HistoryColumns", AegisLocalization.T("LƯỢT     HOÀNG GIA (T)       HẮC ÁM (Đ)", "MOVE     ROYAL (W)          SHADOW (B)"), 15, TextAnchor.MiddleLeft, new Vector2(0, -354), new Vector2(415, 20), new Color(0.851f, 0.784f, 0.635f, 0.90f), defaultFont, true);
+            CreateText(contentObj.transform, "Sec3Title", AegisLocalization.T("NHẬT KÝ VÁN ĐẤU", "MATCH LOG"), 17, TextAnchor.MiddleLeft, new Vector2(-4, -298), new Vector2(415, 24), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
+            CreateText(contentObj.transform, "HistoryColumns", AegisLocalization.T("LƯỢT     HOÀNG GIA (T)       HẮC ÁM (Đ)", "MOVE     ROYAL (W)          SHADOW (B)"), 14, TextAnchor.MiddleLeft, new Vector2(0, -322), new Vector2(415, 20), new Color(0.851f, 0.784f, 0.635f, 0.90f), defaultFont, true);
 
             // Log Content Box
-            GameObject logContainer = CreatePanel(contentObj.transform, "HistoryLogBox", new Vector2(0, -500), new Vector2(426, 260), CyberButtonColor.PanelFrame);
-            _moveHistoryText = CreateText(logContainer.transform, "HistoryLog", AegisLocalization.T("Trận đấu bắt đầu.\nĐang chờ nước đi đầu tiên...", "Match started.\nAwaiting initial moves..."), 16, TextAnchor.UpperLeft, new Vector2(0, 0), new Vector2(406, 240), new Color(0.96f, 0.94f, 0.88f), defaultFont, true);
+            GameObject logContainer = CreatePanel(contentObj.transform, "HistoryLogBox", new Vector2(0, -440), new Vector2(426, 200), CyberButtonColor.PanelFrame);
+            _moveHistoryText = CreateText(logContainer.transform, "HistoryLog", AegisLocalization.T("Trận đấu bắt đầu.\nĐang chờ nước đi đầu tiên...", "Match started.\nAwaiting initial moves..."), 16, TextAnchor.UpperLeft, new Vector2(0, 0), new Vector2(406, 180), new Color(0.96f, 0.94f, 0.88f), defaultFont, true);
 
             // Confidence display pod
-            GameObject confPod = CreatePanel(contentObj.transform, "ConfidencePod", new Vector2(0, -655), new Vector2(426, 36), CyberButtonColor.Amber);
+            GameObject confPod = CreatePanel(contentObj.transform, "ConfidencePod", new Vector2(0, -555), new Vector2(426, 36), CyberButtonColor.Amber);
             _lastConfidenceText = CreateText(confPod.transform, "ConfidenceDisplay", "AI CV MATRIX: STANDBY (N/A)", 15, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(415, 30), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
 
             // System Telemetry indicators
-            _aiServerStatusText = CreateText(contentObj.transform, "AIStatus", "● AI SERVER: ONLINE", 15, TextAnchor.MiddleLeft, new Vector2(-108, -694), new Vector2(200, 24), new Color(0.38f, 0.85f, 0.45f), defaultFont, true);
-            _cloudStatusText = CreateText(contentObj.transform, "CloudStatus", "● AIO CLOUD: LINKED", 15, TextAnchor.MiddleRight, new Vector2(108, -694), new Vector2(200, 24), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
+            _aiServerStatusText = CreateText(contentObj.transform, "AIStatus", "● AI SERVER: ONLINE", 14, TextAnchor.MiddleLeft, new Vector2(-108, -594), new Vector2(200, 24), new Color(0.38f, 0.85f, 0.45f), defaultFont, true);
+            _cloudStatusText = CreateText(contentObj.transform, "CloudStatus", "● AIO CLOUD: LINKED", 14, TextAnchor.MiddleRight, new Vector2(108, -594), new Vector2(200, 24), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
 
             // Hide Drawer by default (Clean board view!)
             _tacticalDrawerObj.SetActive(false);

@@ -204,6 +204,69 @@ async def register_or_login_player(
     await session.refresh(new_player)
     return True, "Đăng nhập thành công!", new_player
 
+async def register_or_login_google_player(
+    session: AsyncSession,
+    email: str,
+    name: Optional[str] = None,
+    picture: Optional[str] = None
+) -> Tuple[bool, str, Player]:
+    """
+    Authenticates or auto-registers a player using verified Google OAuth account data.
+    """
+    clean_email = email.strip().lower()
+    existing_player = await get_player_by_gmail(session, clean_email)
+    if existing_player:
+        if picture and (not existing_player.avatar_url or existing_player.avatar_url == "profile_avatar_round.png"):
+            existing_player.avatar_url = picture
+        if not existing_player.stats:
+            stats = PlayerStats(player_id=existing_player.id, elo=1200)
+            session.add(stats)
+            existing_player.stats = stats
+        await session.commit()
+        await session.refresh(existing_player)
+        return True, "Đăng nhập Google thành công!", existing_player
+
+    # New Player via Google Auth
+    target_name = derive_default_username(clean_email)
+    if name:
+        clean_name = re.sub(r"[^a-zA-Z0-9]", "", name)
+        if len(clean_name) >= 3:
+            target_name = clean_name[:20]
+
+    owner = await get_player_by_username(session, target_name)
+    if owner:
+        target_name = f"{target_name[:15]}{uuid.uuid4().hex[:4]}"
+
+    new_player = Player(
+        gmail=clean_email,
+        username=target_name,
+        password_hash=None,
+        avatar_url=picture or "profile_avatar_round.png",
+        level=1,
+        exp=0,
+        gold=500,
+        gems=50,
+        energy=100
+    )
+    session.add(new_player)
+    await session.flush()
+
+    new_stats = PlayerStats(
+        player_id=new_player.id,
+        elo=1200,
+        matches_played=0,
+        wins=0,
+        losses=0,
+        draws=0,
+        highest_elo=1200
+    )
+    session.add(new_stats)
+    new_player.stats = new_stats
+
+    await session.commit()
+    await session.refresh(new_player)
+    return True, "Đăng ký tài khoản Google thành công!", new_player
+
 def format_profile_response(player: Player) -> PlayerProfileResponse:
     stats = player.stats
     elo = stats.elo if stats else 1200

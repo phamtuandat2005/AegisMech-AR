@@ -7072,36 +7072,8 @@ namespace MechChess.UI
                 }
                 if (_loginPasswordInput != null) _loginPasswordInput.text = "";
                 if (_loginErrorTxt != null) _loginErrorTxt.text = "";
-                SwitchLoginTab(0);
                 _loginModal.SetActive(true);
                 AegisAudioManager.PlayModalOpen();
-            }
-        }
-
-        private void SwitchLoginTab(int tabIndex)
-        {
-            _loginActiveTab = tabIndex;
-            if (_loginErrorTxt != null) _loginErrorTxt.text = "";
-
-            if (_loginTabCredsPanel != null) _loginTabCredsPanel.SetActive(tabIndex == 0);
-            if (_loginTabEmailPanel != null) _loginTabEmailPanel.SetActive(tabIndex == 1);
-
-            if (_loginTabCredsBtnBg != null)
-            {
-                _loginTabCredsBtnBg.color = (tabIndex == 0) ? new Color(0.20f, 0.16f, 0.06f, 0.95f) : new Color(0.04f, 0.08f, 0.16f, 0.85f);
-            }
-            if (_loginTabCredsBtnTxt != null)
-            {
-                _loginTabCredsBtnTxt.color = (tabIndex == 0) ? ColGoldCta : ColTextMuted;
-            }
-
-            if (_loginTabEmailBtnBg != null)
-            {
-                _loginTabEmailBtnBg.color = (tabIndex == 1) ? new Color(0.06f, 0.16f, 0.24f, 0.95f) : new Color(0.04f, 0.08f, 0.16f, 0.85f);
-            }
-            if (_loginTabEmailBtnTxt != null)
-            {
-                _loginTabEmailBtnTxt.color = (tabIndex == 1) ? ColCyanGlow : ColTextMuted;
             }
         }
 
@@ -7122,78 +7094,22 @@ namespace MechChess.UI
 
             CreateModalHeader(cardObj.transform, AegisLocalization.T("ĐĂNG NHẬP / TÀI KHOẢN", "SIGN IN / ACCOUNT"), () => _loginModal.SetActive(false), font);
 
-            // Tab Buttons Container (Liên Quân / Arena of Valor Style)
-            // 1. Tab TK + MK
-            GameObject credsTabBtnObj = new GameObject("TabBtnCreds");
-            credsTabBtnObj.transform.SetParent(cardObj.transform, false);
-            _loginTabCredsBtnBg = credsTabBtnObj.AddComponent<Image>();
-            _loginTabCredsBtnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(270, 44, 12f, new Color(0.20f, 0.16f, 0.06f, 0.95f), ColGoldBorder, 1.5f);
-            _loginTabCredsBtnBg.type = Image.Type.Sliced;
-            Button credsTabBtn = credsTabBtnObj.AddComponent<Button>();
-            credsTabBtn.onClick.AddListener(() => SwitchLoginTab(0));
-            credsTabBtnObj.AddComponent<MenuButtonEffect>();
-            RectTransform cRt = credsTabBtnObj.GetComponent<RectTransform>();
-            cRt.anchoredPosition = new Vector2(-138f, 192f);
-            cRt.sizeDelta = new Vector2(270f, 44f);
-            _loginTabCredsBtnTxt = CreateTextComp(credsTabBtnObj.transform, AegisLocalization.T("🔑 TÀI KHOẢN & MK", "🔑 ACCOUNT & PASS"), 16, FontStyle.Bold, ColGoldCta, font, Vector2.zero, new Vector2(260f, 32f), TextAnchor.MiddleCenter);
-
-            // 2. Tab Email (Gmail)
-            GameObject emailTabBtnObj = new GameObject("TabBtnEmail");
-            emailTabBtnObj.transform.SetParent(cardObj.transform, false);
-            _loginTabEmailBtnBg = emailTabBtnObj.AddComponent<Image>();
-            _loginTabEmailBtnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(270, 44, 12f, new Color(0.04f, 0.08f, 0.16f, 0.85f), ColCyanBorder, 1.2f);
-            _loginTabEmailBtnBg.type = Image.Type.Sliced;
-            Button emailTabBtn = emailTabBtnObj.AddComponent<Button>();
-            emailTabBtn.onClick.AddListener(() => SwitchLoginTab(1));
-            emailTabBtnObj.AddComponent<MenuButtonEffect>();
-            RectTransform eRt = emailTabBtnObj.GetComponent<RectTransform>();
-            eRt.anchoredPosition = new Vector2(138f, 192f);
-            eRt.sizeDelta = new Vector2(270f, 44f);
-            _loginTabEmailBtnTxt = CreateTextComp(emailTabBtnObj.transform, AegisLocalization.T("📧 ĐĂNG NHẬP EMAIL", "📧 EMAIL SIGN IN"), 16, FontStyle.Bold, ColTextMuted, font, Vector2.zero, new Vector2(260f, 32f), TextAnchor.MiddleCenter);
-
-            // =========================================================================
-            // TAB 1 PANEL: TÀI KHOẢN & MẬT KHẨU (TK + MK)
-            // =========================================================================
             _loginTabCredsPanel = new GameObject("TabCredsPanel");
             _loginTabCredsPanel.transform.SetParent(cardObj.transform, false);
             RectTransform credsPanelRt = _loginTabCredsPanel.AddComponent<RectTransform>();
             credsPanelRt.anchoredPosition = Vector2.zero;
-            credsPanelRt.sizeDelta = new Vector2(600f, 330f);
+            credsPanelRt.sizeDelta = new Vector2(600f, 400f);
 
-            CreateTextComp(_loginTabCredsPanel.transform, AegisLocalization.T("Đăng nhập bằng Tên tài khoản hoặc Email kèm Mật khẩu", "Sign in with Username or Email and Password"), 16, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, 140f), new Vector2(560f, 26f));
+            CreateTextComp(_loginTabCredsPanel.transform, AegisLocalization.T("TÀI KHOẢN HOẶC EMAIL:", "ACCOUNT OR EMAIL:"), 15, FontStyle.Bold, ColCyanBorder, font, new Vector2(0f, 135f), new Vector2(540f, 22f));
+            _loginAccountInput = CreateInputField(_loginTabCredsPanel.transform, "AccountInput", AegisLocalization.T("Ví dụ: PhamVaA hoặc email@gmail.com...", "E.g.: Player01 or email@gmail.com..."), new Vector2(0f, 95f), new Vector2(540f, 46f), font, false);
 
-            CreateTextComp(_loginTabCredsPanel.transform, AegisLocalization.T("TÀI KHOẢN HOẶC EMAIL:", "ACCOUNT OR EMAIL:"), 15, FontStyle.Bold, ColCyanBorder, font, new Vector2(0f, 100f), new Vector2(540f, 22f));
-            _loginAccountInput = CreateInputField(_loginTabCredsPanel.transform, "AccountInput", AegisLocalization.T("Ví dụ: PhamVaA hoặc email@gmail.com...", "E.g.: Player01 or email@gmail.com..."), new Vector2(0f, 60f), new Vector2(540f, 46f), font, false);
+            CreateTextComp(_loginTabCredsPanel.transform, AegisLocalization.T("MẬT KHẨU:", "PASSWORD:"), 15, FontStyle.Bold, ColCyanBorder, font, new Vector2(0f, 50f), new Vector2(540f, 22f));
+            _loginPasswordInput = CreateInputField(_loginTabCredsPanel.transform, "PasswordInput", AegisLocalization.T("Nhập mật khẩu (tối thiểu 4 ký tự)...", "Enter password (min 4 chars)..."), new Vector2(0f, 10f), new Vector2(540f, 46f), font, true);
 
-            CreateTextComp(_loginTabCredsPanel.transform, AegisLocalization.T("MẬT KHẨU (BẢO MẬT):", "PASSWORD (SECURE):"), 15, FontStyle.Bold, ColCyanBorder, font, new Vector2(0f, 15f), new Vector2(540f, 22f));
-            _loginPasswordInput = CreateInputField(_loginTabCredsPanel.transform, "PasswordInput", AegisLocalization.T("Nhập mật khẩu (tối thiểu 4 ký tự)...", "Enter password (min 4 chars)..."), new Vector2(0f, -25f), new Vector2(540f, 46f), font, true);
+            CreateMenuActionButton(_loginTabCredsPanel.transform, "BtnSubmitCreds", AegisLocalization.T("ĐĂNG NHẬP", "SIGN IN"), new Vector2(-140f, -65f), new Vector2(260f, 48f), ColGoldCta, ColDarkBtnText, 18, () => ExecuteLoginWithCredentials(false), font, ColGoldBorder, 1.5f);
+            CreateMenuActionButton(_loginTabCredsPanel.transform, "BtnRegisterCreds", AegisLocalization.T("TẠO TÀI KHOẢN", "CREATE ACCOUNT"), new Vector2(140f, -65f), new Vector2(260f, 48f), ColGlassFill, ColCyanGlow, 18, () => ExecuteLoginWithCredentials(true), font, ColCyanBorder, 1.5f);
 
-            // Buttons: [ ĐĂNG NHẬP ] & [ ĐĂNG KÝ ]
-            CreateMenuActionButton(_loginTabCredsPanel.transform, "BtnSubmitCreds", AegisLocalization.T("⚔️ ĐĂNG NHẬP", "⚔️ SIGN IN"), new Vector2(-140f, -95f), new Vector2(260f, 48f), ColGoldCta, ColDarkBtnText, 18, () => ExecuteLoginWithCredentials(false), font, ColGoldBorder, 1.5f);
-            CreateMenuActionButton(_loginTabCredsPanel.transform, "BtnRegisterCreds", AegisLocalization.T("📝 ĐĂNG KÝ MỚI", "📝 REGISTER"), new Vector2(140f, -95f), new Vector2(260f, 48f), ColGlassFill, ColCyanGlow, 18, () => ExecuteLoginWithCredentials(true), font, ColCyanBorder, 1.5f);
-
-            CreateTextComp(_loginTabCredsPanel.transform, AegisLocalization.T("💡 Chưa có tài khoản? Nhập tên + mật khẩu rồi bấm 'ĐĂNG KÝ MỚI'.", "💡 New player? Enter your name + password then click 'REGISTER'."), 14, FontStyle.Italic, new Color(0.70f, 0.85f, 0.95f, 0.85f), font, new Vector2(0f, -145f), new Vector2(540f, 24f));
-
-            // =========================================================================
-            // TAB 2 PANEL: ĐĂNG NHẬP EMAIL (GMAIL LIÊN QUÂN STYLE)
-            // =========================================================================
-            _loginTabEmailPanel = new GameObject("TabEmailPanel");
-            _loginTabEmailPanel.transform.SetParent(cardObj.transform, false);
-            RectTransform emailPanelRt = _loginTabEmailPanel.AddComponent<RectTransform>();
-            emailPanelRt.anchoredPosition = Vector2.zero;
-            emailPanelRt.sizeDelta = new Vector2(600f, 330f);
-
-            CreateTextComp(_loginTabEmailPanel.transform, AegisLocalization.T("Đăng nhập nhanh 1 chạm bằng Email giống Liên Quân / Google Play", "Quick 1-touch Email sign in (Arena of Valor / Google style)"), 16, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, 140f), new Vector2(560f, 26f));
-
-            CreateTextComp(_loginTabEmailPanel.transform, AegisLocalization.T("ĐỊA CHỈ GMAIL (BẮT BUỘC):", "GMAIL ADDRESS (REQUIRED):"), 15, FontStyle.Bold, ColCyanBorder, font, new Vector2(0f, 100f), new Vector2(540f, 22f));
-            _loginGmailInput = CreateInputField(_loginTabEmailPanel.transform, "GmailInput", AegisLocalization.T("Ví dụ: nguyenvana@gmail.com", "E.g.: player@gmail.com"), new Vector2(0f, 60f), new Vector2(540f, 46f), font, false);
-
-            CreateTextComp(_loginTabEmailPanel.transform, AegisLocalization.T("TÊN NGƯỜI CHƠI (TÙY CHỌN - ĐỂ TRỐNG SẼ LẤY THEO EMAIL):", "PLAYER USERNAME (OPTIONAL):"), 15, FontStyle.Bold, ColCyanBorder, font, new Vector2(0f, 15f), new Vector2(540f, 22f));
-            _loginUsernameInput = CreateInputField(_loginTabEmailPanel.transform, "UsernameInput", AegisLocalization.T("Ví dụ: PhamVaA, DatIT, SiuVipPro...", "E.g.: Knight01, AegisPro..."), new Vector2(0f, -25f), new Vector2(540f, 46f), font, false);
-
-            CreateMenuActionButton(_loginTabEmailPanel.transform, "BtnSubmitEmail", AegisLocalization.T("📧 ĐĂNG NHẬP VỚI GMAIL", "📧 SIGN IN WITH GMAIL"), new Vector2(0f, -95f), new Vector2(540f, 48f), ColGoldCta, ColDarkBtnText, 18, ExecuteLoginWithEmail, font, ColGoldBorder, 1.5f);
-
-            CreateTextComp(_loginTabEmailPanel.transform, AegisLocalization.T("🔒 Tài khoản đã đặt mật khẩu cần đăng nhập tại tab 'Tài Khoản & MK'.", "🔒 Accounts with a password must log in via 'Account & Pass' tab."), 14, FontStyle.Italic, new Color(0.70f, 0.85f, 0.95f, 0.85f), font, new Vector2(0f, -145f), new Vector2(540f, 24f));
+            CreateMenuActionButton(_loginTabCredsPanel.transform, "BtnSubmitGoogle", AegisLocalization.T("G  TIẾP TỤC VỚI GOOGLE", "G  CONTINUE WITH GOOGLE"), new Vector2(0f, -145f), new Vector2(540f, 48f), new Color(0.96f, 0.97f, 0.98f, 1f), new Color(0.12f, 0.15f, 0.20f, 1f), 18, ExecuteLoginWithGoogle, font, new Color(0.75f, 0.78f, 0.82f, 1f), 1.2f);
 
             // =========================================================================
             // Error Text at Bottom of Card
@@ -7213,7 +7129,6 @@ namespace MechChess.UI
             errRt.anchoredPosition = new Vector2(0f, -195f);
             errRt.sizeDelta = new Vector2(560f, 32f);
 
-            SwitchLoginTab(0);
             _loginModal.SetActive(false);
         }
 
@@ -7255,35 +7170,39 @@ namespace MechChess.UI
             }
         }
 
-        private void ExecuteLoginWithEmail()
+        private void ExecuteLoginWithGoogle()
         {
-            string gmail = _loginGmailInput != null ? _loginGmailInput.text.Trim() : "";
-            string username = _loginUsernameInput != null ? _loginUsernameInput.text.Trim() : "";
-
-            if (string.IsNullOrEmpty(gmail) || !gmail.Contains("@"))
+            if (_loginErrorTxt != null)
             {
-                if (_loginErrorTxt != null) _loginErrorTxt.text = AegisLocalization.T("Vui lòng nhập địa chỉ Gmail hợp lệ!", "Please enter a valid Gmail address!");
-                return;
+                _loginErrorTxt.color = new Color(0.4f, 0.85f, 1f);
+                _loginErrorTxt.text = AegisLocalization.T("Đang mở trình duyệt để xác thực Google...", "Opening browser for Google Sign-in...");
             }
 
             if (UserAccountManager.Instance != null)
             {
-                if (_loginErrorTxt != null) _loginErrorTxt.text = AegisLocalization.T("Đang xác thực...", "Authenticating...");
-                UserAccountManager.Instance.Login(gmail, username, (success, msg) =>
+                UserAccountManager.Instance.StartGoogleLogin((success, msg) =>
                 {
+                    if (_loginErrorTxt != null)
+                    {
+                        _loginErrorTxt.color = success ? new Color(0.4f, 1f, 0.4f) : new Color(1f, 0.4f, 0.4f);
+                        _loginErrorTxt.text = msg;
+                    }
+
                     if (success)
                     {
-                        if (_loginModal != null) _loginModal.SetActive(false);
-                        UpdateUserProfileUI();
-                        ShowToast(AegisLocalization.T($"Xin chào {UserAccountManager.Instance.CurrentUsername}!", $"Welcome {UserAccountManager.Instance.CurrentUsername}!"), ToastType.Success);
-                        _postLoginAction?.Invoke();
-                        _postLoginAction = null;
-                    }
-                    else
-                    {
-                        if (_loginErrorTxt != null) _loginErrorTxt.text = msg;
+                        AegisToast.Show(AegisLocalization.T("Đăng nhập Google thành công!", "Google Sign-in successful!"), AegisToast.ToastType.Success);
+                        CloseLoginModal();
+                        UpdateUserHeader();
                     }
                 });
+            }
+            else
+            {
+                if (_loginErrorTxt != null)
+                {
+                    _loginErrorTxt.color = new Color(1f, 0.4f, 0.4f);
+                    _loginErrorTxt.text = AegisLocalization.T("Không tìm thấy trình quản lý tài khoản!", "Account manager not found!");
+                }
             }
         }
         private void OpenOnlineMatchChoiceModal()
