@@ -364,7 +364,7 @@ namespace MechChess.Multiplayer
             string token = GetSavedToken();
             string url = $"{LichessApiBase}/board/game/{gameId}/move/{uciMove.ToLower()}";
 
-            using (UnityWebRequest req = UnityWebRequest.Post(url, ""))
+            using (UnityWebRequest req = UnityWebRequest.PostWwwForm(url, ""))
             {
                 if (!string.IsNullOrEmpty(token))
                 {

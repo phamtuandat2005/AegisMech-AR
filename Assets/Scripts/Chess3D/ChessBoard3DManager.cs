@@ -510,6 +510,13 @@ namespace MechChess.Chess3D
                 if (_selectedPiece == null && piece.pieceColor != online.MyRole) return;
             }
 
+            // VS AI turn enforcement (prevent player from moving opponent AI pieces)
+            if (isVsAI)
+            {
+                if (currentTurn == aiColor) return;
+                if (_selectedPiece == null && piece.pieceColor == aiColor) return;
+            }
+
             // If clicking on own piece -> toggle select / deselect
             if (piece.pieceColor == currentTurn)
             {
@@ -591,6 +598,9 @@ namespace MechChess.Chess3D
                 var online = MechChess.Multiplayer.OnlineMultiplayerManager.Instance;
                 if (currentTurn != online.MyRole) return;
             }
+
+            // VS AI turn enforcement
+            if (isVsAI && currentTurn == aiColor) return;
 
             // If clicking on own piece -> select it
             ChessPiece3D clickedPiece = boardPieces[file, rank];

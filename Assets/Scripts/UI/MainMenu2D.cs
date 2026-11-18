@@ -6332,7 +6332,7 @@ namespace MechChess.UI
             }
             if (_resultEloTxt != null)
             {
-                _resultEloTxt.text = isDraw ? "<color=#80d8ff>Elo +0</color>" : (victory ? "<color=#00e676>Elo +12</color>" : "<color=#ff5252>Elo -8</color>");
+                _resultEloTxt.text = isDraw ? "<color=#80d8ff>Elo +0</color>" : (victory ? "<color=#00e676>Elo +8</color>" : "<color=#ff5252>Elo -8</color>");
             }
 
             // Securely record match result to Supabase database via FastAPI and local storage
@@ -7375,10 +7375,9 @@ namespace MechChess.UI
                     _matchmakingTimerTxt.text = AegisLocalization.T($"Thời gian tìm trận: {min:00}:{sec:00}", $"Queue time: {min:00}:{sec:00}");
                 }
 
-                // Smart Quick-Match Fallback:
-                // If waiting for >= 5.0 seconds and no other online human player is in queue at this moment,
-                // auto-pair with an online grandmaster challenger so the match begins immediately!
-                if (elapsed >= 5.0f && OnlineMultiplayerManager.Instance != null && OnlineMultiplayerManager.Instance.IsSearchingMatch)
+                // If after 8 seconds no human player is available in queue, auto-pair with an autonomous Online Challenger
+                // so the player gets an active opponent that moves automatically, never leaving it as a 2-player pass & play!
+                if (elapsed >= 8.0f && OnlineMultiplayerManager.Instance != null && OnlineMultiplayerManager.Instance.IsSearchingMatch)
                 {
                     string[] onlineChallengers = { "Cyber_Grandmaster", "Shadow_Vanguard", "Aegis_Paladin", "Arcane_Knight99", "Nexus_Tactician" };
                     string randomOpp = onlineChallengers[UnityEngine.Random.Range(0, onlineChallengers.Length)];
@@ -7719,11 +7718,33 @@ namespace MechChess.UI
             _lastLaunchMode = GameLaunchMode.OnlineMultiplayer;
             HideMenu();
 
+            bool isRealNetworkMatch = (OnlineMultiplayerManager.Instance != null && 
+                                      (OnlineMultiplayerManager.Instance.IsOnlineMatch || roomId.StartsWith("MATCH_") || roomId.StartsWith("ROOM-")));
+
             if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
             {
                 var board = MechChess.Chess3D.ChessBoard3DManager.Instance;
                 board.ResetBoard();
-                board.isVsAI = false;
+
+                if (isRealNetworkMatch)
+                {
+                    // Real 2-player network match: Opponent moves are delivered via WebSocket
+                    board.isVsAI = false;
+                }
+                else
+                {
+                    // Autonomous Online Bot Challenger: The opponent MUST think and move automatically!
+                    // Player can ONLY move their assigned role (White or Black)
+                    board.isVsAI = true;
+                    board.aiColor = (role == PieceColor.White) ? PieceColor.Black : PieceColor.White;
+                    board.aiLevel = 2;
+
+                    // If local player is Black, the AI plays White and takes the first move immediately!
+                    if (role == PieceColor.Black)
+                    {
+                        board.TriggerAIMove();
+                    }
+                }
             }
 
             if (UIManager2D.Instance != null)
