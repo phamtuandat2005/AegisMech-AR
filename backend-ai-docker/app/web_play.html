@@ -574,6 +574,15 @@
     let lobbyPingInterval = null;
     let isQueuing = false;
 
+    function sendFindMatch() {
+      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+        lobbyWs.send(JSON.stringify({
+          type: 'find_match',
+          time_control: '10 + 0'
+        }));
+      }
+    }
+
     // Connect Lobby WebSocket
     function connectLobby(onOpenCallback) {
       if (lobbyPingInterval) clearInterval(lobbyPingInterval);
@@ -595,6 +604,10 @@
             lobbyWs.send(JSON.stringify({ type: 'ping' }));
           }
         }, 10000);
+
+        if (isQueuing) {
+          sendFindMatch();
+        }
 
         if (typeof onOpenCallback === 'function') {
           onOpenCallback();
@@ -698,24 +711,11 @@
         document.getElementById('queue-timer').textContent = `${m}:${s}`;
       }, 1000);
 
-      const sendFindMatch = () => {
-        if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
-          lobbyWs.send(JSON.stringify({
-            type: 'find_match',
-            time_control: '10 + 0'
-          }));
-        }
-      };
-
       if (!lobbyWs || lobbyWs.readyState !== WebSocket.OPEN || oldName !== myName) {
         if (lobbyWs) {
           try { lobbyWs.close(); } catch(e) {}
         }
-        connectLobby(() => {
-          if (isQueuing) {
-            sendFindMatch();
-          }
-        });
+        connectLobby();
       } else {
         sendFindMatch();
       }

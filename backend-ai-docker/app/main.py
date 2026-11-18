@@ -514,7 +514,14 @@ async def web_play_route():
     """
     html_file = Path(__file__).resolve().parent / "web_play.html"
     if html_file.exists():
-        return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
+        return HTMLResponse(
+            content=html_file.read_text(encoding="utf-8"),
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     return HTMLResponse(content="<h3>Web Chess Client not found.</h3>", status_code=404)
 
 @app.post("/api/recognize-card", response_model=CardRecognizeResponse)
