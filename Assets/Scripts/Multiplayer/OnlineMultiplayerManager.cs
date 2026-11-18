@@ -421,6 +421,19 @@ namespace MechChess.Multiplayer
             }
         }
 
+        public void PrepareOnlineMatch(PieceColor role, string oppName, int oppElo)
+        {
+            MyRole = role;
+            OpponentName = string.IsNullOrEmpty(oppName) ? "Opponent" : oppName;
+            OpponentElo = oppElo > 0 ? oppElo : 400;
+            IsOnlineMatch = true;
+            HasBothPlayers = true;
+            if (MyRole == PieceColor.Black)
+            {
+                AlignCameraForBlackPlayer();
+            }
+        }
+
         public async void SendFriendInvite(string targetUsername)
         {
             if (string.IsNullOrEmpty(targetUsername)) return;
@@ -527,6 +540,8 @@ namespace MechChess.Multiplayer
                             OpponentName = packet.opponent;
                             OpponentElo = packet.opponent_elo > 0 ? packet.opponent_elo : 400;
                             currentRoomId = packet.room_id;
+
+                            PrepareOnlineMatch(assignedRole, OpponentName, OpponentElo);
 
                             OnMatchFoundEvent?.Invoke(packet.room_id, assignedRole, OpponentName, OpponentElo);
 

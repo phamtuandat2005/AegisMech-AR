@@ -7440,19 +7440,10 @@ namespace MechChess.UI
                 OnlineMultiplayerManager.Instance.StartRandomMatchmaking("10 + 0");
             }
 
-            // 2. In parallel, if Lichess is configured, seek human opponent on Lichess
-            if (LichessBridge.Instance != null && LichessBridge.Instance.HasToken)
+            // Stop any background Lichess seeking so it never cancels or hijacks real online matchmaking
+            if (LichessBridge.Instance != null)
             {
-                LichessBridge.Instance.SeekHumanMatch(10, 0, (ok, msg) =>
-                {
-                    if (ok && _matchmakingModal != null && _matchmakingModal.activeSelf)
-                    {
-                        if (OnlineMultiplayerManager.Instance != null && OnlineMultiplayerManager.Instance.IsSearchingMatch)
-                        {
-                            OnlineMultiplayerManager.Instance.CancelRandomMatchmaking();
-                        }
-                    }
-                });
+                LichessBridge.Instance.CancelMatch();
             }
 
             if (_matchmakingStatusTxt != null)
@@ -7811,6 +7802,11 @@ namespace MechChess.UI
             if (_challengeModal != null) _challengeModal.SetActive(false);
             if (_matchmakingTimerCoroutine != null) StopCoroutine(_matchmakingTimerCoroutine);
 
+            if (OnlineMultiplayerManager.Instance != null)
+            {
+                OnlineMultiplayerManager.Instance.PrepareOnlineMatch(role, oppName, oppElo);
+            }
+
             _lastLaunchMode = GameLaunchMode.OnlineMultiplayer;
             HideMenu();
 
@@ -7835,15 +7831,15 @@ namespace MechChess.UI
 
         private void HandleLichessMatchFound(string oppName, int oppElo, bool isWhite)
         {
+            if (OnlineMultiplayerManager.Instance != null && (OnlineMultiplayerManager.Instance.IsSearchingMatch || OnlineMultiplayerManager.Instance.IsOnlineMatch))
+            {
+                return; // Prioritize authoritative server matchmaking
+            }
+
             if (_matchmakingModal != null) _matchmakingModal.SetActive(false);
             if (_friendModal != null) _friendModal.SetActive(false);
             if (_challengeModal != null) _challengeModal.SetActive(false);
             if (_matchmakingTimerCoroutine != null) StopCoroutine(_matchmakingTimerCoroutine);
-
-            if (OnlineMultiplayerManager.Instance != null && OnlineMultiplayerManager.Instance.IsSearchingMatch)
-            {
-                OnlineMultiplayerManager.Instance.CancelRandomMatchmaking();
-            }
 
             _lastLaunchMode = GameLaunchMode.OnlineMultiplayer;
             HideMenu();

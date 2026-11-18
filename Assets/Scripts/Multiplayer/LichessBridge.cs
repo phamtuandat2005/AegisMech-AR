@@ -152,6 +152,13 @@ namespace MechChess.Multiplayer
 
         public bool HasToken => !string.IsNullOrEmpty(GetSavedToken());
 
+        public void CancelMatch()
+        {
+            IsInLichessMatch = false;
+            ActiveGameId = "";
+            StopAllCoroutines();
+        }
+
         /// <summary>
         /// Seeks a live match against a real human player online on Lichess.org.
         /// </summary>
