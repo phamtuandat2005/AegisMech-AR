@@ -148,8 +148,10 @@ async def security_and_rate_limit_middleware(request: Request, call_next):
     path = request.url.path
     if path.startswith("/api/"):
         client_ip = request.client.host if request.client else "127.0.0.1"
-        if path.startswith("/api/auth/"):
-            bucket, limit = "auth", 15
+        if path == "/api/auth/google/poll":
+            bucket, limit = "auth_poll", 150
+        elif path.startswith("/api/auth/"):
+            bucket, limit = "auth", 30
         elif path.startswith("/api/match/"):
             bucket, limit = "match", 40
         elif path.startswith("/api/ai/") or path == "/api/recognize-card":

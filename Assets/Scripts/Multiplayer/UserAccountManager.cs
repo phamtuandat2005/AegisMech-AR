@@ -170,6 +170,7 @@ namespace MechChess.Multiplayer
         public event Action OnLoggedOut;
 
         public string backendApiBaseUrl = "https://aegismech-ar.onrender.com";
+        public string googleOAuthClientId = "943520358050-p3a7qpoge6jal8413vqjcqpiood75dam.apps.googleusercontent.com";
 
         private void Awake()
         {
@@ -491,10 +492,19 @@ namespace MechChess.Multiplayer
         private IEnumerator GoogleLoginRoutine(Action<bool, string> onComplete)
         {
             string sessionId = Guid.NewGuid().ToString("N");
-            string loginUrl = $"{backendApiBaseUrl.TrimEnd('/')}/api/auth/google/login?session_id={sessionId}";
+            string callbackUrl = $"{backendApiBaseUrl.TrimEnd('/')}/api/auth/google/callback";
 
-            Debug.Log($"[UserAccount] Opening browser for Google OAuth: {loginUrl}");
-            Application.OpenURL(loginUrl);
+            // Open accounts.google.com directly to avoid browser phishing heuristic on third-party cloud subdomains
+            string googleOAuthUrl = $"https://accounts.google.com/o/oauth2/v2/auth?" +
+                                    $"client_id={googleOAuthClientId}&" +
+                                    $"redirect_uri={UnityWebRequest.EscapeURL(callbackUrl)}&" +
+                                    $"response_type=code&" +
+                                    $"scope=openid%20email%20profile&" +
+                                    $"state={sessionId}&" +
+                                    $"prompt=select_account";
+
+            Debug.Log($"[UserAccount] Opening Google OAuth directly: {googleOAuthUrl}");
+            Application.OpenURL(googleOAuthUrl);
 
             float elapsed = 0f;
             float timeout = 90f;
