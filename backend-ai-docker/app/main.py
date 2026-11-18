@@ -1155,29 +1155,77 @@ async def google_callback(
                     google_auth_sessions[session_id] = {"status": "error", "message": err_msg, "created_at": time.time()}
                 return HTMLResponse(content=render_google_auth_html(False, err_msg))
 
-            ok, msg, player = await crud.register_or_login_google_player(
-                db, email=email, name=name, picture=picture
-            )
-            if not ok or not player:
-                if session_id:
-                    google_auth_sessions[session_id] = {"status": "error", "message": msg, "created_at": time.time()}
-                return HTMLResponse(content=render_google_auth_html(False, msg))
+            try:
+                ok, msg, player = await crud.register_or_login_google_player(
+                    db, email=email, name=name, picture=picture
+                )
+                if not ok or not player:
+                    if session_id:
+                        google_auth_sessions[session_id] = {"status": "error", "message": msg, "created_at": time.time()}
+                    return HTMLResponse(content=render_google_auth_html(False, msg))
 
-            profile = crud.format_profile_response(player)
+                profile = crud.format_profile_response(player)
+                user_id_str = str(player.id)
+                final_username = player.username
+                final_gmail = player.gmail
+                final_elo = profile.elo
+            except Exception as dberr:
+                logger.warning(f"[GoogleAuth] Database error, falling back to memory: {dberr}")
+                user_record = account_manager.users.get(email.lower())
+                if not user_record:
+                    derived_name = crud.derive_default_username(email)
+                    if name:
+                        clean_n = re.sub(r"[^a-zA-Z0-9]", "", name)
+                        if len(clean_n) >= 3:
+                            derived_name = clean_n[:20]
+                    user_record = {
+                        "gmail": email.lower(),
+                        "username": derived_name,
+                        "elo": 1200,
+                        "created_at": time.time()
+                    }
+                    account_manager.users[email.lower()] = user_record
+                    account_manager.usernames[derived_name.lower()] = email.lower()
 
-            account_manager.users[player.gmail.lower()] = {
-                "gmail": player.gmail,
-                "username": player.username,
-                "elo": profile.elo,
+                final_username = user_record["username"]
+                final_gmail = user_record["gmail"]
+                final_elo = user_record["elo"]
+                user_id_str = str(uuid.uuid4())
+
+                profile = PlayerProfileResponse(
+                    id=user_id_str,
+                    gmail=final_gmail,
+                    username=final_username,
+                    avatar_url=picture or "profile_avatar_round.png",
+                    level=1,
+                    exp=0,
+                    max_exp=100,
+                    gold=500,
+                    gems=50,
+                    energy=100,
+                    elo=final_elo,
+                    matches_played=0,
+                    wins=0,
+                    losses=0,
+                    draws=0,
+                    win_rate=0.0,
+                    created_at=""
+                )
+                msg = "Đăng nhập Google thành công!"
+
+            account_manager.users[final_gmail.lower()] = {
+                "gmail": final_gmail,
+                "username": final_username,
+                "elo": final_elo,
                 "created_at": time.time()
             }
-            account_manager.usernames[player.username.lower()] = player.gmail.lower()
+            account_manager.usernames[final_username.lower()] = final_gmail.lower()
 
             game_token = create_access_token({
-                "sub": player.username,
-                "username": player.username,
-                "gmail": player.gmail,
-                "player_id": str(player.id)
+                "sub": final_username,
+                "username": final_username,
+                "gmail": final_gmail,
+                "player_id": user_id_str
             })
 
             login_res = LoginResponse(
