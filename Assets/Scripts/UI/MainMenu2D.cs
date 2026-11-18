@@ -7190,9 +7190,11 @@ namespace MechChess.UI
 
                     if (success)
                     {
-                        AegisToast.Show(AegisLocalization.T("Đăng nhập Google thành công!", "Google Sign-in successful!"), AegisToast.ToastType.Success);
-                        CloseLoginModal();
-                        UpdateUserHeader();
+                        if (_loginModal != null) _loginModal.SetActive(false);
+                        UpdateUserProfileUI();
+                        ShowToast(AegisLocalization.T($"Xin chào {UserAccountManager.Instance.CurrentUsername}!", $"Welcome {UserAccountManager.Instance.CurrentUsername}!"), ToastType.Success);
+                        _postLoginAction?.Invoke();
+                        _postLoginAction = null;
                     }
                 });
             }
