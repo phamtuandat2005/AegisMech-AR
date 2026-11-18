@@ -307,8 +307,20 @@ namespace MechChess.Multiplayer
                         Debug.LogWarning($"[Lichess] Seek notice: {err}");
                         if (err.Contains("Banned from playing") || err.Contains("Too many aborts"))
                         {
-                            onComplete?.Invoke(false, "Lichess: Tài khoản bị tạm khóa tìm trận công khai do hủy ván thử nghiệm. Đang kết nối Lichess Stockfish AI...");
-                            ChallengeLichessAI(2);
+                            int mins = 25;
+                            int mIdx = err.IndexOf("\"minutes\":", StringComparison.OrdinalIgnoreCase);
+                            if (mIdx > 0)
+                            {
+                                string sub = err.Substring(mIdx + 10).Trim();
+                                string digits = "";
+                                foreach (char c in sub)
+                                {
+                                    if (char.IsDigit(c)) digits += c;
+                                    else break;
+                                }
+                                if (int.TryParse(digits, out int m)) mins = m;
+                            }
+                            onComplete?.Invoke(false, $"Lichess: Tài khoản cần chờ {mins} phút nữa để hết thời gian tạm ngưng, hoặc dùng Token tài khoản mới để đấu người thật ngay!");
                         }
                         else
                         {

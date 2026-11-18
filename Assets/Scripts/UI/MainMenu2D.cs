@@ -7451,6 +7451,14 @@ namespace MechChess.UI
                 LichessBridge.Instance.SeekHumanMatch(10, 0, myElo, (ok, msg) =>
                 {
                     Debug.Log($"[Matchmaking] Lichess seek status: {msg}");
+                    if (!ok && !string.IsNullOrEmpty(msg))
+                    {
+                        ShowToast(msg, ToastType.Warning);
+                        if (_matchmakingStatusTxt != null)
+                        {
+                            _matchmakingStatusTxt.text = msg;
+                        }
+                    }
                 });
             }
 
