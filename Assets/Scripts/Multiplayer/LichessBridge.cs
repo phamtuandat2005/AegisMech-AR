@@ -162,6 +162,11 @@ namespace MechChess.Multiplayer
         /// <summary>
         /// Seeks a live match against a real human player online on Lichess.org.
         /// </summary>
+        public void SeekHumanMatch(int timeMinutes, int incrementSec, Action<bool, string> onComplete)
+        {
+            SeekHumanMatch(timeMinutes, incrementSec, 400, onComplete);
+        }
+
         public void SeekHumanMatch(int timeMinutes = 10, int incrementSec = 0, int targetElo = 400, Action<bool, string> onComplete = null)
         {
             StartCoroutine(SeekMatchRoutine(timeMinutes, incrementSec, targetElo, onComplete));

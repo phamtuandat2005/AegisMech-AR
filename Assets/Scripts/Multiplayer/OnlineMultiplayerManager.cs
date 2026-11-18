@@ -807,7 +807,7 @@ namespace MechChess.Multiplayer
             }
         }
 
-        private void AlignCameraForBlackPlayer()
+        public void AlignCameraForBlackPlayer()
         {
             var touch = Camera.main != null ? Camera.main.GetComponent<MechChess.Mobile.MobileTouchInput>() : null;
             if (touch != null)
