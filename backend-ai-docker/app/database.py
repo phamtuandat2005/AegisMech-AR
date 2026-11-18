@@ -108,6 +108,7 @@ async def init_db():
     """
     Initializes database tables and verifies connection health.
     """
+    global engine, AsyncSessionLocal
     target_info = "Supabase PostgreSQL" if IS_SUPABASE else ("Local SQLite" if IS_SQLITE else "PostgreSQL")
     logger.info(f"[Database] Connecting to {target_info}...")
 
@@ -133,6 +134,21 @@ async def init_db():
             await migrate_legacy_json_accounts(session)
 
     except Exception as e:
-        logger.error(f"[Database] Failed to connect/initialize database: {e}")
-        # Does not crash process; callers can handle connection unavailability
-        raise
+        logger.error(f"[Database] Failed to connect/initialize remote database ({e}).")
+        logger.warning("[Database] Activating automatic resilient local SQLite fallback engine...")
+        try:
+            local_db = BASE_DIR / "app" / "mech_chess.db"
+            fallback_url = f"sqlite+aiosqlite:///{local_db.as_posix()}"
+            engine = create_async_engine(fallback_url, connect_args={"check_same_thread": False})
+            AsyncSessionLocal = async_sessionmaker(
+                bind=engine,
+                class_=AsyncSession,
+                expire_on_commit=False,
+                autoflush=False
+            )
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("[Database] Resilient local SQLite fallback engine active and ready!")
+        except Exception as fb_err:
+            logger.error(f"[Database] Fatal fallback error: {fb_err}")
+            raise
