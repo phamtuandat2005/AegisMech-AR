@@ -524,6 +524,16 @@ namespace MechChess.Chess3D
                 if (_selectedPiece == null && piece.pieceColor != online.MyRole) return;
             }
 
+            // Lichess Online turn & role enforcement
+            if (MechChess.Multiplayer.LichessBridge.Instance != null 
+                && MechChess.Multiplayer.LichessBridge.Instance.IsInLichessMatch)
+            {
+                var lichess = MechChess.Multiplayer.LichessBridge.Instance;
+                PieceColor myLichessColor = lichess.IsPlayerWhite ? PieceColor.White : PieceColor.Black;
+                if (currentTurn != myLichessColor) return;
+                if (_selectedPiece == null && piece.pieceColor != myLichessColor) return;
+            }
+
             // VS AI turn enforcement (prevent player from moving opponent AI pieces)
             if (isVsAI)
             {
@@ -611,6 +621,15 @@ namespace MechChess.Chess3D
             {
                 var online = MechChess.Multiplayer.OnlineMultiplayerManager.Instance;
                 if (currentTurn != online.MyRole) return;
+            }
+
+            // Lichess Online turn enforcement
+            if (MechChess.Multiplayer.LichessBridge.Instance != null 
+                && MechChess.Multiplayer.LichessBridge.Instance.IsInLichessMatch)
+            {
+                var lichess = MechChess.Multiplayer.LichessBridge.Instance;
+                PieceColor myLichessColor = lichess.IsPlayerWhite ? PieceColor.White : PieceColor.Black;
+                if (currentTurn != myLichessColor) return;
             }
 
             // VS AI turn enforcement

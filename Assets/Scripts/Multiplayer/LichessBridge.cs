@@ -162,9 +162,9 @@ namespace MechChess.Multiplayer
         /// <summary>
         /// Seeks a live match against a real human player online on Lichess.org.
         /// </summary>
-        public void SeekHumanMatch(int timeMinutes = 10, int incrementSec = 0, Action<bool, string> onComplete = null)
+        public void SeekHumanMatch(int timeMinutes = 10, int incrementSec = 0, int targetElo = 400, Action<bool, string> onComplete = null)
         {
-            StartCoroutine(SeekMatchRoutine(timeMinutes, incrementSec, onComplete));
+            StartCoroutine(SeekMatchRoutine(timeMinutes, incrementSec, targetElo, onComplete));
         }
 
         /// <summary>
@@ -176,7 +176,7 @@ namespace MechChess.Multiplayer
             StartCoroutine(ChallengeAiRoutine(aiLevel, onComplete));
         }
 
-        private IEnumerator SeekMatchRoutine(int timeMinutes, int incrementSec, Action<bool, string> onComplete)
+        private IEnumerator SeekMatchRoutine(int timeMinutes, int incrementSec, int targetElo, Action<bool, string> onComplete)
         {
             string token = GetSavedToken();
             if (string.IsNullOrEmpty(token))
@@ -190,6 +190,13 @@ namespace MechChess.Multiplayer
             form.AddField("time", timeMinutes);
             form.AddField("increment", incrementSec);
             form.AddField("rated", "false"); // Unrated for third-party client play
+
+            if (targetElo >= 600)
+            {
+                int minRating = Mathf.Max(600, targetElo - 300);
+                int maxRating = targetElo + 300;
+                form.AddField("ratingRange", $"{minRating}-{maxRating}");
+            }
 
             using (UnityWebRequest req = UnityWebRequest.Post(url, form))
             {
@@ -306,18 +313,70 @@ namespace MechChess.Multiplayer
                     string text = req.downloadHandler.text;
                     if (!string.IsNullOrEmpty(text) && text.Contains("\"gameStart\""))
                     {
+                        string gid = "";
+                        string oppName = "Lichess Opponent";
+                        int oppElo = 400;
+                        bool playerIsWhite = true;
+
                         // Parse game ID
                         int idx = text.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase);
                         if (idx > 0)
                         {
                             string sub = text.Substring(idx + 6);
                             int end = sub.IndexOf("\"");
+                            if (end > 0) gid = sub.Substring(0, end);
+                        }
+
+                        // Parse assigned color
+                        int idxCol = text.IndexOf("\"color\":\"", StringComparison.OrdinalIgnoreCase);
+                        if (idxCol > 0)
+                        {
+                            string sub = text.Substring(idxCol + 9);
+                            int end = sub.IndexOf("\"");
                             if (end > 0)
                             {
-                                string gid = sub.Substring(0, end);
-                                StartGameSession(gid, true, "Lichess Player", 400);
-                                yield break;
+                                string col = sub.Substring(0, end).ToLower();
+                                playerIsWhite = (col == "white");
                             }
+                        }
+
+                        // Parse opponent name & rating
+                        int idxOpp = text.IndexOf("\"opponent\":", StringComparison.OrdinalIgnoreCase);
+                        if (idxOpp > 0)
+                        {
+                            string subOpp = text.Substring(idxOpp);
+                            int endOpp = subOpp.IndexOf("}");
+                            if (endOpp > 0)
+                            {
+                                string oppBlock = subOpp.Substring(0, endOpp);
+                                int idxUname = oppBlock.IndexOf("\"username\":\"", StringComparison.OrdinalIgnoreCase);
+                                if (idxUname < 0) idxUname = oppBlock.IndexOf("\"name\":\"", StringComparison.OrdinalIgnoreCase);
+                                if (idxUname > 0)
+                                {
+                                    int uStart = oppBlock.IndexOf("\"", idxUname + 6) + 1;
+                                    int uEnd = oppBlock.IndexOf("\"", uStart);
+                                    if (uEnd > uStart) oppName = oppBlock.Substring(uStart, uEnd - uStart);
+                                }
+
+                                int idxRating = oppBlock.IndexOf("\"rating\":", StringComparison.OrdinalIgnoreCase);
+                                if (idxRating > 0)
+                                {
+                                    string rSub = oppBlock.Substring(idxRating + 9).Trim();
+                                    string digits = "";
+                                    foreach (char c in rSub)
+                                    {
+                                        if (char.IsDigit(c)) digits += c;
+                                        else break;
+                                    }
+                                    if (int.TryParse(digits, out int r)) oppElo = r;
+                                }
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(gid))
+                        {
+                            StartGameSession(gid, playerIsWhite, oppName, oppElo);
+                            yield break;
                         }
                     }
                     yield return new WaitForSeconds(0.5f);
@@ -330,7 +389,7 @@ namespace MechChess.Multiplayer
             string token = GetSavedToken();
             string url = $"{LichessApiBase}/board/game/stream/{gameId}";
 
-            while (IsInLichessMatch)
+            while (IsInLichessMatch && !string.IsNullOrEmpty(ActiveGameId))
             {
                 using (UnityWebRequest req = UnityWebRequest.Get(url))
                 {
@@ -338,13 +397,33 @@ namespace MechChess.Multiplayer
                     {
                         req.SetRequestHeader("Authorization", "Bearer " + token);
                     }
-                    req.timeout = 8;
-                    yield return req.SendWebRequest();
+                    req.downloadHandler = new DownloadHandlerBuffer();
+                    var op = req.SendWebRequest();
 
-                    if (req.result == UnityWebRequest.Result.Success)
+                    int processedBytes = 0;
+                    while (!op.isDone && IsInLichessMatch)
                     {
-                        string data = req.downloadHandler.text;
-                        ProcessStreamChunk(data);
+                        if (req.downloadHandler != null && req.downloadHandler.data != null)
+                        {
+                            int currentLen = req.downloadHandler.data.Length;
+                            if (currentLen > processedBytes)
+                            {
+                                string chunk = Encoding.UTF8.GetString(req.downloadHandler.data, processedBytes, currentLen - processedBytes);
+                                processedBytes = currentLen;
+                                ProcessStreamChunk(chunk);
+                            }
+                        }
+                        yield return new WaitForSeconds(0.2f);
+                    }
+
+                    if (req.downloadHandler != null && req.downloadHandler.data != null)
+                    {
+                        int currentLen = req.downloadHandler.data.Length;
+                        if (currentLen > processedBytes)
+                        {
+                            string chunk = Encoding.UTF8.GetString(req.downloadHandler.data, processedBytes, currentLen - processedBytes);
+                            ProcessStreamChunk(chunk);
+                        }
                     }
                 }
                 yield return new WaitForSeconds(1.0f);
