@@ -269,6 +269,32 @@ namespace MechChess.Multiplayer
             catch (Exception ex)
             {
                 Debug.LogWarning($"[OnlineMultiplayer] Lobby connection failed: {ex.Message}");
+                // If connecting with token failed (e.g. invalid/expired JWT), retry immediately without token parameter
+                if (!string.IsNullOrEmpty(tokenParam))
+                {
+                    try
+                    {
+                        Debug.Log("[OnlineMultiplayer] Retrying Lobby connection without AuthToken parameter...");
+                        _lobbyWebSocket?.Dispose();
+                        _lobbyWebSocket = new ClientWebSocket();
+                        string fallbackUri = $"{cleanHost}/ws/lobby/{Uri.EscapeDataString(playerName)}";
+                        await _lobbyWebSocket.ConnectAsync(new Uri(fallbackUri), _lobbyCts.Token);
+                        Debug.Log($"[OnlineMultiplayer] Connected to Lobby WebSocket without token as '{playerName}'");
+                        _reconnectDelay = 2.0f;
+                        _ = ReceiveLobbyLoop(_lobbyWebSocket, _lobbyCts.Token);
+                        _ = SendHeartbeatLoop(_lobbyWebSocket, _lobbyCts.Token);
+                        if (IsSearchingMatch)
+                        {
+                            _ = SendRawLobbyJson("{\"type\":\"find_match\",\"time_control\":\"10 + 0\"}");
+                        }
+                        return;
+                    }
+                    catch (Exception fallbackEx)
+                    {
+                        Debug.LogWarning($"[OnlineMultiplayer] Fallback lobby connection also failed: {fallbackEx.Message}");
+                    }
+                }
+
                 if (!_manualDisconnect && !_isSuperseded)
                 {
                     _ = ScheduleLobbyReconnect();

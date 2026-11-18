@@ -108,7 +108,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"[Startup] Database initialization error or fallback: {e}")
     presence_manager.start_background_task()
+    matchmaking_task = asyncio.create_task(matchmaking_background_loop())
     yield
+    matchmaking_task.cancel()
     presence_manager.stop_background_task()
 
 app = FastAPI(
@@ -687,6 +689,47 @@ class RoomManager:
                 del self.rooms[room_id]
 
 room_manager = RoomManager()
+
+# ---------------------------------------------------------------------------
+# Authoritative Matchmaking Pairing & Background Loop
+# ---------------------------------------------------------------------------
+async def execute_match_pairing(p1: PresenceClient, p2: PresenceClient, room_id: str):
+    room_manager.get_or_create_room(room_id)
+    if random.random() > 0.5:
+        w, b = p1, p2
+    else:
+        w, b = p2, p1
+
+    for role, player, opp in [("white", w, b), ("black", b, w)]:
+        try:
+            await player.websocket.send_json({
+                "type": "match_found",
+                "room_id": room_id,
+                "role": role,
+                "opponent": opp.username,
+                "opponent_elo": opp.elo,
+                "time_control": player.time_control or "10 + 0"
+            })
+        except Exception as e:
+            logger.warning(f"[Matchmaking] Failed to notify {player.username}: {e}")
+
+    logger.info(f"[Matchmaking] Paired: {w.username} (White, Elo {w.elo}) vs {b.username} (Black, Elo {b.elo}) in Room {room_id}")
+    await presence_manager.broadcast_presence()
+
+
+async def matchmaking_background_loop():
+    logger.info("[Matchmaking] Background matcher loop running (1.5s interval).")
+    try:
+        while True:
+            await asyncio.sleep(1.5)
+            match = await presence_manager.try_match_players()
+            if match:
+                p1, p2, room_id = match
+                await execute_match_pairing(p1, p2, room_id)
+    except asyncio.CancelledError:
+        logger.info("[Matchmaking] Background matcher loop stopped.")
+    except Exception as e:
+        logger.error(f"[Matchmaking] Background matcher error: {e}")
 
 # ---------------------------------------------------------------------------
 # Account & Authentication Manager (Gmail Login & Unique Alphanumeric Usernames)
@@ -1613,19 +1656,15 @@ def get_active_rooms():
 async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = "", token: Optional[str] = None):
     lower_name = username.lower()
 
-    # Cryptographic JWT Token verification on WebSocket handshake
+    # Cryptographic JWT Token verification on WebSocket handshake (tolerant fallback to guest)
     if token:
         try:
             payload = decode_access_token(token)
             token_user = (payload.get("sub") or payload.get("username") or "").lower()
-            if token_user != lower_name:
-                logger.warning(f"[Security WS] Token mismatch: requested '{lower_name}' vs token '{token_user}'")
-                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-                return
+            if token_user and token_user != lower_name:
+                logger.warning(f"[Security WS] Token mismatch: requested '{lower_name}' vs token '{token_user}'. Proceeding with '{lower_name}'.")
         except Exception as e:
-            logger.warning(f"[Security WS] Invalid token on lobby connection: {e}")
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
+            logger.warning(f"[Security WS] Invalid or expired token on lobby connection for '{lower_name}': {e}. Falling back to guest access.")
 
     await websocket.accept()
 
@@ -1682,30 +1721,7 @@ async def lobby_ws(websocket: WebSocket, username: str, gmail: Optional[str] = "
                     match = await presence_manager.try_match_players()
                     if match:
                         p1, p2, room_id = match
-                        room_manager.get_or_create_room(room_id)
-                        if random.random() > 0.5:
-                            w, b = p1, p2
-                        else:
-                            w, b = p2, p1
-
-                        await w.websocket.send_json({
-                            "type": "match_found",
-                            "room_id": room_id,
-                            "role": "white",
-                            "opponent": b.username,
-                            "opponent_elo": b.elo,
-                            "time_control": w.time_control
-                        })
-                        await b.websocket.send_json({
-                            "type": "match_found",
-                            "room_id": room_id,
-                            "role": "black",
-                            "opponent": w.username,
-                            "opponent_elo": w.elo,
-                            "time_control": w.time_control
-                        })
-                        logger.info(f"[Matchmaking] Matched: {w.username} (White) vs {b.username} (Black) in room {room_id}")
-                        await presence_manager.broadcast_presence()
+                        await execute_match_pairing(p1, p2, room_id)
 
             elif msg_type == "cancel_match":
                 await presence_manager.remove_from_queue(display_name)

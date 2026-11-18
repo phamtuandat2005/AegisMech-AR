@@ -571,8 +571,12 @@
       }
     }
 
+    let lobbyPingInterval = null;
+    let isQueuing = false;
+
     // Connect Lobby WebSocket
-    function connectLobby() {
+    function connectLobby(onOpenCallback) {
+      if (lobbyPingInterval) clearInterval(lobbyPingInterval);
       const host = window.location.host;
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${proto}//${host}/ws/lobby/${encodeURIComponent(myName)}`;
@@ -584,6 +588,17 @@
       lobbyWs.onopen = () => {
         document.getElementById('conn-status').textContent = 'Trực Tuyến';
         document.querySelector('.badge-live').style.borderColor = '#10b981';
+
+        // Keepalive heartbeat ping every 10s to prevent 30s timeout disconnect
+        lobbyPingInterval = setInterval(() => {
+          if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+            lobbyWs.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 10000);
+
+        if (typeof onOpenCallback === 'function') {
+          onOpenCallback();
+        }
       };
 
       lobbyWs.onmessage = (event) => {
@@ -594,13 +609,15 @@
       };
 
       lobbyWs.onclose = () => {
+        if (lobbyPingInterval) clearInterval(lobbyPingInterval);
         document.getElementById('conn-status').textContent = 'Mất kết nối';
-        setTimeout(connectLobby, 3000);
+        setTimeout(() => connectLobby(), 3000);
       };
     }
 
     function handleLobbyMessage(data) {
       if (data.type === 'match_found') {
+        isQueuing = false;
         clearInterval(queueInterval);
         document.getElementById('modal-matchmaking').style.display = 'none';
 
@@ -662,14 +679,17 @@
 
     function startQueue() {
       const inputVal = document.getElementById('username-input').value.trim();
+      const oldName = myName;
       if (inputVal) {
         myName = inputVal;
         localStorage.setItem('aegis_web_name', myName);
       }
+      isQueuing = true;
 
       document.getElementById('mm-input-view').style.display = 'none';
       document.getElementById('mm-searching-view').style.display = 'block';
 
+      if (queueInterval) clearInterval(queueInterval);
       queueSeconds = 0;
       queueInterval = setInterval(() => {
         queueSeconds++;
@@ -678,15 +698,31 @@
         document.getElementById('queue-timer').textContent = `${m}:${s}`;
       }, 1000);
 
-      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
-        lobbyWs.send(JSON.stringify({
-          type: 'find_match',
-          time_control: '10 + 0'
-        }));
+      const sendFindMatch = () => {
+        if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+          lobbyWs.send(JSON.stringify({
+            type: 'find_match',
+            time_control: '10 + 0'
+          }));
+        }
+      };
+
+      if (!lobbyWs || lobbyWs.readyState !== WebSocket.OPEN || oldName !== myName) {
+        if (lobbyWs) {
+          try { lobbyWs.close(); } catch(e) {}
+        }
+        connectLobby(() => {
+          if (isQueuing) {
+            sendFindMatch();
+          }
+        });
+      } else {
+        sendFindMatch();
       }
     }
 
     function cancelQueue() {
+      isQueuing = false;
       clearInterval(queueInterval);
       if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
         lobbyWs.send(JSON.stringify({ type: 'cancel_match' }));

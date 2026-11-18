@@ -246,11 +246,26 @@ class PresenceManager:
         """
         Attempts to pair 2 compatible players:
         - Base ELO range: ±150.
-        - Expands by ±50 ELO every 5 seconds of queue wait time.
-        - After 15 seconds, matches with any available opponent (FIFO fallback).
+        - Expands by ±100 ELO every 3 seconds of queue wait time.
+        - After 5 seconds, matches with any available opponent (rapid pairing fallback).
         - Prevents self-matching.
         """
         async with self._lock:
+            # Clean up disconnected or non-searching sockets from queue
+            valid_queue = []
+            for key in self.matchmaking_queue:
+                c = self.clients.get(key)
+                if c and c.status == PlayerStatus.SEARCHING:
+                    try:
+                        # Check socket state if available
+                        if getattr(c.websocket, "client_state", None) is not None:
+                            if c.websocket.client_state.name != "CONNECTED":
+                                continue
+                    except Exception:
+                        continue
+                    valid_queue.append(key)
+            self.matchmaking_queue = valid_queue
+
             if len(self.matchmaking_queue) < 2:
                 return None
 
@@ -265,8 +280,7 @@ class PresenceManager:
                     continue
 
                 wait1 = now - p1.queue_time
-                # Adaptive tolerance: 150 + 50 * (seconds / 5)
-                elo_window1 = 150 + int(wait1 / 5.0) * 50
+                elo_window1 = 150 + int(wait1 / 3.0) * 100
 
                 for j in range(i + 1, n):
                     p2_key = self.matchmaking_queue[j]
@@ -278,16 +292,18 @@ class PresenceManager:
                         continue
 
                     wait2 = now - p2.queue_time
-                    elo_window2 = 150 + int(wait2 / 5.0) * 50
+                    elo_window2 = 150 + int(wait2 / 3.0) * 100
                     max_allowed_diff = max(elo_window1, elo_window2)
 
                     elo_diff = abs(p1.elo - p2.elo)
 
-                    # Either within adaptive ELO window or waited > 15s (FIFO fallback)
-                    if elo_diff <= max_allowed_diff or wait1 >= 15.0 or wait2 >= 15.0:
+                    # Either within adaptive ELO window or waited >= 5s (Rapid pairing fallback)
+                    if elo_diff <= max_allowed_diff or wait1 >= 5.0 or wait2 >= 5.0:
                         # Match Found! Atomically remove both from queue
-                        self.matchmaking_queue.remove(p1_key)
-                        self.matchmaking_queue.remove(p2_key)
+                        if p1_key in self.matchmaking_queue:
+                            self.matchmaking_queue.remove(p1_key)
+                        if p2_key in self.matchmaking_queue:
+                            self.matchmaking_queue.remove(p2_key)
 
                         room_id = f"MATCH_{uuid.uuid4().hex[:8].upper()}"
                         p1.status = PlayerStatus.IN_GAME
