@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AegisMech AR - Web Chess Deck</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(16, 26, 46, 0.95);
+      --cyan: #00e5ff;
+      --gold: #ffd700;
+      --text: #e0f2fe;
+      --text-muted: #94a3b8;
+      --board-light: #e2e8f0;
+      --board-dark: #475569;
+      --highlight: rgba(0, 229, 255, 0.45);
+      --dot: rgba(0, 229, 255, 0.7);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body {
+      background: radial-gradient(circle at 50% 20%, #172554, #0b0f19 80%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 12px;
+      overflow-x: hidden;
+    }
+    header {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: var(--card-bg);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 20px rgba(0, 229, 255, 0.15);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-icon {
+      font-size: 24px;
+      color: var(--cyan);
+    }
+    .brand-title {
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: 1px;
+      color: #fff;
+    }
+    .brand-title span { color: var(--cyan); }
+    .badge-live {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid #10b981;
+      color: #10b981;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+
+    .player-bar {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 14px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      margin-bottom: 6px;
+    }
+    .player-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      border: 2px solid var(--cyan);
+    }
+    .p-name { font-size: 14px; font-weight: 700; color: #fff; }
+    .p-elo { font-size: 12px; color: var(--gold); }
+    .p-clock {
+      font-family: monospace;
+      font-size: 18px;
+      font-weight: bold;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .p-clock.active {
+      color: var(--cyan);
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+    }
+
+    #board-container {
+      width: 100%;
+      max-width: 520px;
+      aspect-ratio: 1 / 1;
+      position: relative;
+      background: #0f172a;
+      border: 3px solid rgba(0, 229, 255, 0.4);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      width: 100%;
+      height: 100%;
+    }
+    .square {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(28px, 9vw, 48px);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .square.light { background-color: #cbd5e1; color: #0f172a; }
+    .square.dark { background-color: #475569; color: #0f172a; }
+    .square.selected { background-color: rgba(250, 204, 21, 0.7) !important; }
+    .square.last-move { background-color: rgba(0, 229, 255, 0.45) !important; }
+    .piece {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+    }
+    .piece.white { color: #f8fafc; text-shadow: 0 0 2px #000, 0 0 8px rgba(255,255,255,0.6); }
+    .piece.black { color: #020617; text-shadow: 0 0 2px #fff, 0 0 6px rgba(0,0,0,0.8); }
+    .dot-hint {
+      position: absolute;
+      width: 26%;
+      height: 26%;
+      background: rgba(0, 229, 255, 0.75);
+      border-radius: 50%;
+      pointer-events: none;
+      box-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
+    }
+
+    /* Modal / Overlay for Matchmaking & Results */
+    .overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(5, 10, 20, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .modal-card {
+      background: var(--card-bg);
+      border: 1px solid var(--cyan);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 420px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0, 229, 255, 0.25);
+    }
+    .modal-card h2 {
+      font-size: 20px;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+    .modal-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .radar-circle {
+      width: 90px;
+      height: 90px;
+      margin: 16px auto;
+      border: 2px dashed var(--cyan);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      animation: spin 6s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    .btn {
+      width: 100%;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #000;
+      box-shadow: 0 4px 15px rgba(245, 158, 11, 0.35);
+    }
+    .btn-gold:hover { transform: translateY(-2px); filter: brightness(1.1); }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--text-muted);
+      margin-top: 10px;
+    }
+    .input-field {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 15px;
+      margin-bottom: 16px;
+      outline: none;
+    }
+    .input-field:focus { border-color: var(--cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.3); }
+
+    .bottom-bar {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      gap: 10px;
+    }
+    .status-text {
+      font-size: 13px;
+      color: var(--cyan);
+      font-weight: 600;
+    }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(15, 23, 42, 0.8);
+      color: #fff;
+      cursor: pointer;
+    }
+    .btn-sm:hover { border-color: var(--cyan); color: var(--cyan); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span class="brand-icon">⚔️</span>
+      <div class="brand-title">AEGIS<span>MECH</span> WEB DECK</div>
+    </div>
+    <div class="badge-live">
+      <span class="pulse-dot"></span>
+      <span id="conn-status">Đang kết nối...</span>
+    </div>
+  </header>
+
+  <!-- Đối thủ -->
+  <div class="player-bar" id="opponent-bar">
+    <div class="player-info">
+      <div class="avatar" id="opp-avatar">🤖</div>
+      <div>
+        <div class="p-name" id="opp-name">Đang chờ đối thủ...</div>
+        <div class="p-elo" id="opp-elo">Elo: ---</div>
+      </div>
+    </div>
+    <div class="p-clock" id="opp-clock">10:00</div>
+  </div>
+
+  <!-- Bàn cờ 8x8 -->
+  <div id="board-container">
+    <div id="board"></div>
+  </div>
+
+  <!-- Bạn -->
+  <div class="player-bar" id="my-bar" style="margin-top: 6px;">
+    <div class="player-info">
+      <div class="avatar" id="my-avatar">🎮</div>
+      <div>
+        <div class="p-name" id="my-name">Khách Web</div>
+        <div class="p-elo" id="my-elo">Elo: 400</div>
+      </div>
+    </div>
+    <div class="p-clock" id="my-clock">10:00</div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="status-text" id="game-status">Sẵn sàng tìm trận</div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn-sm" id="btn-find" onclick="openMatchmakingModal()">🔍 Tìm Trận</button>
+      <button class="btn-sm" id="btn-resign" onclick="resignMatch()" style="display: none; color: #ef4444; border-color: #ef4444;">Đầu hàng</button>
+    </div>
+  </div>
+
+  <!-- Modal Tìm Trận -->
+  <div class="overlay" id="modal-matchmaking" style="display: none;">
+    <div class="modal-card">
+      <h2 id="mm-title">TÌM ĐỐI THỦ ONLINE</h2>
+      <p id="mm-subtitle">Ghép trận thời gian thực với người chơi Unity hoặc Web khác trên server!</p>
+      
+      <div id="mm-input-view">
+        <input type="text" id="username-input" class="input-field" placeholder="Nhập tên của bạn (vd: WebHero)" value="WebPlayer">
+        <button class="btn btn-gold" onclick="startQueue()">BẮT ĐẦU TÌM TRẬN</button>
+        <button class="btn btn-outline" onclick="closeMatchmakingModal()">HỦY</button>
+      </div>
+
+      <div id="mm-searching-view" style="display: none;">
+        <div class="radar-circle">📡</div>
+        <h3 id="queue-timer" style="color: var(--cyan); margin-bottom: 8px;">00:00</h3>
+        <p>Đang quét hàng chờ người chơi online...</p>
+        <button class="btn btn-outline" onclick="cancelQueue()">HỦY TÌM TRẬN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Kết Thúc Trận -->
+  <div class="overlay" id="modal-result" style="display: none;">
+    <div class="modal-card">
+      <h2 id="result-title" style="font-size: 26px; color: var(--gold);">CHIẾN THẮNG!</h2>
+      <p id="result-desc" style="font-size: 15px; color: #fff; margin: 12px 0;">Đối thủ đã bị chiếu bí!</p>
+      <div style="background: rgba(0,0,0,0.4); padding: 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-around;">
+          <div>
+            <div style="font-size: 12px; color: var(--text-muted);">ĐIỂM ELO</div>
+            <div id="result-elo" style="font-size: 20px; font-weight: bold; color: #10b981;">+8</div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: var(--text-muted);">VÀNG THƯỞNG</div>
+            <div id="result-gold" style="font-size: 20px; font-weight: bold; color: var(--gold);">+100 🪙</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-gold" onclick="closeResultModalAndQueue()">CHƠI TRẬN MỚI</button>
+    </div>
+  </div>
+
+  <script>
+    // Chess Pieces Representation
+    const PIECES = {
+      'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',
+      'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚'
+    };
+
+    // State
+    let myRole = 'white'; // 'white' or 'black'
+    let myName = localStorage.getItem('aegis_web_name') || 'WebPlayer_' + Math.floor(1000 + Math.random()*9000);
+    let myElo = 400;
+    let oppName = '';
+    let oppElo = 400;
+    let currentRoomId = '';
+    let isMyTurn = false;
+    let selectedSquare = null;
+    let legalMovesForSelected = [];
+    let matchActive = false;
+
+    // Board representation 8x8
+    let boardState = [
+      ['r','n','b','q','k','b','n','r'],
+      ['p','p','p','p','p','p','p','p'],
+      ['.','.','.','.','.','.','.','.'],
+      ['.','.','.','.','.','.','.','.'],
+      ['.','.','.','.','.','.','.','.'],
+      ['.','.','.','.','.','.','.','.'],
+      ['P','P','P','P','P','P','P','P'],
+      ['R','N','B','Q','K','B','N','R']
+    ];
+
+    let lobbyWs = null;
+    let matchWs = null;
+    let queueInterval = null;
+    let queueSeconds = 0;
+
+    // Sounds using Web Audio API
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playBeep(freq = 440, type = 'sine', duration = 0.1) {
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
+    function initBoardUI() {
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+      
+      const isFlipped = (myRole === 'black');
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const row = isFlipped ? (7 - r) : r;
+          const col = isFlipped ? (7 - c) : c;
+          const square = document.createElement('div');
+          const isLight = (row + col) % 2 === 0;
+          square.className = `square ${isLight ? 'light' : 'dark'}`;
+          square.dataset.row = row;
+          square.dataset.col = col;
+          square.dataset.coord = toCoord(row, col);
+
+          const pieceChar = boardState[row][col];
+          if (pieceChar !== '.') {
+            const pieceEl = document.createElement('div');
+            const isWhitePiece = pieceChar === pieceChar.toUpperCase();
+            pieceEl.className = `piece ${isWhitePiece ? 'white' : 'black'}`;
+            pieceEl.textContent = PIECES[pieceChar];
+            square.appendChild(pieceEl);
+          }
+
+          square.onclick = () => onSquareClick(row, col);
+          boardEl.appendChild(square);
+        }
+      }
+    }
+
+    function toCoord(r, c) {
+      const file = String.fromCharCode('a'.charCodeAt(0) + c);
+      const rank = 8 - r;
+      return `${file}${rank}`;
+    }
+
+    function fromCoord(coord) {
+      const c = coord.charCodeAt(0) - 'a'.charCodeAt(0);
+      const r = 8 - parseInt(coord[1]);
+      return { r, c };
+    }
+
+    function onSquareClick(r, c) {
+      if (!matchActive) return;
+      if (!isMyTurn) {
+        document.getElementById('game-status').textContent = 'Chưa tới lượt bạn! Đang chờ đối thủ...';
+        return;
+      }
+
+      const clickedPiece = boardState[r][c];
+      const isMyPiece = (myRole === 'white') 
+        ? (clickedPiece !== '.' && clickedPiece === clickedPiece.toUpperCase())
+        : (clickedPiece !== '.' && clickedPiece === clickedPiece.toLowerCase());
+
+      // If clicked own piece, select it
+      if (isMyPiece) {
+        selectedSquare = { r, c };
+        highlightSelected(r, c);
+        return;
+      }
+
+      // If already selected, try to move to clicked target
+      if (selectedSquare) {
+        executeMove(selectedSquare.r, selectedSquare.c, r, c);
+      }
+    }
+
+    function highlightSelected(r, c) {
+      document.querySelectorAll('.square').forEach(sq => {
+        sq.classList.remove('selected');
+        const hint = sq.querySelector('.dot-hint');
+        if (hint) hint.remove();
+      });
+
+      const selectedEl = document.querySelector(`[data-coord="${toCoord(r, c)}"]`);
+      if (selectedEl) selectedEl.classList.add('selected');
+    }
+
+    function executeMove(fromR, fromC, toR, toC) {
+      const fromCoordStr = toCoord(fromR, fromC);
+      const toCoordStr = toCoord(toR, toC);
+      const notation = `${fromCoordStr}${toCoordStr}`;
+
+      // Move piece in state
+      const movingPiece = boardState[fromR][fromC];
+      boardState[toR][toC] = movingPiece;
+      boardState[fromR][fromC] = '.';
+      selectedSquare = null;
+      isMyTurn = false;
+
+      playBeep(520, 'triangle', 0.12);
+      initBoardUI();
+      updateTurnStatus();
+
+      // Send to WebSocket match
+      if (matchWs && matchWs.readyState === WebSocket.OPEN) {
+        matchWs.send(JSON.stringify({
+          type: 'move',
+          from: fromCoordStr,
+          to: toCoordStr,
+          notation: notation
+        }));
+      }
+    }
+
+    function applyOpponentMove(fromStr, toStr) {
+      const from = fromCoord(fromStr);
+      const to = fromCoord(toStr);
+      boardState[to.r][to.c] = boardState[from.r][from.c];
+      boardState[from.r][from.c] = '.';
+      isMyTurn = true;
+
+      playBeep(420, 'square', 0.15);
+      initBoardUI();
+      updateTurnStatus();
+    }
+
+    function updateTurnStatus() {
+      const statusEl = document.getElementById('game-status');
+      const myClockEl = document.getElementById('my-clock');
+      const oppClockEl = document.getElementById('opp-clock');
+
+      if (!matchActive) {
+        statusEl.textContent = 'Trận đấu chưa bắt đầu.';
+        myClockEl.classList.remove('active');
+        oppClockEl.classList.remove('active');
+        return;
+      }
+
+      if (isMyTurn) {
+        statusEl.textContent = '>> ĐẾN LƯỢT BẠN ĐI QUÂN <<';
+        statusEl.style.color = 'var(--cyan)';
+        myClockEl.classList.add('active');
+        oppClockEl.classList.remove('active');
+      } else {
+        statusEl.textContent = 'Đối thủ đang suy nghĩ...';
+        statusEl.style.color = 'var(--text-muted)';
+        myClockEl.classList.remove('active');
+        oppClockEl.classList.add('active');
+      }
+    }
+
+    // Connect Lobby WebSocket
+    function connectLobby() {
+      const host = window.location.host;
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${host}/ws/lobby/${encodeURIComponent(myName)}`;
+
+      document.getElementById('conn-status').textContent = 'Đang kết nối...';
+
+      lobbyWs = new WebSocket(wsUrl);
+
+      lobbyWs.onopen = () => {
+        document.getElementById('conn-status').textContent = 'Trực Tuyến';
+        document.querySelector('.badge-live').style.borderColor = '#10b981';
+      };
+
+      lobbyWs.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleLobbyMessage(data);
+        } catch(e) {}
+      };
+
+      lobbyWs.onclose = () => {
+        document.getElementById('conn-status').textContent = 'Mất kết nối';
+        setTimeout(connectLobby, 3000);
+      };
+    }
+
+    function handleLobbyMessage(data) {
+      if (data.type === 'match_found') {
+        clearInterval(queueInterval);
+        document.getElementById('modal-matchmaking').style.display = 'none';
+
+        currentRoomId = data.room_id;
+        myRole = data.role; // 'white' or 'black'
+        oppName = data.opponent || 'Unity Player';
+        oppElo = data.opponent_elo || 400;
+
+        document.getElementById('opp-name').textContent = oppName;
+        document.getElementById('opp-elo').textContent = `Elo: ${oppElo}`;
+        document.getElementById('my-name').textContent = myName;
+        document.getElementById('my-elo').textContent = `Elo: ${myElo}`;
+
+        isMyTurn = (myRole === 'white');
+        matchActive = true;
+
+        document.getElementById('btn-find').style.display = 'none';
+        document.getElementById('btn-resign').style.display = 'inline-block';
+
+        initBoardUI();
+        updateTurnStatus();
+        connectMatchWs(currentRoomId);
+      }
+    }
+
+    function connectMatchWs(roomId) {
+      const host = window.location.host;
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${host}/ws/chess/${encodeURIComponent(roomId)}?name=${encodeURIComponent(myName)}`;
+
+      matchWs = new WebSocket(wsUrl);
+
+      matchWs.onopen = () => {
+        console.log("Connected to match room", roomId);
+      };
+
+      matchWs.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'opponent_move') {
+            applyOpponentMove(data.from, data.to);
+          } else if (data.type === 'match_end' || data.type === 'opponent_resigned') {
+            showResult(true, "Đối thủ đã đầu hàng!");
+          }
+        } catch(e) {}
+      };
+    }
+
+    function openMatchmakingModal() {
+      document.getElementById('username-input').value = myName;
+      document.getElementById('mm-input-view').style.display = 'block';
+      document.getElementById('mm-searching-view').style.display = 'none';
+      document.getElementById('modal-matchmaking').style.display = 'flex';
+    }
+
+    function closeMatchmakingModal() {
+      document.getElementById('modal-matchmaking').style.display = 'none';
+    }
+
+    function startQueue() {
+      const inputVal = document.getElementById('username-input').value.trim();
+      if (inputVal) {
+        myName = inputVal;
+        localStorage.setItem('aegis_web_name', myName);
+      }
+
+      document.getElementById('mm-input-view').style.display = 'none';
+      document.getElementById('mm-searching-view').style.display = 'block';
+
+      queueSeconds = 0;
+      queueInterval = setInterval(() => {
+        queueSeconds++;
+        const m = String(Math.floor(queueSeconds / 60)).padStart(2, '0');
+        const s = String(queueSeconds % 60).padStart(2, '0');
+        document.getElementById('queue-timer').textContent = `${m}:${s}`;
+      }, 1000);
+
+      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+        lobbyWs.send(JSON.stringify({
+          type: 'find_match',
+          time_control: '10 + 0'
+        }));
+      }
+    }
+
+    function cancelQueue() {
+      clearInterval(queueInterval);
+      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+        lobbyWs.send(JSON.stringify({ type: 'cancel_match' }));
+      }
+      closeMatchmakingModal();
+    }
+
+    function resignMatch() {
+      if (!confirm("Bạn có chắc chắn muốn đầu hàng không?")) return;
+      if (matchWs && matchWs.readyState === WebSocket.OPEN) {
+        matchWs.send(JSON.stringify({ type: 'resign' }));
+      }
+      showResult(false, "Bạn đã đầu hàng.");
+    }
+
+    function showResult(isWin, desc) {
+      matchActive = false;
+      document.getElementById('btn-find').style.display = 'inline-block';
+      document.getElementById('btn-resign').style.display = 'none';
+
+      const titleEl = document.getElementById('result-title');
+      const eloEl = document.getElementById('result-elo');
+      const goldEl = document.getElementById('result-gold');
+
+      if (isWin) {
+        titleEl.textContent = 'CHIẾN THẮNG!';
+        titleEl.style.color = 'var(--gold)';
+        eloEl.textContent = '+8';
+        eloEl.style.color = '#10b981';
+        goldEl.textContent = '+100 🪙';
+        myElo += 8;
+      } else {
+        titleEl.textContent = 'THẤT BẠI!';
+        titleEl.style.color = '#ef4444';
+        eloEl.textContent = '-8';
+        eloEl.style.color = '#ef4444';
+        goldEl.textContent = '+20 🪙';
+        myElo = Math.max(0, myElo - 8);
+      }
+
+      document.getElementById('result-desc').textContent = desc;
+      document.getElementById('modal-result').style.display = 'flex';
+      playBeep(isWin ? 659 : 220, 'triangle', 0.4);
+    }
+
+    function closeResultModalAndQueue() {
+      document.getElementById('modal-result').style.display = 'none';
+      openMatchmakingModal();
+    }
+
+    window.onload = () => {
+      document.getElementById('my-name').textContent = myName;
+      initBoardUI();
+      connectLobby();
+    };
+  </script>
+</body>
+</html>

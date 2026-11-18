@@ -260,6 +260,11 @@ namespace MechChess.Multiplayer
                 _reconnectDelay = 2.0f;
                 _ = ReceiveLobbyLoop(_lobbyWebSocket, _lobbyCts.Token);
                 _ = SendHeartbeatLoop(_lobbyWebSocket, _lobbyCts.Token);
+
+                if (IsSearchingMatch)
+                {
+                    _ = SendRawLobbyJson("{\"type\":\"find_match\",\"time_control\":\"10 + 0\"}");
+                }
             }
             catch (Exception ex)
             {
@@ -353,12 +358,19 @@ namespace MechChess.Multiplayer
             if (!IsLobbyConnected)
             {
                 ConnectToLobby();
-                // Wait briefly for connection
-                await Task.Delay(300);
+                float waited = 0f;
+                while (!IsLobbyConnected && waited < 10f && IsSearchingMatch)
+                {
+                    await Task.Delay(250);
+                    waited += 0.25f;
+                }
             }
 
-            string payload = $"{{\"type\":\"find_match\",\"time_control\":\"{timeControl}\"}}";
-            await SendRawLobbyJson(payload);
+            if (IsLobbyConnected && IsSearchingMatch)
+            {
+                string payload = $"{{\"type\":\"find_match\",\"time_control\":\"{timeControl}\"}}";
+                await SendRawLobbyJson(payload);
+            }
 
             if (UIManager2D.Instance != null)
             {

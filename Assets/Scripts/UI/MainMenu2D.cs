@@ -7321,10 +7321,10 @@ namespace MechChess.UI
             lBtn.onClick.AddListener(() =>
             {
                 _onlineChoiceModal.SetActive(false);
-                if (LichessBridge.Instance != null)
+                if (LichessBridge.Instance != null && LichessBridge.Instance.HasToken)
                 {
-                    ShowToast(AegisLocalization.T("Đang kết nối Lichess.org...", "Connecting to Lichess.org..."), ToastType.Info);
-                    LichessBridge.Instance.ChallengeLichessAI(1, (ok, msg) =>
+                    ShowToast(AegisLocalization.T("Đang tìm đối thủ người thật trên Lichess.org...", "Seeking real human opponent on Lichess.org..."), ToastType.Info);
+                    LichessBridge.Instance.SeekHumanMatch(10, 0, (ok, msg) =>
                     {
                         ShowToast(msg, ok ? ToastType.Success : ToastType.Error);
                         if (ok) LaunchGame(GameLaunchMode.OnlineMultiplayer);
@@ -7332,7 +7332,8 @@ namespace MechChess.UI
                 }
                 else
                 {
-                    ShowToast(AegisLocalization.T("Đang kết nối Lichess Board API...", "Connecting to Lichess Board API..."), ToastType.Info);
+                    ShowToast(AegisLocalization.T("Cần Lichess Token để tìm người trên Lichess. Đang tìm đối thủ trên Server Aegis / Web...", "Lichess Token required! Finding opponent on Aegis Server / Web..."), ToastType.Info);
+                    ShowMatchmakingModal();
                 }
             });
             lBtnObj.AddComponent<MenuButtonEffect>();

@@ -16,6 +16,7 @@ import uuid
 import random
 import asyncio
 import urllib.parse
+from pathlib import Path
 import httpx
 from typing import Optional, List, Dict, Any, Tuple
 from contextlib import asynccontextmanager
@@ -509,7 +510,7 @@ async def web_play_route():
     Serves the live Web Chess deck for browsers on mobile and PC,
     allowing online players to matchmake and play directly against Unity/AR players.
     """
-    html_file = BASE_DIR / "app" / "web_play.html"
+    html_file = Path(__file__).resolve().parent / "web_play.html"
     if html_file.exists():
         return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
     return HTMLResponse(content="<h3>Web Chess Client not found.</h3>", status_code=404)
