@@ -1084,10 +1084,13 @@ async def google_callback(
             }
         return HTMLResponse(content=render_google_auth_html(False, f"Lỗi xác thực: {err_msg}"))
 
-    base_url = str(request.base_url).rstrip("/")
-    if request.headers.get("x-forwarded-proto") == "https":
-        base_url = base_url.replace("http://", "https://", 1)
-    callback_url = f"{base_url}/api/auth/google/callback"
+    # Canonical callback URL matching Google Cloud authorized redirect URI
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme or "https"
+    if "onrender.com" in host or "onrender.com" in str(request.base_url):
+        callback_url = "https://aegismech-ar.onrender.com/api/auth/google/callback"
+    else:
+        callback_url = f"{proto}://{host}/api/auth/google/callback"
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
