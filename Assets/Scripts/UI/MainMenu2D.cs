@@ -465,6 +465,21 @@ namespace MechChess.UI
             BuildAllScreens(false);
         }
 
+        private void OnEnable()
+        {
+            if (_instance == null) _instance = this;
+            if (_menuCanvasObj == null)
+            {
+                var strayCanvas = GameObject.Find("ArcaneMenuCanvas");
+                if (strayCanvas != null) Destroy(strayCanvas);
+                BuildAllScreens(true);
+                if (!_isInGameMatch)
+                {
+                    NavigateToHome();
+                }
+            }
+        }
+
         private void OnDestroy()
         {
             AegisLocalization.OnLanguageChanged -= OnLanguageChanged;

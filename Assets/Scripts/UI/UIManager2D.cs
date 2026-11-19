@@ -511,6 +511,21 @@ namespace MechChess.UI
             SetHUDVisible(false);
         }
 
+        private void OnEnable()
+        {
+            if (_instance == null) _instance = this;
+            if (_hudCanvasObj == null)
+            {
+                var strayCanvas = GameObject.Find("HUD_Canvas");
+                if (strayCanvas != null) Destroy(strayCanvas);
+                BuildHUD();
+                if (MainMenu2D.Instance != null && MainMenu2D.Instance.IsInGameMatch)
+                {
+                    SetHUDVisible(true);
+                }
+            }
+        }
+
         private void OnDestroy()
         {
             AegisLocalization.OnLanguageChanged -= RefreshLanguageHUD;
