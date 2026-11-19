@@ -2803,7 +2803,7 @@ namespace MechChess.UI
             descTxt.lineSpacing = 1.25f;
             descTxt.alignment = TextAnchor.MiddleCenter;
             descTxt.color = new Color(0.75f, 0.85f, 0.96f, 0.95f);
-            descTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            descTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             descTxt.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform dRt = descObj.GetComponent<RectTransform>();
             dRt.anchorMin = new Vector2(0.5f, 0f);
@@ -7027,15 +7027,15 @@ namespace MechChess.UI
                 "Đây là một trong những biến thể phổ biến và mạnh mẽ nhất của Phòng thủ Sicilian.\n\nĐặc trưng bởi nước đi 5...a6, ngăn chặn ô b5 của Trắng và chuẩn bị triển khai phản công cánh Hậu đầy uy lực.",
                 "One of the most popular and sharp variations of the Sicilian Defense.\n\nCharacterized by 5...a6, denying the b5 square to White and preparing powerful queenside counter-play.");
             bt.font = font;
-            bt.fontSize = 18;
+            bt.fontSize = 17;
             bt.lineSpacing = 1.35f;
             bt.alignment = TextAnchor.UpperLeft;
             bt.color = ColTextMuted;
-            bt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            bt.horizontalOverflow = HorizontalWrapMode.Wrap;
             bt.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform btRt = bodyTxtObj.GetComponent<RectTransform>();
-            btRt.anchoredPosition = new Vector2(0f, 50f);
-            btRt.sizeDelta = new Vector2(360f, 200f);
+            btRt.anchoredPosition = new Vector2(0f, 40f);
+            btRt.sizeDelta = new Vector2(360f, 220f);
 
             // [Xem tiếp] Button
             CreateMenuActionButton(descCard.transform, "BtnNextLesson", AegisLocalization.T("Xem tiếp  ❯", "Continue  ❯"), new Vector2(0f, -170f), new Vector2(360f, 52f), ColGoldCta, ColDarkBtnText, 16, () => ShowToast(AegisLocalization.T("Đã hoàn thành bài học 2!", "Lesson 2 completed!"), ToastType.Success), font, ColGoldBorder, 1.5f);
@@ -7095,7 +7095,7 @@ namespace MechChess.UI
             _confirmBodyTxt.fontSize = 22;
             _confirmBodyTxt.alignment = TextAnchor.MiddleCenter;
             _confirmBodyTxt.color = new Color(0.85f, 0.92f, 1.0f);
-            _confirmBodyTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _confirmBodyTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _confirmBodyTxt.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform bRt = bodyObj.GetComponent<RectTransform>();
             bRt.anchoredPosition = new Vector2(0f, 20f);
@@ -7865,7 +7865,7 @@ namespace MechChess.UI
             _challengeBodyTxt.fontSize = 20;
             _challengeBodyTxt.alignment = TextAnchor.MiddleCenter;
             _challengeBodyTxt.color = ColTextWhite;
-            _challengeBodyTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _challengeBodyTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _challengeBodyTxt.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform bodyRt = bodyObj.GetComponent<RectTransform>();
             bodyRt.anchoredPosition = new Vector2(0f, 25f);
