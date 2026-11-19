@@ -1727,6 +1727,7 @@ namespace MechChess.Chess3D
                 UIManager2D.Instance.ResetGameTimers();
                 UIManager2D.Instance.SetActiveTurn(currentTurn);
                 UIManager2D.Instance.RecordMove(">>> BOARD REINITIALIZED <<<");
+                UIManager2D.Instance.SetHUDVisible(true);
             }
         }
 

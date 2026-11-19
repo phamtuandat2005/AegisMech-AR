@@ -158,8 +158,8 @@ def test_match_ticket_issuance_and_consumption(client: TestClient):
     # 2. Settle match with valid ticket and reasonable duration
     record_res = client.post("/api/match/record", json={
         "username": u,
-        "opponent_name": "Cyber AI",
-        "is_ai": True,
+        "opponent_name": "Online Player Rival",
+        "is_ai": False,
         "player_role": "white",
         "result": "win",
         "moves_count": 8,

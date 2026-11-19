@@ -65,11 +65,11 @@ async def run_tests():
         assert p_deconflict.username != test_uname, "De-conflicted username must be unique"
         print(f"[PASS] Quick email auto-deconfliction verified: requested '{test_uname}' -> assigned '{p_deconflict.username}'.")
 
-        # 5. Test Match Record (Win)
+        # 5. Test Match Record (Online PvP Win -> Elo changes)
         req_win = schemas.MatchRecordRequest(
             username=p1.username,
-            opponent_name="Cyber AI (Hard)",
-            is_ai=True,
+            opponent_name="Online Rival",
+            is_ai=False,
             player_role="white",
             result="win",
             moves_count=42,
@@ -82,11 +82,11 @@ async def run_tests():
         assert res_win["gold_gained"] == 100
         print(f"[PASS] Match Win: +{res_win['elo_change']} Elo -> New Elo {res_win['new_elo']}, +{res_win['gold_gained']} Gold")
 
-        # 6. Test Match Record (Loss)
+        # 6. Test Match Record (Online PvP Loss)
         req_loss = schemas.MatchRecordRequest(
             username=p1.username,
-            opponent_name="Grandmaster Bot",
-            is_ai=True,
+            opponent_name="Grandmaster Rival",
+            is_ai=False,
             player_role="black",
             result="loss",
             moves_count=28,
@@ -98,13 +98,29 @@ async def run_tests():
         assert res_loss["new_elo"] == 400
         print(f"[PASS] Match Loss: {res_loss['elo_change']} Elo -> New Elo {res_loss['new_elo']}")
 
+        # 6b. Test AI Match Record (Vs AI -> Elo change is strictly 0!)
+        req_ai = schemas.MatchRecordRequest(
+            username=p1.username,
+            opponent_name="Cyber AI (Hard)",
+            is_ai=True,
+            player_role="white",
+            result="win",
+            moves_count=20,
+            duration_sec=120.0
+        )
+        ok_ai, _, res_ai = await crud.record_match_result(session, req_ai)
+        assert ok_ai
+        assert res_ai["elo_change"] == 0
+        assert res_ai["new_elo"] == 400
+        print(f"[PASS] Vs AI Match: Elo change {res_ai['elo_change']} (Elo remains {res_ai['new_elo']}), +{res_ai['gold_gained']} Gold")
+
         # 7. Test Match History Retrieval
         history = await crud.get_match_history_list(session, p1.username, limit=5)
-        assert len(history) == 2, f"Expected 2 matches, got {len(history)}"
-        assert history[0].opponent_name == "Grandmaster Bot"
-        assert history[0].result == "loss"
-        assert history[1].opponent_name == "Cyber AI (Hard)"
-        assert history[1].result == "win"
+        assert len(history) == 3, f"Expected 3 matches, got {len(history)}"
+        assert history[0].opponent_name == "Cyber AI (Hard)"
+        assert history[0].result == "win"
+        assert history[1].opponent_name == "Grandmaster Rival"
+        assert history[1].result == "loss"
         print(f"[PASS] Match History: Retrieved {len(history)} match records successfully.")
 
         # 8. Test Leaderboard

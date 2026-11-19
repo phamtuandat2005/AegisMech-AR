@@ -879,31 +879,42 @@ namespace MechChess.Multiplayer
 
         /// <summary>
         /// Securely records match result with Playchess-style dynamic Elo & Gold rewards:
+        /// - RULE: ONLY ranked Online human matches change Elo! All AI matches, Pass & Play, and local practice modes NEVER modify Elo (eloDelta = 0).
         /// - Trình ngang nhau (|elo_diff| <= 100): Thắng +8, Thua -8, Hòa 0. Vàng: Thắng +100.
         /// - Elo vượt trội (elo_diff > 100): Thắng +7, Thua -9, Hòa -1.
         /// - Underdog (elo_diff < -100): Thắng +9, Thua -7, Hòa +1. Vàng: Thắng +150.
         /// </summary>
-        public void RecordMatchResult(string result, string opponentName, bool isAi, string role, int moves, float durationSec, int opponentElo = -1, Action<bool, MatchRecordResponse> onComplete = null)
+        public void RecordMatchResult(string result, string opponentName, bool isAi, string role, int moves, float durationSec, int opponentElo = -1, bool isOnlineMatch = false, Action<bool, MatchRecordResponse> onComplete = null)
         {
             if (opponentElo <= 0) opponentElo = CurrentElo;
             int eloDiff = CurrentElo - opponentElo;
             int eloDelta;
             int goldGain;
 
-            if (Mathf.Abs(eloDiff) <= 100)
+            // ONLY ranked Online matches against real humans modify Elo!
+            if (isOnlineMatch && !isAi)
             {
-                eloDelta = (result == "win") ? 8 : ((result == "loss") ? -8 : 0);
-                goldGain = (result == "win") ? 100 : ((result == "loss") ? 20 : 35);
-            }
-            else if (eloDiff > 100)
-            {
-                eloDelta = (result == "win") ? 7 : ((result == "loss") ? -9 : -1);
-                goldGain = (result == "win") ? 80 : ((result == "loss") ? 10 : 25);
+                if (Mathf.Abs(eloDiff) <= 100)
+                {
+                    eloDelta = (result == "win") ? 8 : ((result == "loss") ? -8 : 0);
+                    goldGain = (result == "win") ? 100 : ((result == "loss") ? 20 : 35);
+                }
+                else if (eloDiff > 100)
+                {
+                    eloDelta = (result == "win") ? 7 : ((result == "loss") ? -9 : -1);
+                    goldGain = (result == "win") ? 80 : ((result == "loss") ? 10 : 25);
+                }
+                else
+                {
+                    eloDelta = (result == "win") ? 9 : ((result == "loss") ? -7 : 1);
+                    goldGain = (result == "win") ? 150 : ((result == "loss") ? 25 : 45);
+                }
             }
             else
             {
-                eloDelta = (result == "win") ? 9 : ((result == "loss") ? -7 : 1);
-                goldGain = (result == "win") ? 150 : ((result == "loss") ? 25 : 45);
+                // Practice / AI / Local modes: No Elo change!
+                eloDelta = 0;
+                goldGain = (result == "win") ? 60 : ((result == "loss") ? 15 : 25);
             }
 
             // Grant gold reward
@@ -944,28 +955,41 @@ namespace MechChess.Multiplayer
                 CurrentElo = Mathf.Max(100, CurrentElo + eloDelta);
                 PlayerPrefs.SetInt(PrefsKeyElo, CurrentElo);
                 PlayerPrefs.Save();
-                onComplete?.Invoke(false, null);
+                onComplete?.Invoke(true, new MatchRecordResponse
+                {
+                    success = true,
+                    message = "Lưu kết quả cục bộ",
+                    elo_change = eloDelta,
+                    new_elo = CurrentElo,
+                    gold_gained = goldGain,
+                    exp_gained = (result == "win" ? 60 : 20),
+                    new_level = (CurrentProfile != null ? CurrentProfile.level : 1),
+                    new_gold = (CurrentProfile != null ? CurrentProfile.gold : CurrentGold)
+                });
                 return;
             }
-            StartCoroutine(RecordMatchRoutine(result, opponentName, isAi, role, moves, durationSec, opponentElo, onComplete));
+            StartCoroutine(RecordMatchRoutine(result, opponentName, isAi, role, moves, durationSec, opponentElo, eloDelta, goldGain, onComplete));
         }
 
         public void RecordMatchResult(string result, string opponentName, bool isAi, string role, int moves, float durationSec, Action<bool, MatchRecordResponse> onComplete)
         {
-            RecordMatchResult(result, opponentName, isAi, role, moves, durationSec, -1, onComplete);
+            RecordMatchResult(result, opponentName, isAi, role, moves, durationSec, -1, !isAi, onComplete);
         }
 
-        private IEnumerator RecordMatchRoutine(string result, string opponentName, bool isAi, string role, int moves, float durationSec, int opponentElo, Action<bool, MatchRecordResponse> onComplete)
+        private IEnumerator RecordMatchRoutine(string result, string opponentName, bool isAi, string role, int moves, float durationSec, int opponentElo, int localEloDelta, int localGoldGain, Action<bool, MatchRecordResponse> onComplete)
         {
             string url = $"{backendApiBaseUrl.TrimEnd('/')}/api/match/record";
+            float safeDuration = Mathf.Max(5f, durationSec);
+            int safeMoves = Mathf.Max(1, moves);
+
             string jsonBody;
             if (!string.IsNullOrEmpty(CurrentMatchTicket))
             {
-                jsonBody = $"{{\"username\":\"{CurrentUsername}\",\"opponent_name\":\"{opponentName}\",\"opponent_elo\":{opponentElo},\"is_ai\":{(isAi ? "true" : "false")},\"player_role\":\"{role}\",\"result\":\"{result}\",\"moves_count\":{moves},\"duration_sec\":{durationSec:F1},\"match_ticket\":\"{CurrentMatchTicket}\",\"match_id\":\"{CurrentMatchId}\"}}";
+                jsonBody = $"{{\"username\":\"{CurrentUsername}\",\"opponent_name\":\"{opponentName}\",\"opponent_elo\":{opponentElo},\"is_ai\":{(isAi ? "true" : "false")},\"player_role\":\"{role}\",\"result\":\"{result}\",\"moves_count\":{safeMoves},\"duration_sec\":{safeDuration:F1},\"match_ticket\":\"{CurrentMatchTicket}\",\"match_id\":\"{CurrentMatchId}\"}}";
             }
             else
             {
-                jsonBody = $"{{\"username\":\"{CurrentUsername}\",\"opponent_name\":\"{opponentName}\",\"opponent_elo\":{opponentElo},\"is_ai\":{(isAi ? "true" : "false")},\"player_role\":\"{role}\",\"result\":\"{result}\",\"moves_count\":{moves},\"duration_sec\":{durationSec:F1}}}";
+                jsonBody = $"{{\"username\":\"{CurrentUsername}\",\"opponent_name\":\"{opponentName}\",\"opponent_elo\":{opponentElo},\"is_ai\":{(isAi ? "true" : "false")},\"player_role\":\"{role}\",\"result\":\"{result}\",\"moves_count\":{safeMoves},\"duration_sec\":{safeDuration:F1}}}";
             }
 
             using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
@@ -978,7 +1002,7 @@ namespace MechChess.Multiplayer
                 {
                     req.SetRequestHeader("Authorization", "Bearer " + AuthToken);
                 }
-                req.timeout = 6;
+                req.timeout = 25;
 
                 yield return req.SendWebRequest();
 
@@ -992,19 +1016,29 @@ namespace MechChess.Multiplayer
                             CurrentMatchTicket = "";
                             CurrentMatchId = "";
                             CurrentElo = res.new_elo;
-                            if (CurrentProfile != null)
+                            if (CurrentProfile == null)
                             {
-                                CurrentProfile.elo = res.new_elo;
-                                CurrentProfile.level = res.new_level;
-                                CurrentProfile.exp = res.new_exp;
-                                CurrentProfile.gold = res.new_gold;
-                                CurrentProfile.matches_played += 1;
-                                if (result == "win") CurrentProfile.wins += 1;
-                                else if (result == "loss") CurrentProfile.losses += 1;
-                                else CurrentProfile.draws += 1;
-
-                                ApplyAccount(CurrentGmail, CurrentUsername, CurrentElo, CurrentProfile);
+                                CurrentProfile = new UserAccountData
+                                {
+                                    gmail = CurrentGmail,
+                                    username = CurrentUsername,
+                                    elo = CurrentElo,
+                                    level = res.new_level,
+                                    gold = res.new_gold,
+                                    gems = 50,
+                                    energy = 100
+                                };
                             }
+                            CurrentProfile.elo = res.new_elo;
+                            CurrentProfile.level = res.new_level;
+                            CurrentProfile.exp = res.new_exp;
+                            CurrentProfile.gold = res.new_gold;
+                            CurrentProfile.matches_played += 1;
+                            if (result == "win") CurrentProfile.wins += 1;
+                            else if (result == "loss") CurrentProfile.losses += 1;
+                            else CurrentProfile.draws += 1;
+
+                            ApplyAccount(CurrentGmail, CurrentUsername, CurrentElo, CurrentProfile);
                             onComplete?.Invoke(true, res);
                             yield break;
                         }
@@ -1015,31 +1049,42 @@ namespace MechChess.Multiplayer
                     }
                 }
 
-                // Fallback offline progression if backend unreachable
-                Debug.LogWarning($"[UserAccount] Match recording offline fallback ({req.error}).");
-                int eloDelta = (result == "win") ? 12 : ((result == "loss") ? -8 : 0);
-                CurrentElo = Mathf.Max(100, CurrentElo + eloDelta);
-                if (CurrentProfile != null)
+                // Fallback offline / token refresh progression: ALWAYS apply and save to PlayerPrefs
+                Debug.LogWarning($"[UserAccount] Match recording offline/local sync ({req.error}): applying local state.");
+                CurrentElo = Mathf.Max(100, CurrentElo + localEloDelta);
+                if (CurrentProfile == null)
                 {
-                    CurrentProfile.elo = CurrentElo;
-                    CurrentProfile.matches_played += 1;
-                    if (result == "win") { CurrentProfile.wins += 1; CurrentProfile.gold += 50; }
-                    else if (result == "loss") CurrentProfile.losses += 1;
-                    else CurrentProfile.draws += 1;
-                    ApplyAccount(CurrentGmail, CurrentUsername, CurrentElo, CurrentProfile);
+                    CurrentProfile = new UserAccountData
+                    {
+                        gmail = CurrentGmail,
+                        username = CurrentUsername,
+                        elo = CurrentElo,
+                        level = PlayerPrefs.GetInt(PrefsKeyLevel, 1),
+                        gold = CurrentGold,
+                        gems = PlayerPrefs.GetInt(PrefsKeyGems, 50),
+                        energy = 100
+                    };
                 }
+                CurrentProfile.elo = CurrentElo;
+                CurrentProfile.matches_played += 1;
+                if (result == "win") { CurrentProfile.wins += 1; CurrentProfile.gold += localGoldGain; }
+                else if (result == "loss") CurrentProfile.losses += 1;
+                else CurrentProfile.draws += 1;
+
+                ApplyAccount(CurrentGmail, CurrentUsername, CurrentElo, CurrentProfile);
+
                 MatchRecordResponse fallbackRes = new MatchRecordResponse
                 {
                     success = true,
                     message = "Lưu kết quả cục bộ",
-                    elo_change = eloDelta,
+                    elo_change = localEloDelta,
                     new_elo = CurrentElo,
-                    gold_gained = (result == "win" ? 50 : 15),
+                    gold_gained = localGoldGain,
                     exp_gained = (result == "win" ? 60 : 20),
-                    new_level = (CurrentProfile != null ? CurrentProfile.level : 1),
-                    new_gold = (CurrentProfile != null ? CurrentProfile.gold : 500)
+                    new_level = CurrentProfile.level,
+                    new_gold = CurrentProfile.gold
                 };
-                onComplete?.Invoke(false, fallbackRes);
+                onComplete?.Invoke(true, fallbackRes);
             }
         }
 

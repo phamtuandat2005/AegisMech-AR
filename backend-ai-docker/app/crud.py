@@ -419,6 +419,11 @@ async def record_match_result(
             gold_gained = 45
             score_str = "½ - ½"
 
+    # RULE: Only ranked matches against online human players modify Elo!
+    # Matches against AI or offline practice do NOT change Elo (elo_change = 0)!
+    if data.is_ai:
+        elo_change = 0
+
     # Update stats
     player.stats.matches_played += 1
     if res_clean == "win":

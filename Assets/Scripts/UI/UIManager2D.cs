@@ -599,7 +599,7 @@ namespace MechChess.UI
 
         public void SetHUDVisible(bool visible)
         {
-            if (_hudCanvasObj == null && visible)
+            if ((_hudCanvasObj == null || _standardHudRoot == null) && visible)
             {
                 BuildHUD();
             }
@@ -695,6 +695,7 @@ namespace MechChess.UI
 
         public void ReturnToMainMenu()
         {
+            SetARHUDVisible(false);
             SetHUDVisible(false);
             if (MechChess.AR.HybridARController.Instance != null)
             {

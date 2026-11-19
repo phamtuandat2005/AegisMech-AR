@@ -1569,11 +1569,11 @@ async def record_match_api(
             logger.warning(f"[Anti-Cheat] Match rejected for '{current_player.username}': {ticket_err}")
             raise HTTPException(status_code=400, detail=ticket_err)
     else:
-        # If ticket is missing, perform basic sanity check on duration and moves
-        if (req.duration_sec or 0.0) < 4.0 and (req.moves_count or 0) < 1:
+        # If ticket is missing, allow normal resignations/timeouts/concluded games while blocking zero-time replay spam
+        if (req.duration_sec or 0.0) < 1.0 and (req.moves_count or 0) < 1 and req.result not in ("win", "loss"):
             raise HTTPException(
                 status_code=400,
-                detail="Ván cờ kết thúc bất thường (< 4 giây và 0 nước đi). Nghi vấn hack/farming!"
+                detail="Ván cờ kết thúc bất thường (< 1 giây và 0 nước đi). Nghi vấn hack/farming!"
             )
 
     # 3. Transactional Match Record

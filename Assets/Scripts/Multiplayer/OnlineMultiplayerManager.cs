@@ -794,6 +794,11 @@ namespace MechChess.Multiplayer
                             {
                                 UIManager2D.Instance.RecordMove($"[ONLINE] {packet.message}");
                                 UIManager2D.Instance.RecordMove("Đối thủ đã rời phòng. Bạn là người chiến thắng!");
+                                UIManager2D.Instance.TriggerGameOver(MyRole, "Đối thủ đã rời phòng!");
+                            }
+                            else if (MainMenu2D.Instance != null)
+                            {
+                                MainMenu2D.Instance.ShowResultScreen(true, "Đối thủ đã rời phòng!", 1, 30f, false);
                             }
                             break;
 

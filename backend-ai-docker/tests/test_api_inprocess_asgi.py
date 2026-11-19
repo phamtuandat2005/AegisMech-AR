@@ -66,8 +66,8 @@ def test_live_endpoints():
         # 5. Record Match Result (Secure Transaction with Match Ticket)
         match_payload = {
             "username": "CyberCommander",
-            "opponent_name": "Dark Syndicate AI",
-            "is_ai": True,
+            "opponent_name": "Dark Syndicate Player",
+            "is_ai": False,
             "player_role": "white",
             "result": "win",
             "moves_count": 38,
