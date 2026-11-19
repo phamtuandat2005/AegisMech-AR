@@ -71,7 +71,9 @@ namespace MechChess.Multiplayer
         public int elo_change;
         public int moves_count;
         public float duration_sec;
+        public float duration_seconds;
         public string ended_at;
+        public string created_at;
         public string pgn;
         public string[] moves;
         public string[] san_moves;
@@ -96,6 +98,7 @@ namespace MechChess.Multiplayer
         public string judgment;
         public string judgment_vi;
         public string judgment_en;
+        public string badge_symbol;
         public string comment_vi;
         public string comment_en;
         public float accuracy;
@@ -1381,6 +1384,7 @@ namespace MechChess.Multiplayer
                     judgment = judgment,
                     judgment_vi = jVi,
                     judgment_en = jEn,
+                    badge_symbol = (judgment == "brilliant") ? "‼️" : ((judgment == "best") ? "⭐" : "👍"),
                     comment_vi = commVi,
                     comment_en = commEn,
                     accuracy = UnityEngine.Random.Range(85f, 98f)
