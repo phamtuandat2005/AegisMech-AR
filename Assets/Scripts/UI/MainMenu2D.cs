@@ -6389,13 +6389,21 @@ namespace MechChess.UI
             ShowResultScreen(victory, reason, moves, durationSec, false);
         }
 
-        public void ShowResultScreen(bool victory, string reason, int moves, float durationSec, bool isDraw)
+        public void ShowResultScreen(bool victory, string reason, int moves, float durationSec, bool isDraw, bool isAborted = false)
         {
             if (_resultScreenModal == null || _menuCanvasObj == null)
             {
                 BuildAllScreens(true);
             }
             if (_resultScreenModal == null) return;
+
+            // Strict abort check: never treat an aborted game as a draw!
+            if (!string.IsNullOrEmpty(reason) && (reason.ToLower().Contains("hủy") || reason.ToLower().Contains("abort")))
+            {
+                isAborted = true;
+                isDraw = false;
+                victory = false;
+            }
 
             // Automatically turn off camera when match finishes
             if (MechChess.AR.HybridARController.Instance != null)
@@ -6420,7 +6428,12 @@ namespace MechChess.UI
             // 3. Populate dynamic text
             if (_resultTitleTxt != null)
             {
-                if (isDraw)
+                if (isAborted)
+                {
+                    _resultTitleTxt.text = AegisLocalization.T("HỦY VÁN CỜ", "MATCH ABORTED");
+                    _resultTitleTxt.color = new Color(1.0f, 0.68f, 0.20f);
+                }
+                else if (isDraw)
                 {
                     _resultTitleTxt.text = AegisLocalization.T("HÒA CỜ", "MATCH DRAW");
                     _resultTitleTxt.color = new Color(0.85f, 0.88f, 0.95f);
@@ -6433,8 +6446,16 @@ namespace MechChess.UI
             }
             if (_resultReasonTxt != null)
             {
-                _resultReasonTxt.text = !string.IsNullOrEmpty(reason) ? reason : (isDraw ? AegisLocalization.T("Hòa cờ", "Draw") : (victory ? AegisLocalization.T("Chiến thắng!", "Victory!") : AegisLocalization.T("Thất bại!", "Defeat!")));
-                _resultReasonTxt.color = isDraw ? new Color(0.85f, 0.90f, 1.0f) : (victory ? new Color(0.35f, 0.95f, 0.55f) : new Color(1.0f, 0.45f, 0.45f));
+                if (isAborted)
+                {
+                    _resultReasonTxt.text = !string.IsNullOrEmpty(reason) ? reason : AegisLocalization.T("Trận đấu đã bị hủy!", "Match aborted!");
+                    _resultReasonTxt.color = new Color(1.0f, 0.80f, 0.45f);
+                }
+                else
+                {
+                    _resultReasonTxt.text = !string.IsNullOrEmpty(reason) ? reason : (isDraw ? AegisLocalization.T("Hòa cờ", "Draw") : (victory ? AegisLocalization.T("Chiến thắng!", "Victory!") : AegisLocalization.T("Thất bại!", "Defeat!")));
+                    _resultReasonTxt.color = isDraw ? new Color(0.85f, 0.90f, 1.0f) : (victory ? new Color(0.35f, 0.95f, 0.55f) : new Color(1.0f, 0.45f, 0.45f));
+                }
             }
             if (_resultMovesTxt != null) _resultMovesTxt.text = moves.ToString();
             if (_resultDurationTxt != null)
@@ -6445,20 +6466,28 @@ namespace MechChess.UI
             }
             if (_resultScoreTxt != null)
             {
-                _resultScoreTxt.text = isDraw ? "½ - ½" : (victory ? "1 - 0" : "0 - 1");
+                _resultScoreTxt.text = isAborted ? "* - *" : (isDraw ? "½ - ½" : (victory ? "1 - 0" : "0 - 1"));
             }
             if (_resultEloTxt != null)
             {
-                _resultEloTxt.text = isDraw ? "<color=#80d8ff>Elo +0</color>" : (victory ? "<color=#00e676>Elo +8</color>" : "<color=#ff5252>Elo -8</color>");
+                if (isAborted)
+                {
+                    int currentElo = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentElo : 1200;
+                    _resultEloTxt.text = $"<color=#80d8ff>Elo +0 ({AegisLocalization.T("Hủy ván", "Aborted")})</color> (Tổng: {currentElo})";
+                }
+                else
+                {
+                    _resultEloTxt.text = isDraw ? "<color=#80d8ff>Elo +0</color>" : (victory ? "<color=#00e676>Elo +8</color>" : "<color=#ff5252>Elo -8</color>");
+                }
             }
 
             // Audio cues
-            if (isDraw) AegisAudioManager.PlayToast();
+            if (isAborted || isDraw) AegisAudioManager.PlayToast();
             else if (victory) AegisAudioManager.PlayVictorySound();
             else AegisAudioManager.PlayDefeatSound();
 
             // Securely record match result to Supabase database via FastAPI and local storage
-            string matchRes = isDraw ? "draw" : (victory ? "win" : "loss");
+            string matchRes = isAborted ? "aborted" : (isDraw ? "draw" : (victory ? "win" : "loss"));
             bool isAi = (_lastLaunchMode == GameLaunchMode.VersusAI);
             bool isOnlinePvP = (_lastLaunchMode == GameLaunchMode.OnlineMultiplayer) ||
                                (OnlineMultiplayerManager.Instance != null && OnlineMultiplayerManager.Instance.IsOnlineMatch) ||
@@ -6512,7 +6541,15 @@ namespace MechChess.UI
             }
 
             // Preview Elo for instant visual feedback: ONLY Online matches change Elo!
-            if (isOnlinePvP)
+            if (isAborted)
+            {
+                int currentElo = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentElo : 1200;
+                if (_resultEloTxt != null)
+                {
+                    _resultEloTxt.text = $"<color=#80d8ff>Elo +0 ({AegisLocalization.T("Hủy ván", "Aborted")})</color> (Tổng: {currentElo})";
+                }
+            }
+            else if (isOnlinePvP)
             {
                 int myElo = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentElo : 1200;
                 int diff = myElo - oppElo;
@@ -6546,7 +6583,11 @@ namespace MechChess.UI
                 {
                     if (res != null && _resultEloTxt != null)
                     {
-                        if (isOnlinePvP)
+                        if (isAborted)
+                        {
+                            _resultEloTxt.text = $"<color=#80d8ff>Elo +0 ({AegisLocalization.T("Hủy ván", "Aborted")})</color> (Tổng: {res.new_elo})";
+                        }
+                        else if (isOnlinePvP)
                         {
                             string sign = res.elo_change >= 0 ? "+" : "";
                             string colorHex = res.elo_change > 0 ? "#00e676" : (res.elo_change < 0 ? "#ff5252" : "#80d8ff");
@@ -8097,11 +8138,16 @@ namespace MechChess.UI
 
         private void HandleLichessGameEnded(string result, int eloChange, int goldGain, string endReason)
         {
-            bool victory = (result == "win");
-            bool isDraw = (result == "draw");
+            bool isAborted = (endReason == "aborted" || result == "aborted");
+            bool victory = !isAborted && (result == "win");
+            bool isDraw = !isAborted && (result == "draw");
 
             string reasonStr = "";
-            if (endReason == "outoftime")
+            if (isAborted)
+            {
+                reasonStr = AegisLocalization.T("Hủy ván cờ!", "Match aborted!");
+            }
+            else if (endReason == "outoftime")
             {
                 reasonStr = victory ? AegisLocalization.T("Đối thủ hết thời gian!", "Opponent ran out of time!") : AegisLocalization.T("Hết thời gian trận đấu!", "Out of match time!");
             }
@@ -8113,25 +8159,21 @@ namespace MechChess.UI
             {
                 reasonStr = victory ? AegisLocalization.T("Đối thủ đã đầu hàng!", "Opponent resigned!") : AegisLocalization.T("Bạn đã đầu hàng!", "You resigned!");
             }
-            else if (endReason == "aborted")
-            {
-                reasonStr = AegisLocalization.T("Trận đấu bị hủy!", "Match aborted!");
-            }
             else
             {
                 reasonStr = isDraw ? AegisLocalization.T("Hòa cờ", "Draw") : (victory ? AegisLocalization.T("Chiến thắng!", "Victory!") : AegisLocalization.T("Thất bại!", "Defeat!"));
             }
 
             PieceColor myColor = (LichessBridge.Instance != null && LichessBridge.Instance.IsPlayerWhite) ? PieceColor.White : PieceColor.Black;
-            PieceColor winnerColor = isDraw ? PieceColor.White : (victory ? myColor : (myColor == PieceColor.White ? PieceColor.Black : PieceColor.White));
+            PieceColor winnerColor = (isDraw || isAborted) ? PieceColor.White : (victory ? myColor : (myColor == PieceColor.White ? PieceColor.Black : PieceColor.White));
 
             if (UIManager2D.Instance != null)
             {
-                UIManager2D.Instance.TriggerGameOver(winnerColor, reasonStr, isDraw);
+                UIManager2D.Instance.TriggerGameOver(winnerColor, reasonStr, isDraw, isAborted);
             }
             else
             {
-                ShowResultScreen(victory, reasonStr, LichessBridge.Instance != null ? LichessBridge.Instance.LastMoveCount : 0, 120f, isDraw);
+                ShowResultScreen(victory, reasonStr, LichessBridge.Instance != null ? LichessBridge.Instance.LastMoveCount : 0, 120f, isDraw, isAborted);
             }
         }
 

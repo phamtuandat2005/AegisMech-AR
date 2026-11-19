@@ -1570,7 +1570,7 @@ async def record_match_api(
             raise HTTPException(status_code=400, detail=ticket_err)
     else:
         # If ticket is missing, allow normal resignations/timeouts/concluded games while blocking zero-time replay spam
-        if (req.duration_sec or 0.0) < 1.0 and (req.moves_count or 0) < 1 and req.result not in ("win", "loss"):
+        if (req.duration_sec or 0.0) < 1.0 and (req.moves_count or 0) < 1 and req.result not in ("win", "loss", "aborted"):
             raise HTTPException(
                 status_code=400,
                 detail="Ván cờ kết thúc bất thường (< 1 giây và 0 nước đi). Nghi vấn hack/farming!"

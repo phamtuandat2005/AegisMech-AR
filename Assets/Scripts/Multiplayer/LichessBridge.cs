@@ -643,7 +643,11 @@ namespace MechChess.Multiplayer
                     if (text.Contains("\"status\":\"mate\"")) endReason = "mate";
                     else if (text.Contains("\"status\":\"resign\"")) endReason = "resign";
                     else if (text.Contains("\"status\":\"outoftime\"")) endReason = "outoftime";
-                    else if (text.Contains("\"status\":\"aborted\"")) endReason = "aborted";
+                    else if (text.Contains("\"status\":\"aborted\""))
+                    {
+                        endReason = "aborted";
+                        result = "aborted";
+                    }
                 }
                 EndGameSession(result, endReason);
             }
@@ -711,7 +715,11 @@ namespace MechChess.Multiplayer
                         if (trimmed.Contains("\"status\":\"mate\"")) streamReason = "mate";
                         else if (trimmed.Contains("\"status\":\"resign\"")) streamReason = "resign";
                         else if (trimmed.Contains("\"status\":\"outoftime\"")) streamReason = "outoftime";
-                        else if (trimmed.Contains("\"status\":\"aborted\"")) streamReason = "aborted";
+                        else if (trimmed.Contains("\"status\":\"aborted\""))
+                        {
+                            streamReason = "aborted";
+                            result = "aborted";
+                        }
 
                         EndGameSession(result, streamReason);
                         break;

@@ -347,93 +347,100 @@ async def record_match_result(
         session.add(player.stats)
 
     res_clean = data.result.strip().lower()
-    if res_clean not in ("win", "loss", "draw"):
-        return False, "Kết quả trận đấu không hợp lệ! (Phải là 'win', 'loss' hoặc 'draw').", {}
+    if res_clean not in ("win", "loss", "draw", "aborted"):
+        return False, "Kết quả trận đấu không hợp lệ! (Phải là 'win', 'loss', 'draw' hoặc 'aborted').", {}
 
-    # Determine opponent Elo for dynamic Playchess calculation
-    opp_elo = getattr(data, "opponent_elo", None)
-    if opp_elo is None and data.opponent_name and not data.is_ai:
-        opp_player = await get_player_by_username(session, data.opponent_name)
-        if opp_player and opp_player.stats:
-            opp_elo = opp_player.stats.elo
+    if res_clean == "aborted":
+        elo_change = 0
+        exp_gained = 0
+        gold_gained = 0
+        score_str = "* - *"
+    else:
+        # Determine opponent Elo for dynamic Playchess calculation
+        opp_elo = getattr(data, "opponent_elo", None)
+        if opp_elo is None and data.opponent_name and not data.is_ai:
+            opp_player = await get_player_by_username(session, data.opponent_name)
+            if opp_player and opp_player.stats:
+                opp_elo = opp_player.stats.elo
 
-    if opp_elo is None:
-        # Default: equal rating
-        opp_elo = player.stats.elo
+        if opp_elo is None:
+            # Default: equal rating
+            opp_elo = player.stats.elo
 
-    elo_diff = player.stats.elo - opp_elo
+        elo_diff = player.stats.elo - opp_elo
 
-    # Playchess Elo & Gold calculation:
-    # 1. Trình ngang nhau (|elo_diff| <= 100):
-    #    Thắng: +8, Thua: -8, Hòa: 0
-    # 2. Người chơi có Elo vượt trội nhiều (elo_diff > 100):
-    #    Thắng: +7, Thua: -9, Hòa: -1
-    # 3. Người chơi có Elo thấp hơn nhiều (elo_diff < -100):
-    #    Thắng: +9, Thua: -7, Hòa: +1
-    if abs(elo_diff) <= 100:
-        if res_clean == "win":
-            elo_change = 8
-            exp_gained = 60
-            gold_gained = 100
-            score_str = "1 - 0"
-        elif res_clean == "loss":
-            elo_change = -8
-            exp_gained = 20
-            gold_gained = 20
-            score_str = "0 - 1"
-        else: # draw
-            elo_change = 0
-            exp_gained = 30
-            gold_gained = 35
-            score_str = "½ - ½"
-    elif elo_diff > 100:
-        if res_clean == "win":
-            elo_change = 7
-            exp_gained = 50
-            gold_gained = 80
-            score_str = "1 - 0"
-        elif res_clean == "loss":
-            elo_change = -9
-            exp_gained = 15
-            gold_gained = 10
-            score_str = "0 - 1"
-        else:
-            elo_change = -1
-            exp_gained = 25
-            gold_gained = 25
-            score_str = "½ - ½"
-    else: # elo_diff < -100 (underdog)
-        if res_clean == "win":
-            elo_change = 9
-            exp_gained = 80
-            gold_gained = 150 # Thắng đối thủ mạnh hơn hẳn: thưởng lớn!
-            score_str = "1 - 0"
-        elif res_clean == "loss":
-            elo_change = -7
-            exp_gained = 25
-            gold_gained = 25
-            score_str = "0 - 1"
-        else:
-            elo_change = 1
-            exp_gained = 35
-            gold_gained = 45
-            score_str = "½ - ½"
+        # Playchess Elo & Gold calculation:
+        # 1. Trình ngang nhau (|elo_diff| <= 100):
+        #    Thắng: +8, Thua: -8, Hòa: 0
+        # 2. Người chơi có Elo vượt trội nhiều (elo_diff > 100):
+        #    Thắng: +7, Thua: -9, Hòa: -1
+        # 3. Người chơi có Elo thấp hơn nhiều (elo_diff < -100):
+        #    Thắng: +9, Thua: -7, Hòa: +1
+        if abs(elo_diff) <= 100:
+            if res_clean == "win":
+                elo_change = 8
+                exp_gained = 60
+                gold_gained = 100
+                score_str = "1 - 0"
+            elif res_clean == "loss":
+                elo_change = -8
+                exp_gained = 20
+                gold_gained = 20
+                score_str = "0 - 1"
+            else: # draw
+                elo_change = 0
+                exp_gained = 30
+                gold_gained = 35
+                score_str = "½ - ½"
+        elif elo_diff > 100:
+            if res_clean == "win":
+                elo_change = 7
+                exp_gained = 50
+                gold_gained = 80
+                score_str = "1 - 0"
+            elif res_clean == "loss":
+                elo_change = -9
+                exp_gained = 15
+                gold_gained = 10
+                score_str = "0 - 1"
+            else:
+                elo_change = -1
+                exp_gained = 25
+                gold_gained = 25
+                score_str = "½ - ½"
+        else: # elo_diff < -100 (underdog)
+            if res_clean == "win":
+                elo_change = 9
+                exp_gained = 80
+                gold_gained = 150 # Thắng đối thủ mạnh hơn hẳn: thưởng lớn!
+                score_str = "1 - 0"
+            elif res_clean == "loss":
+                elo_change = -7
+                exp_gained = 25
+                gold_gained = 25
+                score_str = "0 - 1"
+            else:
+                elo_change = 1
+                exp_gained = 35
+                gold_gained = 45
+                score_str = "½ - ½"
 
     # RULE: Only ranked matches against online human players modify Elo!
     # Matches against AI or offline practice do NOT change Elo (elo_change = 0)!
-    if data.is_ai:
+    if data.is_ai or res_clean == "aborted":
         elo_change = 0
 
     # Update stats
-    player.stats.matches_played += 1
-    if res_clean == "win":
-        player.stats.wins += 1
-        player.stats.win_streak += 1
-    elif res_clean == "loss":
-        player.stats.losses += 1
-        player.stats.win_streak = 0
-    else:
-        player.stats.draws += 1
+    if res_clean != "aborted":
+        player.stats.matches_played += 1
+        if res_clean == "win":
+            player.stats.wins += 1
+            player.stats.win_streak += 1
+        elif res_clean == "loss":
+            player.stats.losses += 1
+            player.stats.win_streak = 0
+        else:
+            player.stats.draws += 1
 
     player.stats.elo = max(100, player.stats.elo + elo_change)
     if player.stats.elo > player.stats.highest_elo:

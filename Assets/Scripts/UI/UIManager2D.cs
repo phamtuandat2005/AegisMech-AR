@@ -1740,18 +1740,35 @@ namespace MechChess.UI
             {
                 MechChess.Cloud.AdafruitIOCloudConnector.Instance.PublishTelemetry(1, 0f, "Match_Aborted_Timeout", "ABORTED_1MIN_TIMEOUT");
             }
+
+            if (MainMenu2D.Instance != null)
+            {
+                MainMenu2D.Instance.ShowResultScreen(false, AegisLocalization.T("Quá 60s không đi nước đầu!", "60s 1st move timeout!"), _moveHistory.Count, 60f, isDraw: false, isAborted: true);
+            }
         }
 
         public void TriggerGameOver(PieceColor winner, string reason)
         {
-            TriggerGameOver(winner, reason, false);
+            TriggerGameOver(winner, reason, false, false);
         }
 
         public void TriggerGameOver(PieceColor winner, string reason, bool isDraw)
         {
+            TriggerGameOver(winner, reason, isDraw, false);
+        }
+
+        public void TriggerGameOver(PieceColor winner, string reason, bool isDraw, bool isAborted)
+        {
             if (_isGameOver) return;
             _isGameOver = true;
             _isTimerRunning = false;
+
+            // Strict abort check
+            if (!string.IsNullOrEmpty(reason) && (reason.ToLower().Contains("hủy") || reason.ToLower().Contains("abort")))
+            {
+                isAborted = true;
+                isDraw = false;
+            }
 
             // Automatically turn off camera when match finishes
             if (MechChess.AR.HybridARController.Instance != null)
@@ -1775,12 +1792,17 @@ namespace MechChess.UI
                 playerColor = MechChess.Chess3D.ChessBoard3DManager.Instance.playerColor;
             }
 
-            bool isPlayerVictory = (!isDraw && winner == playerColor);
+            bool isPlayerVictory = (!isDraw && !isAborted && winner == playerColor);
             string winnerName = (winner == PieceColor.White) ? AegisLocalization.T("HOÀNG GIA (TRẮNG)", "ROYAL ALLIANCE (WHITE)") : AegisLocalization.T("HẮC ÁM (ĐEN)", "SHADOW LEGION (BLACK)");
 
             if (_turnIndicatorText != null)
             {
-                if (isDraw)
+                if (isAborted)
+                {
+                    _turnIndicatorText.text = AegisLocalization.T("⚠️ HỦY VÁN CỜ!", "⚠️ MATCH ABORTED!");
+                    _turnIndicatorText.color = new Color(1.0f, 0.68f, 0.20f);
+                }
+                else if (isDraw)
                 {
                     _turnIndicatorText.text = AegisLocalization.T("⚖️ HÒA CỜ!", "⚖️ MATCH DRAW!");
                     _turnIndicatorText.color = new Color(0.85f, 0.85f, 0.95f);
@@ -1797,18 +1819,22 @@ namespace MechChess.UI
             // CRITICAL FIX: Replace "TRẬN ĐẤU ĐANG DIỄN RA" with clear Game Over notice and reason!
             if (_firstMoveWarningText != null)
             {
-                _firstMoveWarningText.text = AegisLocalization.T($"🏁 KẾT THÚC: {reason}", $"🏁 CONCLUDED: {reason}");
-                _firstMoveWarningText.color = isDraw ? new Color(0.85f, 0.85f, 0.95f) : (isPlayerVictory ? new Color(0.3f, 0.95f, 0.5f) : new Color(0.95f, 0.65f, 0.4f));
+                _firstMoveWarningText.text = isAborted
+                    ? AegisLocalization.T($"⚠️ HỦY TRẬN: {reason}", $"⚠️ ABORTED: {reason}")
+                    : AegisLocalization.T($"🏁 KẾT THÚC: {reason}", $"🏁 CONCLUDED: {reason}");
+                _firstMoveWarningText.color = isAborted ? new Color(1.0f, 0.68f, 0.20f) : (isDraw ? new Color(0.85f, 0.85f, 0.95f) : (isPlayerVictory ? new Color(0.3f, 0.95f, 0.5f) : new Color(0.95f, 0.65f, 0.4f)));
             }
 
-            RecordMove(isDraw 
-                ? AegisLocalization.T($"[KẾT THÚC] Hòa cờ! ({reason})", $"[GAME OVER] Draw! ({reason})")
-                : AegisLocalization.T($"[KẾT THÚC] {winnerName} chiến thắng! ({reason})", $"[GAME OVER] {winnerName} won! ({reason})"));
+            RecordMove(isAborted
+                ? AegisLocalization.T($"[KẾT THÚC] Hủy ván cờ! ({reason})", $"[GAME OVER] Match Aborted! ({reason})")
+                : (isDraw 
+                    ? AegisLocalization.T($"[KẾT THÚC] Hòa cờ! ({reason})", $"[GAME OVER] Draw! ({reason})")
+                    : AegisLocalization.T($"[KẾT THÚC] {winnerName} chiến thắng! ({reason})", $"[GAME OVER] {winnerName} won! ({reason})")));
 
             if (MainMenu2D.Instance != null)
             {
                 float matchDuration = Mathf.Max(1f, _initialTime - _whiteTimer);
-                MainMenu2D.Instance.ShowResultScreen(isPlayerVictory, reason, _moveHistory.Count, matchDuration, isDraw);
+                MainMenu2D.Instance.ShowResultScreen(isPlayerVictory, reason, _moveHistory.Count, matchDuration, isDraw, isAborted);
             }
         }
 

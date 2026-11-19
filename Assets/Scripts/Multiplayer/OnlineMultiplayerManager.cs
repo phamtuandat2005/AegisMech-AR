@@ -788,17 +788,49 @@ namespace MechChess.Multiplayer
                             }
                             break;
 
-                        case "opponent_disconnected":
+                        case "match_aborted":
+                        case "game_aborted":
                             HasBothPlayers = false;
+                            IsOnlineMatch = false;
                             if (UIManager2D.Instance != null)
                             {
                                 UIManager2D.Instance.RecordMove($"[ONLINE] {packet.message}");
-                                UIManager2D.Instance.RecordMove("Đối thủ đã rời phòng. Bạn là người chiến thắng!");
-                                UIManager2D.Instance.TriggerGameOver(MyRole, "Đối thủ đã rời phòng!");
+                                UIManager2D.Instance.TriggerGameOver(PieceColor.White, "Hủy ván cờ!", isDraw: false, isAborted: true);
                             }
                             else if (MainMenu2D.Instance != null)
                             {
-                                MainMenu2D.Instance.ShowResultScreen(true, "Đối thủ đã rời phòng!", 1, 30f, false);
+                                MainMenu2D.Instance.ShowResultScreen(false, "Hủy ván cờ!", 0, 10f, isDraw: false, isAborted: true);
+                            }
+                            break;
+
+                        case "opponent_disconnected":
+                            HasBothPlayers = false;
+                            int totalMoves = (ChessBoard3DManager.Instance != null) ? ChessBoard3DManager.Instance.TotalMovesCount : 0;
+                            bool isEarlyAbort = (totalMoves < 1);
+                            if (UIManager2D.Instance != null)
+                            {
+                                UIManager2D.Instance.RecordMove($"[ONLINE] {packet.message}");
+                                if (isEarlyAbort)
+                                {
+                                    UIManager2D.Instance.RecordMove("Đối thủ rời phòng trước nước đầu. Hủy ván cờ!");
+                                    UIManager2D.Instance.TriggerGameOver(PieceColor.White, "Hủy ván cờ (Đối thủ rời phòng sớm)!", isDraw: false, isAborted: true);
+                                }
+                                else
+                                {
+                                    UIManager2D.Instance.RecordMove("Đối thủ đã rời phòng. Bạn là người chiến thắng!");
+                                    UIManager2D.Instance.TriggerGameOver(MyRole, "Đối thủ đã rời phòng!", isDraw: false, isAborted: false);
+                                }
+                            }
+                            else if (MainMenu2D.Instance != null)
+                            {
+                                if (isEarlyAbort)
+                                {
+                                    MainMenu2D.Instance.ShowResultScreen(false, "Hủy ván cờ (Đối thủ rời phòng sớm)!", 0, 10f, isDraw: false, isAborted: true);
+                                }
+                                else
+                                {
+                                    MainMenu2D.Instance.ShowResultScreen(true, "Đối thủ đã rời phòng!", 1, 30f, false, isAborted: false);
+                                }
                             }
                             break;
 

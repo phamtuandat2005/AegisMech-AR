@@ -891,8 +891,14 @@ namespace MechChess.Multiplayer
             int eloDelta;
             int goldGain;
 
+            // Aborted match: never changes Elo, rewards 0 gold, does not alter win/loss record
+            if (result == "aborted")
+            {
+                eloDelta = 0;
+                goldGain = 0;
+            }
             // ONLY ranked Online matches against real humans modify Elo!
-            if (isOnlineMatch && !isAi)
+            else if (isOnlineMatch && !isAi)
             {
                 if (Mathf.Abs(eloDiff) <= 100)
                 {
@@ -920,17 +926,20 @@ namespace MechChess.Multiplayer
             // Grant gold reward
             AddGold(goldGain);
 
-            if (isAi)
+            if (result != "aborted")
             {
-                if (result == "win") PlayerPrefs.SetInt(PrefsKeyAiWins, AiWins + 1);
-                else if (result == "loss") PlayerPrefs.SetInt(PrefsKeyAiLosses, AiLosses + 1);
-                else PlayerPrefs.SetInt(PrefsKeyAiDraws, AiDraws + 1);
-            }
-            else
-            {
-                if (result == "win") PlayerPrefs.SetInt(PrefsKeyPvpWins, PvpWins + 1);
-                else if (result == "loss") PlayerPrefs.SetInt(PrefsKeyPvpLosses, PvpLosses + 1);
-                else PlayerPrefs.SetInt(PrefsKeyPvpDraws, PvpDraws + 1);
+                if (isAi)
+                {
+                    if (result == "win") PlayerPrefs.SetInt(PrefsKeyAiWins, AiWins + 1);
+                    else if (result == "loss") PlayerPrefs.SetInt(PrefsKeyAiLosses, AiLosses + 1);
+                    else PlayerPrefs.SetInt(PrefsKeyAiDraws, AiDraws + 1);
+                }
+                else
+                {
+                    if (result == "win") PlayerPrefs.SetInt(PrefsKeyPvpWins, PvpWins + 1);
+                    else if (result == "loss") PlayerPrefs.SetInt(PrefsKeyPvpLosses, PvpLosses + 1);
+                    else PlayerPrefs.SetInt(PrefsKeyPvpDraws, PvpDraws + 1);
+                }
             }
 
             MatchHistoryItem localItem = new MatchHistoryItem
@@ -941,7 +950,7 @@ namespace MechChess.Multiplayer
                 is_ai = isAi,
                 player_role = role,
                 result = result,
-                score = (result == "win") ? "1 - 0" : ((result == "loss") ? "0 - 1" : "½ - ½"),
+                score = (result == "win") ? "1 - 0" : ((result == "loss") ? "0 - 1" : ((result == "aborted") ? "* - *" : "½ - ½")),
                 elo_change = eloDelta,
                 moves_count = moves,
                 duration_sec = durationSec,

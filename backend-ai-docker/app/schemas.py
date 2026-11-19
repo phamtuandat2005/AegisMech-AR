@@ -84,7 +84,7 @@ class MatchRecordRequest(BaseModel):
     opponent_elo: Optional[int] = None
     is_ai: Optional[bool] = False
     player_role: Optional[str] = "white"
-    result: str = Field(..., description="Result: 'win', 'loss', or 'draw'")
+    result: str = Field(..., description="Result: 'win', 'loss', 'draw', or 'aborted'")
     moves_count: Optional[int] = 0
     duration_sec: Optional[float] = 0.0
     match_ticket: Optional[str] = Field(None, description="Cryptographic ticket issued by /api/match/start")
