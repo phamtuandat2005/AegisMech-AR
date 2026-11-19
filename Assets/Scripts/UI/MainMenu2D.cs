@@ -124,7 +124,16 @@ namespace MechChess.UI
     /// </summary>
     public class MainMenu2D : MonoBehaviour
     {
-        public static MainMenu2D Instance { get; private set; }
+        private static MainMenu2D _instance;
+        public static MainMenu2D Instance
+        {
+            get
+            {
+                if (_instance == null) _instance = FindObjectOfType<MainMenu2D>();
+                return _instance;
+            }
+            private set => _instance = value;
+        }
 
         // Root Canvas & Scaler
         private GameObject _menuCanvasObj;
@@ -363,6 +372,7 @@ namespace MechChess.UI
 
         // Result Screen elements
         private Text _resultTitleTxt;
+        private Text _resultReasonTxt;
         private Text _resultMovesTxt;
         private Text _resultDurationTxt;
         private Text _resultScoreTxt;
@@ -438,8 +448,8 @@ namespace MechChess.UI
 
         private void Awake()
         {
-            if (Instance == null) Instance = this;
-            else { Destroy(this); return; }
+            if (_instance == null) _instance = this;
+            else if (_instance != this) { Destroy(this); return; }
 
             _isInGameMatch = false;
             AegisAudioManager.EnsureInitialized();
@@ -682,6 +692,10 @@ namespace MechChess.UI
                 LichessBridge.Instance.OnGameStarted += (oppName, oppElo, isWhite) =>
                 {
                     HandleLichessMatchFound(oppName, oppElo, isWhite);
+                };
+                LichessBridge.Instance.OnGameEnded += (result, eloDelta, goldGain, endReason) =>
+                {
+                    HandleLichessGameEnded(result, eloDelta, goldGain, endReason);
                 };
             }
 
@@ -6160,25 +6174,41 @@ namespace MechChess.UI
             GameObject crownObj = new GameObject("CrownGraphic");
             crownObj.transform.SetParent(cardObj.transform, false);
             RectTransform crownRt = crownObj.AddComponent<RectTransform>();
-            crownRt.anchoredPosition = new Vector2(0f, 238f);
+            crownRt.anchoredPosition = new Vector2(0f, 246f);
             crownRt.sizeDelta = new Vector2(160f, 34f);
             CreateTextComp(crownObj.transform, "✦   👑   ✦", 28, FontStyle.Bold, new Color(1.0f, 0.88f, 0.40f, 0.95f), font, Vector2.zero, new Vector2(160f, 34f));
 
-            // Title: CHIẾN THẮNG
+            // Title: CHIẾN THẮNG / THẤT BẠI
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(cardObj.transform, false);
             _resultTitleTxt = titleObj.AddComponent<Text>();
             _resultTitleTxt.text = AegisLocalization.T("CHIẾN THẮNG", "VICTORY");
             _resultTitleTxt.font = font;
-            _resultTitleTxt.fontSize = 46;
+            _resultTitleTxt.fontSize = 44;
             _resultTitleTxt.fontStyle = FontStyle.Bold;
             _resultTitleTxt.alignment = TextAnchor.MiddleCenter;
             _resultTitleTxt.color = ColGoldBorder;
             _resultTitleTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             _resultTitleTxt.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform tRt = titleObj.GetComponent<RectTransform>();
-            tRt.anchoredPosition = new Vector2(0f, 198f);
+            tRt.anchoredPosition = new Vector2(0f, 206f);
             tRt.sizeDelta = new Vector2(500f, 48f);
+
+            // Subtitle Reason: (e.g. Đối thủ hết thời gian! / Chiếu bí đối thủ!)
+            GameObject reasonObj = new GameObject("ReasonText");
+            reasonObj.transform.SetParent(cardObj.transform, false);
+            _resultReasonTxt = reasonObj.AddComponent<Text>();
+            _resultReasonTxt.text = AegisLocalization.T("Đối thủ hết thời gian!", "Opponent ran out of time!");
+            _resultReasonTxt.font = font;
+            _resultReasonTxt.fontSize = 20;
+            _resultReasonTxt.fontStyle = FontStyle.Bold;
+            _resultReasonTxt.alignment = TextAnchor.MiddleCenter;
+            _resultReasonTxt.color = new Color(0.35f, 0.95f, 0.55f);
+            _resultReasonTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _resultReasonTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform rRt = reasonObj.GetComponent<RectTransform>();
+            rRt.anchoredPosition = new Vector2(0f, 166f);
+            rRt.sizeDelta = new Vector2(620f, 30f);
 
             // Player Profile Badge (Avatar + Player001 + Elo +12)
             GameObject profileBadge = new GameObject("PlayerBadge");
@@ -6187,7 +6217,7 @@ namespace MechChess.UI
             pbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(320, 52, 26f, new Color(0.02f, 0.08f, 0.18f, 0.92f), ColCyanBorder, 1.4f);
             pbImg.type = Image.Type.Sliced;
             RectTransform pbRt = profileBadge.GetComponent<RectTransform>();
-            pbRt.anchoredPosition = new Vector2(0f, 136f);
+            pbRt.anchoredPosition = new Vector2(0f, 110f);
             pbRt.sizeDelta = new Vector2(320f, 52f);
 
             // Circular Avatar with Cyan Ring
@@ -6242,7 +6272,7 @@ namespace MechChess.UI
             scImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(460, 195, 16f, new Color(0.015f, 0.06f, 0.14f, 0.92f), new Color(0.0f, 0.65f, 0.95f, 0.85f), 1.5f);
             scImg.type = Image.Type.Sliced;
             RectTransform scRt = statsCard.GetComponent<RectTransform>();
-            scRt.anchoredPosition = new Vector2(0f, -10f);
+            scRt.anchoredPosition = new Vector2(0f, -38f);
             scRt.sizeDelta = new Vector2(460f, 195f);
 
             CreateTextComp(statsCard.transform, AegisLocalization.T("Thống kê ván đấu", "Match Summary"), 20, FontStyle.Bold, new Color(0.80f, 0.95f, 1.0f), font, new Vector2(0f, 66f), new Vector2(420f, 28f));
@@ -6252,23 +6282,41 @@ namespace MechChess.UI
             _resultScoreTxt = CreateStatRow(statsCard.transform, AegisLocalization.T("Mã trận", "Result"), "1 - 0", -66f, font);
 
             // 3 Bottom Action Buttons: [Phát lại] [Chia sẻ] [Ván mới]
-            CreateMenuActionButton(cardObj.transform, "BtnReplay", AegisLocalization.T("↺  Phát lại", "↺  Replay"), new Vector2(-175f, -195f), new Vector2(145f, 50f), new Color(0.02f, 0.10f, 0.22f, 0.95f), ColTextWhite, 17, () => ShowToast(AegisLocalization.T("Đang chuẩn bị bản xem lại...", "Preparing match replay..."), ToastType.Info), font, ColCyanBorder, 1.4f);
+            CreateMenuActionButton(cardObj.transform, "BtnReplay", AegisLocalization.T("↺  Phát lại", "↺  Replay"), new Vector2(-175f, -220f), new Vector2(145f, 50f), new Color(0.02f, 0.10f, 0.22f, 0.95f), ColTextWhite, 17, () => ShowToast(AegisLocalization.T("Đang chuẩn bị bản xem lại...", "Preparing match replay..."), ToastType.Info), font, ColCyanBorder, 1.4f);
             
-            CreateMenuActionButton(cardObj.transform, "BtnShare", AegisLocalization.T("🔀  Chia sẻ", "🔀  Share"), new Vector2(0f, -195f), new Vector2(145f, 50f), new Color(0.02f, 0.10f, 0.22f, 0.95f), ColTextWhite, 17, () =>
+            CreateMenuActionButton(cardObj.transform, "BtnShare", AegisLocalization.T("🔀  Chia sẻ", "🔀  Share"), new Vector2(0f, -220f), new Vector2(145f, 50f), new Color(0.02f, 0.10f, 0.22f, 0.95f), ColTextWhite, 17, () =>
             {
                 GUIUtility.systemCopyBuffer = $"AegisMech Match: {_resultScoreTxt?.text} ({_resultMovesTxt?.text} moves, {_resultDurationTxt?.text})";
                 ShowToast(AegisLocalization.T("Đã sao chép liên kết trận đấu!", "Match link copied!"), ToastType.Success);
             }, font, ColCyanBorder, 1.4f);
 
-            CreateMenuActionButton(cardObj.transform, "BtnNewMatch", AegisLocalization.T("⚔  Ván mới", "⚔  New Match"), new Vector2(185f, -195f), new Vector2(165f, 50f), new Color(0.85f, 0.55f, 0.08f, 0.96f), ColDarkBtnText, 18, () =>
+            CreateMenuActionButton(cardObj.transform, "BtnNewMatch", AegisLocalization.T("⚔  Ván mới", "⚔  New Match"), new Vector2(185f, -220f), new Vector2(165f, 50f), new Color(0.85f, 0.55f, 0.08f, 0.96f), ColDarkBtnText, 18, () =>
             {
                 CloseModal(_resultScreenModal);
                 if (_menuCanvasObj != null)
                 {
                     Canvas c = _menuCanvasObj.GetComponent<Canvas>();
                     if (c != null) c.sortingOrder = 90;
-                    _menuCanvasObj.SetActive(false);
                 }
+                if (_lastLaunchMode == GameLaunchMode.OnlineMultiplayer)
+                {
+                    ShowMenu();
+                    OpenModeSelect();
+                }
+                else
+                {
+                    if (_menuCanvasObj != null) _menuCanvasObj.SetActive(false);
+                    if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+                    {
+                        MechChess.Chess3D.ChessBoard3DManager.Instance.ResetBoard();
+                    }
+                    if (UIManager2D.Instance != null)
+                    {
+                        UIManager2D.Instance.ResetGameTimers();
+                        UIManager2D.Instance.SetHUDVisible(true);
+                    }
+                }
+            }, font, ColGoldBorder, 2.0f);
                 if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
                 {
                     MechChess.Chess3D.ChessBoard3DManager.Instance.ResetBoard();
@@ -6317,6 +6365,10 @@ namespace MechChess.UI
 
         public void ShowResultScreen(bool victory, string reason, int moves, float durationSec, bool isDraw)
         {
+            if (_resultScreenModal == null || _menuCanvasObj == null)
+            {
+                BuildAllScreens(true);
+            }
             if (_resultScreenModal == null) return;
 
             // Automatically turn off camera when match finishes
@@ -6330,7 +6382,7 @@ namespace MechChess.UI
             {
                 _menuCanvasObj.SetActive(true);
                 Canvas c = _menuCanvasObj.GetComponent<Canvas>();
-                if (c != null) c.sortingOrder = 200;
+                if (c != null) c.sortingOrder = 250;
             }
 
             // 2. Hide base screens so only modal is visible on top of 3D game
@@ -6353,6 +6405,11 @@ namespace MechChess.UI
                     _resultTitleTxt.color = victory ? ColGoldBorder : new Color(0.95f, 0.35f, 0.35f);
                 }
             }
+            if (_resultReasonTxt != null)
+            {
+                _resultReasonTxt.text = !string.IsNullOrEmpty(reason) ? reason : (isDraw ? AegisLocalization.T("Hòa cờ", "Draw") : (victory ? AegisLocalization.T("Chiến thắng!", "Victory!") : AegisLocalization.T("Thất bại!", "Defeat!")));
+                _resultReasonTxt.color = isDraw ? new Color(0.85f, 0.90f, 1.0f) : (victory ? new Color(0.35f, 0.95f, 0.55f) : new Color(1.0f, 0.45f, 0.45f));
+            }
             if (_resultMovesTxt != null) _resultMovesTxt.text = moves.ToString();
             if (_resultDurationTxt != null)
             {
@@ -6369,6 +6426,11 @@ namespace MechChess.UI
                 _resultEloTxt.text = isDraw ? "<color=#80d8ff>Elo +0</color>" : (victory ? "<color=#00e676>Elo +8</color>" : "<color=#ff5252>Elo -8</color>");
             }
 
+            // Audio cues
+            if (isDraw) AegisAudioManager.PlayToast();
+            else if (victory) AegisAudioManager.PlayVictorySound();
+            else AegisAudioManager.PlayDefeatSound();
+
             // Securely record match result to Supabase database via FastAPI and local storage
             string matchRes = isDraw ? "draw" : (victory ? "win" : "loss");
             bool isAi = (_lastLaunchMode == GameLaunchMode.VersusAI);
@@ -6376,11 +6438,23 @@ namespace MechChess.UI
                 ? (_selectedAIDifficulty == 1 ? "Cyber AI (Dễ)" :
                    _selectedAIDifficulty == 2 ? "Cyber AI (Trung bình)" :
                    _selectedAIDifficulty == 3 ? "Cyber AI (Khó)" : "Cyber AI (Rất khó)")
-                : "VS Player (Online)";
+                : ((LichessBridge.Instance != null && LichessBridge.Instance.IsInLichessMatch)
+                    ? LichessBridge.Instance.OpponentName
+                    : "VS Player (Online)");
+
+            string myRole = "white";
+            if (LichessBridge.Instance != null && LichessBridge.Instance.IsInLichessMatch && !LichessBridge.Instance.IsPlayerWhite)
+            {
+                myRole = "black";
+            }
+            else if (MechChess.Chess3D.ChessBoard3DManager.Instance != null && MechChess.Chess3D.ChessBoard3DManager.Instance.playerColor == PieceColor.Black)
+            {
+                myRole = "black";
+            }
 
             if (UserAccountManager.Instance != null)
             {
-                UserAccountManager.Instance.RecordMatchResult(matchRes, oppName, isAi, "white", moves, durationSec, (ok, res) =>
+                UserAccountManager.Instance.RecordMatchResult(matchRes, oppName, isAi, myRole, moves, durationSec, (ok, res) =>
                 {
                     if (ok && res != null)
                     {
@@ -7925,6 +7999,46 @@ namespace MechChess.UI
             }
 
             ShowToast(AegisLocalization.T($"Trận đấu bắt đầu! Đối thủ Lichess: {oppName} ({oppElo})", $"Match started! Lichess Opponent: {oppName} ({oppElo})"), ToastType.Success);
+        }
+
+        private void HandleLichessGameEnded(string result, int eloChange, int goldGain, string endReason)
+        {
+            bool victory = (result == "win");
+            bool isDraw = (result == "draw");
+
+            string reasonStr = "";
+            if (endReason == "outoftime")
+            {
+                reasonStr = victory ? AegisLocalization.T("Đối thủ hết thời gian!", "Opponent ran out of time!") : AegisLocalization.T("Hết thời gian trận đấu!", "Out of match time!");
+            }
+            else if (endReason == "mate")
+            {
+                reasonStr = victory ? AegisLocalization.T("Chiếu bí đối thủ!", "Checkmate!") : AegisLocalization.T("Bị chiếu bí!", "Checkmated!");
+            }
+            else if (endReason == "resign")
+            {
+                reasonStr = victory ? AegisLocalization.T("Đối thủ đã đầu hàng!", "Opponent resigned!") : AegisLocalization.T("Bạn đã đầu hàng!", "You resigned!");
+            }
+            else if (endReason == "aborted")
+            {
+                reasonStr = AegisLocalization.T("Trận đấu bị hủy!", "Match aborted!");
+            }
+            else
+            {
+                reasonStr = isDraw ? AegisLocalization.T("Hòa cờ", "Draw") : (victory ? AegisLocalization.T("Chiến thắng!", "Victory!") : AegisLocalization.T("Thất bại!", "Defeat!"));
+            }
+
+            PieceColor myColor = (LichessBridge.Instance != null && LichessBridge.Instance.IsPlayerWhite) ? PieceColor.White : PieceColor.Black;
+            PieceColor winnerColor = isDraw ? PieceColor.White : (victory ? myColor : (myColor == PieceColor.White ? PieceColor.Black : PieceColor.White));
+
+            if (UIManager2D.Instance != null)
+            {
+                UIManager2D.Instance.TriggerGameOver(winnerColor, reasonStr, isDraw);
+            }
+            else
+            {
+                ShowResultScreen(victory, reasonStr, LichessBridge.Instance != null ? LichessBridge.Instance.LastMoveCount : 0, 120f, isDraw);
+            }
         }
 
         // =========================================================================

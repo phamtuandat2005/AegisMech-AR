@@ -324,7 +324,16 @@ namespace MechChess.UI
     /// </summary>
     public class UIManager2D : MonoBehaviour
     {
-        public static UIManager2D Instance { get; private set; }
+        private static UIManager2D _instance;
+        public static UIManager2D Instance
+        {
+            get
+            {
+                if (_instance == null) _instance = FindObjectOfType<UIManager2D>();
+                return _instance;
+            }
+            private set => _instance = value;
+        }
 
         [Header("Match State")]
         private float _whiteTimer = 600f; // 10 minutes
@@ -1692,6 +1701,7 @@ namespace MechChess.UI
 
         public void TriggerGameOver(PieceColor winner, string reason, bool isDraw)
         {
+            if (_isGameOver) return;
             _isGameOver = true;
             _isTimerRunning = false;
 
@@ -1706,7 +1716,20 @@ namespace MechChess.UI
                 MechChess.Chess3D.ChessBoard3DManager.Instance.isGameOver = true;
             }
 
-            string winnerName = (winner == PieceColor.White) ? AegisLocalization.T("HOÀNG GIA", "ROYAL ALLIANCE") : AegisLocalization.T("HẮC ÁM", "SHADOW LEGION");
+            // Determine player's active role (White or Black)
+            PieceColor playerColor = PieceColor.White;
+            if (MechChess.Multiplayer.LichessBridge.Instance != null && MechChess.Multiplayer.LichessBridge.Instance.IsInLichessMatch)
+            {
+                playerColor = MechChess.Multiplayer.LichessBridge.Instance.IsPlayerWhite ? PieceColor.White : PieceColor.Black;
+            }
+            else if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+            {
+                playerColor = MechChess.Chess3D.ChessBoard3DManager.Instance.playerColor;
+            }
+
+            bool isPlayerVictory = (!isDraw && winner == playerColor);
+            string winnerName = (winner == PieceColor.White) ? AegisLocalization.T("HOÀNG GIA (TRẮNG)", "ROYAL ALLIANCE (WHITE)") : AegisLocalization.T("HẮC ÁM (ĐEN)", "SHADOW LEGION (BLACK)");
+
             if (_turnIndicatorText != null)
             {
                 if (isDraw)
@@ -1716,9 +1739,18 @@ namespace MechChess.UI
                 }
                 else
                 {
-                    _turnIndicatorText.text = AegisLocalization.T($"🏆 {winnerName} CHIẾN THẮNG!", $"🏆 {winnerName} VICTORIOUS!");
-                    _turnIndicatorText.color = new Color(0.92f, 0.80f, 0.45f);
+                    _turnIndicatorText.text = isPlayerVictory
+                        ? AegisLocalization.T($"🏆 BẠN ĐÃ CHIẾN THẮNG!", $"🏆 YOU ARE VICTORIOUS!")
+                        : AegisLocalization.T($"⚔️ BẠN ĐÃ THẤT BẠI!", $"⚔️ DEFEAT!");
+                    _turnIndicatorText.color = isPlayerVictory ? new Color(0.95f, 0.82f, 0.35f) : new Color(0.95f, 0.40f, 0.40f);
                 }
+            }
+
+            // CRITICAL FIX: Replace "TRẬN ĐẤU ĐANG DIỄN RA" with clear Game Over notice and reason!
+            if (_firstMoveWarningText != null)
+            {
+                _firstMoveWarningText.text = AegisLocalization.T($"🏁 KẾT THÚC: {reason}", $"🏁 CONCLUDED: {reason}");
+                _firstMoveWarningText.color = isDraw ? new Color(0.85f, 0.85f, 0.95f) : (isPlayerVictory ? new Color(0.3f, 0.95f, 0.5f) : new Color(0.95f, 0.65f, 0.4f));
             }
 
             RecordMove(isDraw 
@@ -1727,8 +1759,7 @@ namespace MechChess.UI
 
             if (MainMenu2D.Instance != null)
             {
-                bool isPlayerVictory = (!isDraw && winner == PieceColor.White);
-                float matchDuration = _initialTime - _whiteTimer;
+                float matchDuration = Mathf.Max(1f, _initialTime - _whiteTimer);
                 MainMenu2D.Instance.ShowResultScreen(isPlayerVictory, reason, _moveHistory.Count, matchDuration, isDraw);
             }
         }
@@ -1736,7 +1767,8 @@ namespace MechChess.UI
         private void TriggerTimeoutGameOver(PieceColor timedOutPlayer)
         {
             PieceColor winner = (timedOutPlayer == PieceColor.White) ? PieceColor.Black : PieceColor.White;
-            TriggerGameOver(winner, AegisLocalization.T("Hết thời gian trận đấu!", "Out of match time!"));
+            string timedOutSide = (timedOutPlayer == PieceColor.White) ? AegisLocalization.T("Bên Trắng", "White side") : AegisLocalization.T("Bên Đen", "Black side");
+            TriggerGameOver(winner, AegisLocalization.T($"{timedOutSide} hết thời gian!", $"{timedOutSide} ran out of time!"));
         }
 
         public void ResetGameTimers()

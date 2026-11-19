@@ -75,10 +75,11 @@ namespace MechChess.Multiplayer
         public string OpponentName { get; private set; } = "Lichess Player";
         public int OpponentElo { get; private set; } = 1500;
         public bool IsMyTurn { get; private set; } = true;
+        public int LastMoveCount => _lastMoveCount;
 
         public event Action<string, int, bool> OnGameStarted; // oppName, oppElo, isWhite
         public event Action<string, string> OnOpponentMoved;   // uciMove, san
-        public event Action<string, int, int> OnGameEnded;     // result ("win"/"loss"/"draw"), eloChange, goldGained
+        public event Action<string, int, int, string> OnGameEnded; // result ("win"/"loss"/"draw"), eloChange, goldGained, endReason
 
         private Coroutine _pollGameCoroutine;
         private Coroutine _streamCoroutine;
@@ -623,6 +624,7 @@ namespace MechChess.Multiplayer
                 yield return req.SendWebRequest();
 
                 string result = "draw";
+                string endReason = "outoftime";
                 if (req.result == UnityWebRequest.Result.Success)
                 {
                     string text = req.downloadHandler.text;
@@ -634,8 +636,13 @@ namespace MechChess.Multiplayer
                     {
                         result = !IsPlayerWhite ? "win" : "loss";
                     }
+
+                    if (text.Contains("\"status\":\"mate\"")) endReason = "mate";
+                    else if (text.Contains("\"status\":\"resign\"")) endReason = "resign";
+                    else if (text.Contains("\"status\":\"outoftime\"")) endReason = "outoftime";
+                    else if (text.Contains("\"status\":\"aborted\"")) endReason = "aborted";
                 }
-                EndGameSession(result);
+                EndGameSession(result, endReason);
             }
         }
 
@@ -697,7 +704,13 @@ namespace MechChess.Multiplayer
                             result = !IsPlayerWhite ? "win" : "loss";
                         }
 
-                        EndGameSession(result);
+                        string streamReason = "outoftime";
+                        if (trimmed.Contains("\"status\":\"mate\"")) streamReason = "mate";
+                        else if (trimmed.Contains("\"status\":\"resign\"")) streamReason = "resign";
+                        else if (trimmed.Contains("\"status\":\"outoftime\"")) streamReason = "outoftime";
+                        else if (trimmed.Contains("\"status\":\"aborted\"")) streamReason = "aborted";
+
+                        EndGameSession(result, streamReason);
                         break;
                     }
                 }
@@ -751,7 +764,7 @@ namespace MechChess.Multiplayer
             }
         }
 
-        private void EndGameSession(string result)
+        private void EndGameSession(string result, string endReason = "outoftime")
         {
             if (!IsInLichessMatch) return;
             IsInLichessMatch = false;
@@ -779,7 +792,7 @@ namespace MechChess.Multiplayer
                     {
                         int eloDelta = (res != null) ? res.elo_change : (result == "win" ? 8 : (result == "loss" ? -8 : 0));
                         int goldGain = (res != null) ? res.gold_gained : (result == "win" ? 100 : 20);
-                        OnGameEnded?.Invoke(result, eloDelta, goldGain);
+                        OnGameEnded?.Invoke(result, eloDelta, goldGain, endReason);
                     }
                 );
             }
@@ -787,7 +800,7 @@ namespace MechChess.Multiplayer
             {
                 int eloDelta = (result == "win") ? 8 : (result == "loss" ? -8 : 0);
                 int goldGain = (result == "win") ? 100 : 20;
-                OnGameEnded?.Invoke(result, eloDelta, goldGain);
+                OnGameEnded?.Invoke(result, eloDelta, goldGain, endReason);
             }
         }
     }

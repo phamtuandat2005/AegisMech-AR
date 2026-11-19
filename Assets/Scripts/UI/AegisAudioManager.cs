@@ -199,6 +199,38 @@ namespace MechChess.UI
             }
         }
 
+        /// <summary>
+        /// Plays a triumphant victory fanfare chord progression when player wins the match.
+        /// </summary>
+        public static void PlayVictorySound()
+        {
+            if (!IsSFXEnabled()) return;
+            EnsureInitialized();
+            if (_sfxSource == null) return;
+
+            AudioClip clip = GetOrSynthesizeClip("sfx_victory", () => SynthesizeVictorySound());
+            if (clip != null)
+            {
+                _sfxSource.PlayOneShot(clip, 0.85f);
+            }
+        }
+
+        /// <summary>
+        /// Plays a solemn defeat cadence when player loses the match.
+        /// </summary>
+        public static void PlayDefeatSound()
+        {
+            if (!IsSFXEnabled()) return;
+            EnsureInitialized();
+            if (_sfxSource == null) return;
+
+            AudioClip clip = GetOrSynthesizeClip("sfx_defeat", () => SynthesizeDefeatSound());
+            if (clip != null)
+            {
+                _sfxSource.PlayOneShot(clip, 0.80f);
+            }
+        }
+
         // =========================================================================
         // MULTI-TIER AUDIO LOADING & PROCEDURAL SYNTHESIS ENGINE
         // =========================================================================
@@ -416,6 +448,77 @@ namespace MechChess.UI
             }
 
             AudioClip clip = AudioClip.Create("SynthModalClose", totalSamples, 1, sampleRate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        private static AudioClip SynthesizeVictorySound()
+        {
+            int sampleRate = 44100;
+            float duration = 1.25f;
+            int totalSamples = (int)(sampleRate * duration);
+            float[] data = new float[totalSamples];
+
+            // 4-note ascending fanfare: C4 (261.63Hz), E4 (329.63Hz), G4 (392.00Hz), C5 (523.25Hz)
+            float[] notePitches = { 261.63f, 329.63f, 392.00f, 523.25f };
+            float[] noteTimes = { 0.0f, 0.16f, 0.32f, 0.48f };
+            float[] noteLengths = { 0.15f, 0.15f, 0.15f, 0.77f };
+
+            for (int n = 0; n < notePitches.Length; n++)
+            {
+                float p = notePitches[n];
+                float startTime = noteTimes[n];
+                float noteDur = noteLengths[n];
+                int startSample = (int)(startTime * sampleRate);
+                int noteSamples = (int)(noteDur * sampleRate);
+
+                for (int i = 0; i < noteSamples && (startSample + i) < totalSamples; i++)
+                {
+                    float t = (float)i / sampleRate;
+                    float env = Mathf.Exp(-t * (n == 3 ? 2.5f : 6.0f));
+                    float wave = Mathf.Sin(2f * Mathf.PI * p * t) * 0.5f 
+                               + Mathf.Sin(2f * Mathf.PI * (p * 2f) * t) * 0.25f
+                               + Mathf.Sin(2f * Mathf.PI * (p * 3f) * t) * 0.12f;
+                    data[startSample + i] += wave * env * 0.55f;
+                }
+            }
+
+            AudioClip clip = AudioClip.Create("SynthVictory", totalSamples, 1, sampleRate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        private static AudioClip SynthesizeDefeatSound()
+        {
+            int sampleRate = 44100;
+            float duration = 1.1f;
+            int totalSamples = (int)(sampleRate * duration);
+            float[] data = new float[totalSamples];
+
+            // 3-note descending somber cadence: A3 (220Hz), F3 (174.6Hz), D3 (146.8Hz)
+            float[] notePitches = { 220f, 174.61f, 146.83f };
+            float[] noteTimes = { 0.0f, 0.25f, 0.50f };
+            float[] noteLengths = { 0.24f, 0.24f, 0.60f };
+
+            for (int n = 0; n < notePitches.Length; n++)
+            {
+                float p = notePitches[n];
+                float startTime = noteTimes[n];
+                float noteDur = noteLengths[n];
+                int startSample = (int)(startTime * sampleRate);
+                int noteSamples = (int)(noteDur * sampleRate);
+
+                for (int i = 0; i < noteSamples && (startSample + i) < totalSamples; i++)
+                {
+                    float t = (float)i / sampleRate;
+                    float env = Mathf.Exp(-t * (n == 2 ? 3.0f : 5.0f));
+                    float wave = Mathf.Sin(2f * Mathf.PI * p * t) * 0.6f 
+                               + Mathf.Sin(2f * Mathf.PI * (p * 1.5f) * t) * 0.2f;
+                    data[startSample + i] += wave * env * 0.55f;
+                }
+            }
+
+            AudioClip clip = AudioClip.Create("SynthDefeat", totalSamples, 1, sampleRate, false);
             clip.SetData(data, 0);
             return clip;
         }
