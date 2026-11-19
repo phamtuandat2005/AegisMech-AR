@@ -6048,6 +6048,27 @@ namespace MechChess.UI
                 if (c != null) c.sortingOrder = 90;
             }
             _pauseModal.SetActive(false);
+
+            // Record match if game was in progress and moves were played
+            if (MechChess.Chess3D.ChessBoard3DManager.Instance != null && MechChess.Chess3D.ChessBoard3DManager.Instance.TotalMovesCount > 0)
+            {
+                int moves = MechChess.Chess3D.ChessBoard3DManager.Instance.TotalMovesCount;
+                bool isAi = (_lastLaunchMode == GameLaunchMode.VersusAI);
+                string oppName = isAi
+                    ? (_selectedAIDifficulty == 1 ? "Cyber AI (Dễ)" :
+                       _selectedAIDifficulty == 2 ? "Cyber AI (Trung bình)" :
+                       _selectedAIDifficulty == 3 ? "Cyber AI (Khó)" : "Cyber AI (Rất khó)")
+                    : "VS Player (Online)";
+
+                if (UserAccountManager.Instance != null)
+                {
+                    UserAccountManager.Instance.RecordMatchResult("loss", oppName, isAi, "white", moves, 180f, -1, (ok, res) =>
+                    {
+                        UpdateUserProfileUI();
+                    });
+                }
+            }
+
             ShowMenu();
         }
 
@@ -6808,6 +6829,11 @@ namespace MechChess.UI
                 {
                     _profileTabContainers[i].SetActive(i == tabIndex);
                 }
+            }
+
+            if (tabIndex == 0)
+            {
+                LoadDynamicMatchHistory();
             }
         }
 
@@ -8676,11 +8702,11 @@ namespace MechChess.UI
             if (_matchHistoryRowsParent == null) return;
             if (UserAccountManager.Instance == null) return;
 
-            // Remove existing dynamic rows or notices
+            // Remove existing dynamic rows or notices (leave RowDiv_ intact)
             for (int c = _matchHistoryRowsParent.childCount - 1; c >= 0; c--)
             {
                 Transform ch = _matchHistoryRowsParent.GetChild(c);
-                if (ch.name.StartsWith("DynamicRow_") || ch.name.StartsWith("EmptyNotice") || ch.name.StartsWith("Row_"))
+                if (ch.name.StartsWith("DynamicRow_") || ch.name.StartsWith("EmptyNotice"))
                 {
                     Destroy(ch.gameObject);
                 }
@@ -8693,26 +8719,32 @@ namespace MechChess.UI
             {
                 GameObject emptyNotice = new GameObject("EmptyNotice");
                 emptyNotice.transform.SetParent(_matchHistoryRowsParent, false);
-                RectTransform enRt = emptyNotice.AddComponent<RectTransform>();
+                RectTransform enRt = emptyNotice.GetComponent<RectTransform>() ?? emptyNotice.AddComponent<RectTransform>();
+                enRt.anchorMin = new Vector2(0.5f, 0.5f);
+                enRt.anchorMax = new Vector2(0.5f, 0.5f);
+                enRt.pivot = new Vector2(0.5f, 0.5f);
                 enRt.anchoredPosition = new Vector2(0f, 0f);
                 enRt.sizeDelta = new Vector2(500f, 160f);
 
-                CreateTextComp(emptyNotice.transform, "⚔️", 36, FontStyle.Bold, new Color(0.4f, 0.6f, 0.8f, 0.6f), font, new Vector2(0f, 35f), new Vector2(100f, 50f));
-                CreateTextComp(emptyNotice.transform, AegisLocalization.T("Chưa có trận đấu nào được lưu.\nHãy tham gia ván đấu mới để bắt đầu ghi danh sử sách!", "No match history recorded.\nPlay a match to start your battle chronicles!"), 18, FontStyle.Italic, new Color(0.70f, 0.82f, 0.95f, 0.80f), font, new Vector2(0f, -25f), new Vector2(460f, 60f));
+                CreateTextComp(emptyNotice.transform, AegisLocalization.T("Chưa có ván đấu nào được ghi nhận.", "No match history recorded."), 20, FontStyle.Bold, new Color(0.85f, 0.90f, 0.98f), font, new Vector2(0f, 20f), new Vector2(460f, 32f));
+                CreateTextComp(emptyNotice.transform, AegisLocalization.T("Hãy hoàn thành ván đấu để bắt đầu ghi danh sử sách!", "Complete matches to record your battle chronicles!"), 16, FontStyle.Italic, new Color(0.60f, 0.75f, 0.90f, 0.85f), font, new Vector2(0f, -20f), new Vector2(460f, 32f));
             }
             else
             {
-                float startY = 90f;
-                float rowSpacing = 105f;
+                float startY = 85f;
+                float rowSpacing = 95f;
                 int count = Mathf.Min(localMatches.Count, 3);
                 for (int i = 0; i < count; i++)
                 {
                     var m = localMatches[i];
                     GameObject rowObj = new GameObject("DynamicRow_" + i);
                     rowObj.transform.SetParent(_matchHistoryRowsParent, false);
-                    RectTransform rRt = rowObj.AddComponent<RectTransform>();
+                    RectTransform rRt = rowObj.GetComponent<RectTransform>() ?? rowObj.AddComponent<RectTransform>();
+                    rRt.anchorMin = new Vector2(0.5f, 0.5f);
+                    rRt.anchorMax = new Vector2(0.5f, 0.5f);
+                    rRt.pivot = new Vector2(0.5f, 0.5f);
                     rRt.anchoredPosition = new Vector2(0f, startY - (i * rowSpacing));
-                    rRt.sizeDelta = new Vector2(570f, 80f);
+                    rRt.sizeDelta = new Vector2(570f, 75f);
 
                     // Row Icon
                     GameObject rIconObj = new GameObject("Icon");
@@ -8723,26 +8755,29 @@ namespace MechChess.UI
                     if (icSp != null) rIconImg.sprite = icSp;
                     else rIconImg.color = ColCyanGlow;
                     rIconImg.preserveAspect = true;
-                    RectTransform riRt = rIconObj.GetComponent<RectTransform>();
+                    RectTransform riRt = rIconObj.GetComponent<RectTransform>() ?? rIconObj.AddComponent<RectTransform>();
+                    riRt.anchorMin = new Vector2(0.5f, 0.5f);
+                    riRt.anchorMax = new Vector2(0.5f, 0.5f);
+                    riRt.pivot = new Vector2(0.5f, 0.5f);
                     riRt.anchoredPosition = new Vector2(-235f, 0f);
                     riRt.sizeDelta = new Vector2(46f, 46f);
 
                     // Opponent Name
                     string oppTitle = !string.IsNullOrEmpty(m.opponent_name) ? m.opponent_name : (m.is_ai ? "VS AI" : "VS Player");
-                    CreateTextComp(rowObj.transform, oppTitle, 22, FontStyle.Bold, ColTextWhite, font, new Vector2(-90f, 12f), new Vector2(220f, 28f), TextAnchor.MiddleLeft);
+                    CreateTextComp(rowObj.transform, oppTitle, 20, FontStyle.Bold, ColTextWhite, font, new Vector2(-75f, 12f), new Vector2(250f, 26f), TextAnchor.MiddleLeft);
 
                     // Real Date & Time
-                    CreateTextComp(rowObj.transform, m.ended_at, 16, FontStyle.Normal, new Color(0.60f, 0.75f, 0.90f), font, new Vector2(-90f, -16f), new Vector2(220f, 22f), TextAnchor.MiddleLeft);
+                    CreateTextComp(rowObj.transform, m.ended_at, 15, FontStyle.Normal, new Color(0.60f, 0.75f, 0.90f), font, new Vector2(-75f, -14f), new Vector2(250f, 22f), TextAnchor.MiddleLeft);
 
                     // Score + Result Color
                     Color scoreCol = (m.result == "win") ? ColGoldBorder : ((m.result == "loss") ? new Color(0.95f, 0.4f, 0.4f) : new Color(0.8f, 0.85f, 0.9f));
-                    CreateTextComp(rowObj.transform, m.score, 28, FontStyle.Bold, scoreCol, font, new Vector2(105f, 0f), new Vector2(90f, 36f), TextAnchor.MiddleCenter);
+                    CreateTextComp(rowObj.transform, m.score, 26, FontStyle.Bold, scoreCol, font, new Vector2(105f, 0f), new Vector2(90f, 36f), TextAnchor.MiddleCenter);
 
                     // Elo Change (+12 / -8)
                     string sign = m.elo_change > 0 ? "+" : "";
                     string eloStr = $"{sign}{m.elo_change}";
                     Color eloCol = m.elo_change > 0 ? new Color(0f, 0.90f, 0.45f) : (m.elo_change < 0 ? new Color(1f, 0.35f, 0.35f) : new Color(0.6f, 0.8f, 1f));
-                    CreateTextComp(rowObj.transform, $"Elo {eloStr}", 18, FontStyle.Bold, eloCol, font, new Vector2(215f, 0f), new Vector2(90f, 30f), TextAnchor.MiddleCenter);
+                    CreateTextComp(rowObj.transform, $"Elo {eloStr}", 17, FontStyle.Bold, eloCol, font, new Vector2(215f, 0f), new Vector2(90f, 30f), TextAnchor.MiddleCenter);
                 }
             }
 
@@ -8751,7 +8786,10 @@ namespace MechChess.UI
             {
                 UserAccountManager.Instance.FetchMatchHistory(5, (success, remoteMatches) =>
                 {
-                    // Merged smoothly in background
+                    if (success && remoteMatches != null && remoteMatches.Length > 0)
+                    {
+                        LoadDynamicMatchHistory();
+                    }
                 });
             }
         }
@@ -8929,7 +8967,10 @@ namespace MechChess.UI
             t.horizontalOverflow = HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             t.raycastTarget = false;
-            RectTransform rt = txtObj.GetComponent<RectTransform>();
+            RectTransform rt = txtObj.GetComponent<RectTransform>() ?? txtObj.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = pos;
             rt.sizeDelta = delta;
             return t;

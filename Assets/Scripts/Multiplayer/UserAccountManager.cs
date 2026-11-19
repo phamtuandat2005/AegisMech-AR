@@ -702,62 +702,40 @@ namespace MechChess.Multiplayer
                 catch { }
             }
 
-            // Seed initial realistic match entries if user already has wins/losses on profile
-            int totalWins = (CurrentProfile != null ? CurrentProfile.wins : 0) + PvpWins + AiWins;
-            int totalLosses = (CurrentProfile != null ? CurrentProfile.losses : 0) + PvpLosses + AiLosses;
-
-            if (totalWins > 0 || totalLosses > 0)
+            // Always seed realistic initial match entries so the profile history is never blank
+            List<MatchHistoryItem> seeded = new List<MatchHistoryItem>
             {
-                List<MatchHistoryItem> seeded = new List<MatchHistoryItem>();
-                if (AiWins == 0 && PvpWins == 0 && totalWins > 0)
+                new MatchHistoryItem
                 {
-                    PlayerPrefs.SetInt(PrefsKeyAiWins, 1);
-                }
-                if (AiLosses == 0 && PvpLosses == 0 && totalLosses > 0)
+                    id = "m-init-1",
+                    match_code = "M-2041",
+                    opponent_name = "Cyber AI (Tập sự)",
+                    is_ai = true,
+                    player_role = "white",
+                    result = "win",
+                    score = "1 - 0",
+                    elo_change = 12,
+                    moves_count = 24,
+                    duration_sec = 245f,
+                    ended_at = DateTime.Now.AddHours(-2).ToString("dd/MM/yyyy HH:mm")
+                },
+                new MatchHistoryItem
                 {
-                    PlayerPrefs.SetInt(PrefsKeyPvpLosses, 1);
+                    id = "m-init-2",
+                    match_code = "M-1893",
+                    opponent_name = "Kỳ thủ Lichess (Online)",
+                    is_ai = false,
+                    player_role = "black",
+                    result = "draw",
+                    score = "½ - ½",
+                    elo_change = 0,
+                    moves_count = 32,
+                    duration_sec = 380f,
+                    ended_at = DateTime.Now.AddDays(-1).ToString("dd/MM/yyyy HH:mm")
                 }
-
-                if (totalWins > 0)
-                {
-                    seeded.Add(new MatchHistoryItem
-                    {
-                        id = "m-init-1",
-                        match_code = "M-2041",
-                        opponent_name = "Cyber AI (Trung bình)",
-                        is_ai = true,
-                        player_role = "white",
-                        result = "win",
-                        score = "1 - 0",
-                        elo_change = 12,
-                        moves_count = 28,
-                        duration_sec = 315f,
-                        ended_at = DateTime.Now.AddHours(-1).ToString("dd/MM/yyyy HH:mm")
-                    });
-                }
-                if (totalLosses > 0)
-                {
-                    seeded.Add(new MatchHistoryItem
-                    {
-                        id = "m-init-2",
-                        match_code = "M-1893",
-                        opponent_name = "Lyra (Online)",
-                        is_ai = false,
-                        player_role = "black",
-                        result = "loss",
-                        score = "0 - 1",
-                        elo_change = -8,
-                        moves_count = 36,
-                        duration_sec = 420f,
-                        ended_at = DateTime.Now.AddHours(-4).ToString("dd/MM/yyyy HH:mm")
-                    });
-                }
-
-                SaveLocalMatchHistory(seeded);
-                return seeded;
-            }
-
-            return new List<MatchHistoryItem>();
+            };
+            SaveLocalMatchHistory(seeded);
+            return seeded;
         }
 
         public void AddLocalMatchHistory(MatchHistoryItem item)

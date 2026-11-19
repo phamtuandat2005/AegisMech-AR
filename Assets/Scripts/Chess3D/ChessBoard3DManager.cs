@@ -91,6 +91,7 @@ namespace MechChess.Chess3D
         private Vector2Int? _nextEnPassantSquare = null;
         private int _halfMoveClock = 0; // For 50-move rule (100 half-moves)
         private Stack<MoveHistoryRecord> _moveHistoryStack = new Stack<MoveHistoryRecord>();
+        public int TotalMovesCount => _moveHistoryStack != null ? _moveHistoryStack.Count : 0;
 
         public void SetEnPassantTargetSquareForTest(Vector2Int? square)
         {
