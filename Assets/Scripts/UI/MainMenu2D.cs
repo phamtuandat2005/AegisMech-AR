@@ -194,6 +194,8 @@ namespace MechChess.UI
         private Text _reviewBestMoveTxt;
         private Text _reviewCommentTxt;
         private Transform _reviewMoveListParent;
+        private RectTransform _reviewAccWhiteFill;
+        private RectTransform _reviewAccBlackFill;
         private GameAnalysisData _activeAnalysis;
         private int _currentReviewPly = 0;
         private Coroutine _autoPlayCoroutine = null;
@@ -7498,158 +7500,203 @@ namespace MechChess.UI
             dcRt.sizeDelta = new Vector2(720f, 600f);
 
             // Top Info Header: Match Players & Result
-            GameObject titleObj = new GameObject("ReviewMatchTitle");
+            GameObject titleObj = new GameObject("ReviewMatchTitle", typeof(RectTransform));
             titleObj.transform.SetParent(detailsCard.transform, false);
             _reviewTitleTxt = titleObj.AddComponent<Text>();
             _reviewTitleTxt.text = "Trắng: Player  VS  Đen: Đối thủ";
             _reviewTitleTxt.font = font;
-            _reviewTitleTxt.fontSize = 18;
+            _reviewTitleTxt.fontSize = 20;
             _reviewTitleTxt.fontStyle = FontStyle.Bold;
             _reviewTitleTxt.alignment = TextAnchor.MiddleLeft;
             _reviewTitleTxt.color = ColTextWhite;
             _reviewTitleTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _reviewTitleTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_reviewTitleTxt);
             RectTransform ttRt = titleObj.GetComponent<RectTransform>();
             ttRt.anchoredPosition = new Vector2(0f, 260f);
-            ttRt.sizeDelta = new Vector2(670f, 28f);
+            ttRt.sizeDelta = new Vector2(670f, 30f);
 
-            // Accuracy CAPS Bar
-            GameObject accObj = new GameObject("ReviewAccuracy");
+            // Accuracy CAPS Bar Header & Text
+            GameObject accObj = new GameObject("ReviewAccuracy", typeof(RectTransform));
             accObj.transform.SetParent(detailsCard.transform, false);
             _reviewAccuracyTxt = accObj.AddComponent<Text>();
-            _reviewAccuracyTxt.text = AegisLocalization.T("🎯 Độ chính xác (CAPS): Đang phân tích...", "🎯 CAPS Accuracy: Analyzing...");
+            _reviewAccuracyTxt.text = AegisLocalization.T("🎯 Độ chính xác: Đang phân tích...", "🎯 CAPS Accuracy: Analyzing...");
             _reviewAccuracyTxt.font = font;
             _reviewAccuracyTxt.fontSize = 17;
             _reviewAccuracyTxt.fontStyle = FontStyle.Bold;
             _reviewAccuracyTxt.alignment = TextAnchor.MiddleLeft;
-            _reviewAccuracyTxt.color = ColCyanGlow;
+            _reviewAccuracyTxt.color = ColGoldBorder;
             _reviewAccuracyTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _reviewAccuracyTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_reviewAccuracyTxt);
             RectTransform accRt = accObj.GetComponent<RectTransform>();
             accRt.anchoredPosition = new Vector2(0f, 226f);
             accRt.sizeDelta = new Vector2(670f, 26f);
 
+            // Visual Accuracy Progress Bar (White vs Black)
+            GameObject accBarBg = new GameObject("ReviewAccBarBg", typeof(RectTransform));
+            accBarBg.transform.SetParent(detailsCard.transform, false);
+            Image accBgImg = accBarBg.AddComponent<Image>();
+            accBgImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(670, 8, 4f, new Color(0.08f, 0.12f, 0.20f, 0.9f), ColCyanBorder, 1f);
+            accBgImg.type = Image.Type.Sliced;
+            RectTransform accBgRt = accBarBg.GetComponent<RectTransform>();
+            accBgRt.anchoredPosition = new Vector2(0f, 210f);
+            accBgRt.sizeDelta = new Vector2(670f, 8f);
+
+            GameObject whiteFill = new GameObject("WhiteFill", typeof(RectTransform));
+            whiteFill.transform.SetParent(accBarBg.transform, false);
+            Image wfImg = whiteFill.AddComponent<Image>();
+            wfImg.color = new Color(0.92f, 0.96f, 1f, 0.95f);
+            _reviewAccWhiteFill = whiteFill.GetComponent<RectTransform>();
+            _reviewAccWhiteFill.anchorMin = new Vector2(0f, 0f);
+            _reviewAccWhiteFill.anchorMax = new Vector2(0.5f, 1f);
+            _reviewAccWhiteFill.offsetMin = Vector2.zero;
+            _reviewAccWhiteFill.offsetMax = Vector2.zero;
+
+            GameObject blackFill = new GameObject("BlackFill", typeof(RectTransform));
+            blackFill.transform.SetParent(accBarBg.transform, false);
+            Image bfImg = blackFill.AddComponent<Image>();
+            bfImg.color = new Color(0.2f, 0.75f, 1f, 0.85f);
+            _reviewAccBlackFill = blackFill.GetComponent<RectTransform>();
+            _reviewAccBlackFill.anchorMin = new Vector2(0.5f, 0f);
+            _reviewAccBlackFill.anchorMax = new Vector2(1f, 1f);
+            _reviewAccBlackFill.offsetMin = Vector2.zero;
+            _reviewAccBlackFill.offsetMax = Vector2.zero;
+
             // Move Quality Badges Summary (e.g. "⭐ Tốt nhất: 14  👍 Tốt: 6  ⁉️ Không chuẩn: 2  ❓ Sai lầm: 1  ⁇ Đại sai lầm: 0")
-            GameObject pillsObj = new GameObject("ReviewPills");
+            GameObject pillsObj = new GameObject("ReviewPills", typeof(RectTransform));
             pillsObj.transform.SetParent(detailsCard.transform, false);
             _reviewPillsTxt = pillsObj.AddComponent<Text>();
             _reviewPillsTxt.text = "⭐ Tốt: 0  |  ❓ Sai sót: 0";
             _reviewPillsTxt.font = font;
-            _reviewPillsTxt.fontSize = 14;
+            _reviewPillsTxt.fontSize = 15;
+            _reviewPillsTxt.fontStyle = FontStyle.Bold;
             _reviewPillsTxt.alignment = TextAnchor.MiddleLeft;
-            _reviewPillsTxt.color = new Color(0.75f, 0.88f, 1.0f);
+            _reviewPillsTxt.color = new Color(0.85f, 0.95f, 1.0f);
             _reviewPillsTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _reviewPillsTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_reviewPillsTxt);
             RectTransform pillsRt = pillsObj.GetComponent<RectTransform>();
-            pillsRt.anchoredPosition = new Vector2(0f, 194f);
+            pillsRt.anchoredPosition = new Vector2(0f, 186f);
             pillsRt.sizeDelta = new Vector2(670f, 26f);
 
             // Middle Box: Current Move Evaluation Card (Eval score, Best Move, Evaluation comment)
-            GameObject evalBoxObj = new GameObject("EvalBox");
+            GameObject evalBoxObj = new GameObject("EvalBox", typeof(RectTransform));
             evalBoxObj.transform.SetParent(detailsCard.transform, false);
             Image ebBg = evalBoxObj.AddComponent<Image>();
-            ebBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(670, 140, 14f, new Color(0.02f, 0.05f, 0.12f, 0.9f), ColCyanBorder, 1.2f);
+            ebBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(670, 136, 14f, new Color(0.02f, 0.06f, 0.14f, 0.95f), ColCyanBorder, 1.4f);
             ebBg.type = Image.Type.Sliced;
             RectTransform ebRt = evalBoxObj.GetComponent<RectTransform>();
-            ebRt.anchoredPosition = new Vector2(0f, 95f);
-            ebRt.sizeDelta = new Vector2(670f, 140f);
+            ebRt.anchoredPosition = new Vector2(0f, 96f);
+            ebRt.sizeDelta = new Vector2(670f, 136f);
 
             // Badge + Eval Score
-            GameObject badgeObj = new GameObject("EvalBadge");
+            GameObject badgeObj = new GameObject("EvalBadge", typeof(RectTransform));
             badgeObj.transform.SetParent(evalBoxObj.transform, false);
             _reviewEvalBadgeTxt = badgeObj.AddComponent<Text>();
             _reviewEvalBadgeTxt.text = "⭐ Nước đi tốt nhất (Best Move)";
             _reviewEvalBadgeTxt.font = font;
-            _reviewEvalBadgeTxt.fontSize = 17;
+            _reviewEvalBadgeTxt.fontSize = 18;
             _reviewEvalBadgeTxt.fontStyle = FontStyle.Bold;
             _reviewEvalBadgeTxt.alignment = TextAnchor.MiddleLeft;
             _reviewEvalBadgeTxt.color = ColGoldBorder;
             _reviewEvalBadgeTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             _reviewEvalBadgeTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_reviewEvalBadgeTxt);
             RectTransform badgeRt = badgeObj.GetComponent<RectTransform>();
-            badgeRt.anchoredPosition = new Vector2(-105f, 42f);
-            badgeRt.sizeDelta = new Vector2(420f, 26f);
+            badgeRt.anchoredPosition = new Vector2(-105f, 40f);
+            badgeRt.sizeDelta = new Vector2(420f, 28f);
 
-            GameObject scoreObj = new GameObject("EvalScore");
+            GameObject scoreObj = new GameObject("EvalScore", typeof(RectTransform));
             scoreObj.transform.SetParent(evalBoxObj.transform, false);
             _reviewEvalScoreTxt = scoreObj.AddComponent<Text>();
             _reviewEvalScoreTxt.text = "+0.20";
             _reviewEvalScoreTxt.font = font;
-            _reviewEvalScoreTxt.fontSize = 17;
+            _reviewEvalScoreTxt.fontSize = 18;
             _reviewEvalScoreTxt.fontStyle = FontStyle.Bold;
             _reviewEvalScoreTxt.alignment = TextAnchor.MiddleRight;
             _reviewEvalScoreTxt.color = ColCyanGlow;
             _reviewEvalScoreTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             _reviewEvalScoreTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_reviewEvalScoreTxt);
             RectTransform scoreRt = scoreObj.GetComponent<RectTransform>();
-            scoreRt.anchoredPosition = new Vector2(215f, 42f);
-            scoreRt.sizeDelta = new Vector2(200f, 26f);
+            scoreRt.anchoredPosition = new Vector2(215f, 40f);
+            scoreRt.sizeDelta = new Vector2(200f, 28f);
 
             // Best Move Suggestion Text
-            GameObject bestMoveObj = new GameObject("BestMoveTxt");
+            GameObject bestMoveObj = new GameObject("BestMoveTxt", typeof(RectTransform));
             bestMoveObj.transform.SetParent(evalBoxObj.transform, false);
             _reviewBestMoveTxt = bestMoveObj.AddComponent<Text>();
-            _reviewBestMoveTxt.text = "Động cơ đề xuất: e2e4";
+            _reviewBestMoveTxt.text = "💡 Động cơ đề xuất: e2e4";
             _reviewBestMoveTxt.font = font;
-            _reviewBestMoveTxt.fontSize = 15;
-            _reviewBestMoveTxt.fontStyle = FontStyle.Italic;
+            _reviewBestMoveTxt.fontSize = 16;
+            _reviewBestMoveTxt.fontStyle = FontStyle.Bold;
             _reviewBestMoveTxt.alignment = TextAnchor.MiddleLeft;
-            _reviewBestMoveTxt.color = new Color(0.3f, 0.95f, 0.6f);
+            _reviewBestMoveTxt.color = new Color(0.2f, 0.98f, 0.65f);
             _reviewBestMoveTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _reviewBestMoveTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_reviewBestMoveTxt);
             RectTransform bmRt = bestMoveObj.GetComponent<RectTransform>();
             bmRt.anchoredPosition = new Vector2(0f, 8f);
-            bmRt.sizeDelta = new Vector2(630f, 24f);
+            bmRt.sizeDelta = new Vector2(630f, 26f);
 
             // Comment text
-            GameObject commentObj = new GameObject("CommentTxt");
+            GameObject commentObj = new GameObject("CommentTxt", typeof(RectTransform));
             commentObj.transform.SetParent(evalBoxObj.transform, false);
             _reviewCommentTxt = commentObj.AddComponent<Text>();
             _reviewCommentTxt.text = "Nước đi mở đầu tiêu chuẩn kiểm soát trung tâm.";
             _reviewCommentTxt.font = font;
-            _reviewCommentTxt.fontSize = 14;
+            _reviewCommentTxt.fontSize = 15;
+            _reviewCommentTxt.fontStyle = FontStyle.Normal;
             _reviewCommentTxt.alignment = TextAnchor.UpperLeft;
-            _reviewCommentTxt.color = new Color(0.85f, 0.92f, 1.0f);
-            _reviewCommentTxt.lineSpacing = 1.2f;
+            _reviewCommentTxt.color = new Color(0.92f, 0.96f, 1.0f);
+            _reviewCommentTxt.lineSpacing = 1.25f;
             _reviewCommentTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _reviewCommentTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_reviewCommentTxt);
             RectTransform cmRt = commentObj.GetComponent<RectTransform>();
             cmRt.anchoredPosition = new Vector2(0f, -34f);
-            cmRt.sizeDelta = new Vector2(630f, 46f);
+            cmRt.sizeDelta = new Vector2(630f, 48f);
+
+            // Move List Section Header
+            GameObject mlHeaderObj = new GameObject("MoveListHeader", typeof(RectTransform));
+            mlHeaderObj.transform.SetParent(detailsCard.transform, false);
+            RectTransform mlhRt = mlHeaderObj.GetComponent<RectTransform>();
+            mlhRt.anchoredPosition = new Vector2(0f, 12f);
+            mlhRt.sizeDelta = new Vector2(670f, 26f);
+
+            Text mlTitle = CreateTextComp(mlHeaderObj.transform, AegisLocalization.T("📋 LỊCH SỬ NƯỚC ĐI (MOVE LIST)", "📋 MOVE LIST"), 15, FontStyle.Bold, ColGoldBorder, font, new Vector2(-195f, 0f), new Vector2(250f, 24f), TextAnchor.MiddleLeft);
+            MakeTextCrisp(mlTitle);
+            Text mlWhite = CreateTextComp(mlHeaderObj.transform, AegisLocalization.T("⚪ TRẮNG (WHITE)", "⚪ WHITE"), 14, FontStyle.Bold, ColTextWhite, font, new Vector2(-40f, 0f), new Vector2(140f, 24f), TextAnchor.MiddleCenter);
+            MakeTextCrisp(mlWhite);
+            Text mlBlack = CreateTextComp(mlHeaderObj.transform, AegisLocalization.T("⚫ ĐEN (BLACK)", "⚫ BLACK"), 14, FontStyle.Bold, ColCyanGlow, font, new Vector2(175f, 0f), new Vector2(140f, 24f), TextAnchor.MiddleCenter);
+            MakeTextCrisp(mlBlack);
 
             // Bottom Move List Scroll Area (PGN moves)
-            GameObject scrollObj = new GameObject("MoveListScrollView");
+            GameObject scrollObj = new GameObject("MoveListScrollView", typeof(RectTransform));
             scrollObj.transform.SetParent(detailsCard.transform, false);
-            RectTransform sRt = scrollObj.AddComponent<RectTransform>();
-            sRt.anchoredPosition = new Vector2(0f, -140f);
-            sRt.sizeDelta = new Vector2(670f, 280f);
+            RectTransform sRt = scrollObj.GetComponent<RectTransform>();
+            sRt.anchoredPosition = new Vector2(0f, -145f);
+            sRt.sizeDelta = new Vector2(670f, 265f);
 
-            // Mask viewport
-            GameObject vpObj = new GameObject("Viewport");
-            vpObj.transform.SetParent(scrollObj.transform, false);
-            RectTransform vpRt = vpObj.AddComponent<RectTransform>();
-            vpRt.anchorMin = Vector2.zero;
-            vpRt.anchorMax = Vector2.one;
-            vpRt.offsetMin = Vector2.zero;
-            vpRt.offsetMax = Vector2.zero;
-            Image vpImg = vpObj.AddComponent<Image>();
-            vpImg.color = new Color(0.01f, 0.03f, 0.08f, 0.5f);
-            Mask vpMask = vpObj.AddComponent<Mask>();
-            vpMask.showMaskGraphic = false;
+            Image sBg = scrollObj.AddComponent<Image>();
+            sBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(670, 265, 12f, new Color(0.015f, 0.035f, 0.09f, 0.92f), ColCyanBorder, 1.2f);
+            sBg.type = Image.Type.Sliced;
+            scrollObj.AddComponent<RectMask2D>();
 
-            GameObject contentObj = new GameObject("Content");
-            contentObj.transform.SetParent(vpObj.transform, false);
+            GameObject contentObj = new GameObject("Content", typeof(RectTransform));
+            contentObj.transform.SetParent(scrollObj.transform, false);
             _reviewMoveListParent = contentObj.transform;
-            RectTransform ctRt = contentObj.AddComponent<RectTransform>();
+            RectTransform ctRt = contentObj.GetComponent<RectTransform>();
             ctRt.anchorMin = new Vector2(0f, 1f);
             ctRt.anchorMax = new Vector2(1f, 1f);
             ctRt.pivot = new Vector2(0.5f, 1f);
             ctRt.anchoredPosition = Vector2.zero;
-            ctRt.sizeDelta = new Vector2(0f, 400f);
+            ctRt.sizeDelta = new Vector2(0f, 300f);
 
             ScrollRect sr = scrollObj.AddComponent<ScrollRect>();
             sr.content = ctRt;
-            sr.viewport = vpRt;
+            sr.viewport = sRt;
             sr.horizontal = false;
             sr.vertical = true;
             sr.movementType = ScrollRect.MovementType.Clamped;
@@ -7748,16 +7795,25 @@ namespace MechChess.UI
                     data.white_accuracy, data.black_accuracy);
             }
 
-            // Count badges
+            if (_reviewAccWhiteFill != null && _reviewAccBlackFill != null)
+            {
+                float totalAcc = Mathf.Max(1f, data.white_accuracy + data.black_accuracy);
+                float whiteRatio = Mathf.Clamp(data.white_accuracy / totalAcc, 0.10f, 0.90f);
+                _reviewAccWhiteFill.anchorMax = new Vector2(whiteRatio, 1f);
+                _reviewAccBlackFill.anchorMin = new Vector2(whiteRatio, 0f);
+            }
+
+            // Count badges (case-insensitive)
             int bestCount = 0, goodCount = 0, inaccCount = 0, mistCount = 0, blundCount = 0, brillCount = 0;
             foreach (var m in data.moves)
             {
-                if (m.judgment == "Brilliant") brillCount++;
-                else if (m.judgment == "Best") bestCount++;
-                else if (m.judgment == "Good" || m.judgment == "Book") goodCount++;
-                else if (m.judgment == "Inaccuracy") inaccCount++;
-                else if (m.judgment == "Mistake") mistCount++;
-                else if (m.judgment == "Blunder") blundCount++;
+                string j = (m.judgment ?? "").ToLowerInvariant();
+                if (j == "brilliant") brillCount++;
+                else if (j == "best") bestCount++;
+                else if (j == "good" || j == "book") goodCount++;
+                else if (j == "inaccuracy") inaccCount++;
+                else if (j == "mistake") mistCount++;
+                else if (j == "blunder" || j == "missed_win") blundCount++;
             }
 
             if (_reviewPillsTxt != null)
@@ -7917,19 +7973,20 @@ namespace MechChess.UI
                 _reviewMoveNavTxt.text = AegisLocalization.T($"Nước {plyIndex} / {total}  ({movePrefix} {item.san})", $"Move {plyIndex} / {total}  ({movePrefix} {item.san})");
             }
 
-            // Evaluation Badge & Color
+            // Evaluation Badge & Color (case-insensitive)
+            string j = (item.judgment ?? "").ToLowerInvariant();
             Color badgeCol = ColGoldBorder;
-            string symbol = item.badge_symbol ?? "⭐";
+            string symbol = GetMoveBadgeSymbol(j);
             string judgmentText = item.judgment_vi ?? item.judgment ?? "Tốt";
 
-            if (item.judgment == "Brilliant") { badgeCol = new Color(0.1f, 0.95f, 0.95f); symbol = "‼️"; }
-            else if (item.judgment == "Best") { badgeCol = new Color(0.1f, 0.95f, 0.45f); symbol = "⭐"; }
-            else if (item.judgment == "Great") { badgeCol = new Color(0.2f, 0.85f, 0.95f); symbol = "!"; }
-            else if (item.judgment == "Good" || item.judgment == "Book") { badgeCol = new Color(0.55f, 0.85f, 1.0f); symbol = (item.judgment == "Book") ? "📖" : "👍"; }
-            else if (item.judgment == "Inaccuracy") { badgeCol = new Color(1.0f, 0.85f, 0.2f); symbol = "⁉️"; }
-            else if (item.judgment == "Mistake") { badgeCol = new Color(1.0f, 0.55f, 0.15f); symbol = "❓"; }
-            else if (item.judgment == "Blunder") { badgeCol = new Color(1.0f, 0.25f, 0.25f); symbol = "⁇"; }
-            else if (item.judgment == "Missed Win") { badgeCol = new Color(0.95f, 0.15f, 0.35f); symbol = "❌"; }
+            if (j == "brilliant") { badgeCol = new Color(0.1f, 0.95f, 0.95f); symbol = "‼️"; }
+            else if (j == "best") { badgeCol = new Color(0.1f, 0.95f, 0.45f); symbol = "⭐"; }
+            else if (j == "great") { badgeCol = new Color(0.2f, 0.85f, 0.95f); symbol = "!"; }
+            else if (j == "good" || j == "book") { badgeCol = new Color(0.55f, 0.85f, 1.0f); symbol = (j == "book") ? "📖" : "👍"; }
+            else if (j == "inaccuracy") { badgeCol = new Color(1.0f, 0.85f, 0.2f); symbol = "⁉️"; }
+            else if (j == "mistake") { badgeCol = new Color(1.0f, 0.55f, 0.15f); symbol = "❓"; }
+            else if (j == "blunder") { badgeCol = new Color(1.0f, 0.25f, 0.25f); symbol = "⁇"; }
+            else if (j == "missed_win") { badgeCol = new Color(0.95f, 0.15f, 0.35f); symbol = "❌"; }
 
             if (_reviewEvalBadgeTxt != null)
             {
@@ -7949,9 +8006,9 @@ namespace MechChess.UI
             if (_reviewBestMoveTxt != null)
             {
                 string bestSan = !string.IsNullOrEmpty(item.best_move_san) ? item.best_move_san : item.best_move_uci;
-                if (!string.IsNullOrEmpty(bestSan) && item.judgment != "Best" && item.judgment != "Brilliant")
+                if (!string.IsNullOrEmpty(bestSan) && j != "best" && j != "brilliant")
                 {
-                    _reviewBestMoveTxt.text = AegisLocalization.T($"Động cơ gợi ý: <b>{bestSan}</b>", $"Engine recommendation: <b>{bestSan}</b>");
+                    _reviewBestMoveTxt.text = AegisLocalization.T($"💡 Động cơ gợi ý: <b>{bestSan}</b>", $"💡 Engine recommendation: <b>{bestSan}</b>");
                 }
                 else
                 {
@@ -7965,15 +8022,30 @@ namespace MechChess.UI
                 string comment = item.comment_vi;
                 if (string.IsNullOrEmpty(comment))
                 {
-                    comment = (item.judgment == "Blunder") ? "Sai lầm nghiêm trọng làm thay đổi cục diện trận đấu." :
-                              (item.judgment == "Mistake") ? "Nước đi chưa tối ưu, đối thủ có thể khai thác thế cờ." :
-                              (item.judgment == "Brilliant") ? "Nước cờ thiên tài! Tạo đòn chiến thuật bất ngờ." :
+                    comment = (j == "blunder" || j == "missed_win") ? "Sai lầm nghiêm trọng làm thay đổi cục diện trận đấu." :
+                              (j == "mistake") ? "Nước đi chưa tối ưu, đối thủ có thể khai thác thế cờ." :
+                              (j == "inaccuracy") ? "Nước đi có phần thiếu chính xác, làm giảm ưu thế." :
+                              (j == "brilliant") ? "Nước cờ thiên tài! Tạo đòn chiến thuật bất ngờ." :
                               "Duy trì thế cờ vững chắc và cân bằng.";
                 }
                 _reviewCommentTxt.text = comment;
             }
 
             HighlightActiveMoveButton(mIdx);
+        }
+
+        private static string GetMoveBadgeSymbol(string judgment)
+        {
+            string j = (judgment ?? "").ToLowerInvariant();
+            if (j == "brilliant") return "‼️";
+            if (j == "best") return "⭐";
+            if (j == "book") return "📖";
+            if (j == "good") return "👍";
+            if (j == "inaccuracy") return "⁉️";
+            if (j == "mistake") return "❓";
+            if (j == "blunder") return "⁇";
+            if (j == "missed_win") return "❌";
+            return "👍";
         }
 
         private void PopulateReviewMoveList()
@@ -7988,8 +8060,8 @@ namespace MechChess.UI
 
             int count = _activeAnalysis.moves.Length;
             int numTurns = Mathf.CeilToInt(count / 2f);
-            float rowHeight = 36f;
-            float totalHeight = Mathf.Max(280f, numTurns * rowHeight + 20f);
+            float rowHeight = 40f;
+            float totalHeight = Mathf.Max(265f, numTurns * rowHeight + 15f);
 
             RectTransform parentRt = _reviewMoveListParent.GetComponent<RectTransform>();
             if (parentRt != null) parentRt.sizeDelta = new Vector2(0f, totalHeight);
@@ -8002,25 +8074,28 @@ namespace MechChess.UI
                 int whiteIdx = t * 2;
                 int blackIdx = t * 2 + 1;
 
-                GameObject rowObj = new GameObject("TurnRow_" + turnNum);
+                GameObject rowObj = new GameObject("TurnRow_" + turnNum, typeof(RectTransform));
                 rowObj.transform.SetParent(_reviewMoveListParent, false);
-                RectTransform rRt = rowObj.AddComponent<RectTransform>();
+                RectTransform rRt = rowObj.GetComponent<RectTransform>();
                 rRt.anchorMin = new Vector2(0f, 1f);
                 rRt.anchorMax = new Vector2(1f, 1f);
                 rRt.pivot = new Vector2(0.5f, 1f);
-                rRt.anchoredPosition = new Vector2(0f, -t * rowHeight);
+                rRt.anchoredPosition = new Vector2(0f, -t * rowHeight - 6f);
                 rRt.sizeDelta = new Vector2(0f, rowHeight);
 
                 // Turn Number text
-                CreateTextComp(rowObj.transform, $"{turnNum}.", 14, FontStyle.Bold, ColTextMuted, font, new Vector2(-280f, 0f), new Vector2(50f, 26f), TextAnchor.MiddleRight);
+                Text turnTxt = CreateTextComp(rowObj.transform, $"{turnNum}.", 14, FontStyle.Bold, ColTextMuted, font, new Vector2(-285f, 0f), new Vector2(45f, 28f), TextAnchor.MiddleRight);
+                MakeTextCrisp(turnTxt);
 
                 // White Move button
                 if (whiteIdx < count)
                 {
                     var wItem = _activeAnalysis.moves[whiteIdx];
                     int targetPly = whiteIdx + 1;
-                    string wText = $"{wItem.badge_symbol ?? ""} {wItem.san}";
-                    CreateMoveButton(rowObj.transform, "BtnWhiteMove_" + whiteIdx, wText, new Vector2(-150f, 0f), new Vector2(180f, 30f), () => JumpToReviewPly(targetPly), font);
+                    string wSym = GetMoveBadgeSymbol(wItem.judgment);
+                    string wScore = wItem.score >= 0 ? $"+{wItem.score:F1}" : $"{wItem.score:F1}";
+                    string wText = $"{wSym} {wItem.san} <color=#94A3B8>({wScore})</color>";
+                    CreateMoveButton(rowObj.transform, "BtnWhiteMove_" + whiteIdx, wText, new Vector2(-120f, 0f), new Vector2(240f, 34f), () => JumpToReviewPly(targetPly), font);
                 }
 
                 // Black Move button
@@ -8028,18 +8103,20 @@ namespace MechChess.UI
                 {
                     var bItem = _activeAnalysis.moves[blackIdx];
                     int targetPly = blackIdx + 1;
-                    string bText = $"{bItem.badge_symbol ?? ""} {bItem.san}";
-                    CreateMoveButton(rowObj.transform, "BtnBlackMove_" + blackIdx, bText, new Vector2(80f, 0f), new Vector2(180f, 30f), () => JumpToReviewPly(targetPly), font);
+                    string bSym = GetMoveBadgeSymbol(bItem.judgment);
+                    string bScore = bItem.score >= 0 ? $"+{bItem.score:F1}" : $"{bItem.score:F1}";
+                    string bText = $"{bSym} {bItem.san} <color=#94A3B8>({bScore})</color>";
+                    CreateMoveButton(rowObj.transform, "BtnBlackMove_" + blackIdx, bText, new Vector2(155f, 0f), new Vector2(240f, 34f), () => JumpToReviewPly(targetPly), font);
                 }
             }
         }
 
         private void CreateMoveButton(Transform parent, string name, string label, Vector2 pos, Vector2 size, Action onClick, Font font)
         {
-            GameObject btnObj = new GameObject(name);
+            GameObject btnObj = new GameObject(name, typeof(RectTransform));
             btnObj.transform.SetParent(parent, false);
             Image bg = btnObj.AddComponent<Image>();
-            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)size.x, (int)size.y, 8f, ColGlassFill, ColCyanBorder, 1f);
+            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)size.x, (int)size.y, 8f, ColGlassFill, ColCyanBorder, 1.2f);
             bg.type = Image.Type.Sliced;
             Button b = btnObj.AddComponent<Button>();
             b.onClick.AddListener(() => onClick?.Invoke());
@@ -8049,7 +8126,8 @@ namespace MechChess.UI
             rt.anchoredPosition = pos;
             rt.sizeDelta = size;
 
-            CreateTextComp(btnObj.transform, label, 14, FontStyle.Normal, ColTextWhite, font, Vector2.zero, size - new Vector2(10f, 0f), TextAnchor.MiddleCenter);
+            Text t = CreateTextComp(btnObj.transform, label, 14, FontStyle.Bold, ColTextWhite, font, Vector2.zero, size - new Vector2(12f, 0f), TextAnchor.MiddleCenter);
+            MakeTextCrisp(t);
         }
 
         private void HighlightActiveMoveButton(int activeIdx)
@@ -8064,7 +8142,12 @@ namespace MechChess.UI
                     Image bg = btn.GetComponent<Image>();
                     if (bg == null) continue;
                     bool isThisBtn = (activeIdx >= 0 && (btn.name == "BtnWhiteMove_" + activeIdx || btn.name == "BtnBlackMove_" + activeIdx));
-                    bg.color = isThisBtn ? new Color(0f, 0.85f, 1f, 0.45f) : Color.white;
+                    bg.color = isThisBtn ? new Color(0f, 0.90f, 1f, 0.55f) : Color.white;
+                    Text txt = btn.GetComponentInChildren<Text>();
+                    if (txt != null)
+                    {
+                        txt.color = isThisBtn ? ColGoldBorder : ColTextWhite;
+                    }
                 }
             }
         }
@@ -10032,10 +10115,18 @@ namespace MechChess.UI
             return img;
         }
 
+        private static void MakeTextCrisp(Text t, Color? outlineCol = null)
+        {
+            if (t == null) return;
+            var outline = t.gameObject.GetComponent<Outline>() ?? t.gameObject.AddComponent<Outline>();
+            outline.effectColor = outlineCol ?? new Color(0.01f, 0.02f, 0.06f, 0.90f);
+            outline.effectDistance = new Vector2(1f, -1f);
+        }
+
         private Text CreateTextComp(Transform parent, string content, int size, FontStyle style, Color color, Font font, Vector2 pos, Vector2 delta, TextAnchor anchor = TextAnchor.MiddleCenter)
         {
             string safeContent = content ?? "";
-            GameObject txtObj = new GameObject("Txt_" + safeContent.GetHashCode());
+            GameObject txtObj = new GameObject("Txt_" + safeContent.GetHashCode(), typeof(RectTransform));
             txtObj.transform.SetParent(parent, false);
             Text t = txtObj.AddComponent<Text>();
             t.text = safeContent;
@@ -10047,12 +10138,13 @@ namespace MechChess.UI
             t.horizontalOverflow = HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             t.raycastTarget = false;
-            RectTransform rt = txtObj.GetComponent<RectTransform>() ?? txtObj.AddComponent<RectTransform>();
+            RectTransform rt = txtObj.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = pos;
             rt.sizeDelta = delta;
+            MakeTextCrisp(t);
             return t;
         }
 
