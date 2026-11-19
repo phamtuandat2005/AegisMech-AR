@@ -6317,16 +6317,6 @@ namespace MechChess.UI
                     }
                 }
             }, font, ColGoldBorder, 2.0f);
-                if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
-                {
-                    MechChess.Chess3D.ChessBoard3DManager.Instance.ResetBoard();
-                }
-                if (UIManager2D.Instance != null)
-                {
-                    UIManager2D.Instance.ResetGameTimers();
-                    UIManager2D.Instance.SetHUDVisible(true);
-                }
-            }, font, ColGoldBorder, 2.0f);
 
             _resultScreenModal.SetActive(false);
         }
