@@ -93,6 +93,27 @@ namespace MechChess.Chess3D
         private Stack<MoveHistoryRecord> _moveHistoryStack = new Stack<MoveHistoryRecord>();
         public int TotalMovesCount => _moveHistoryStack != null ? _moveHistoryStack.Count : 0;
 
+        public PieceColor PlayerColor
+        {
+            get
+            {
+                if (MechChess.Multiplayer.LichessBridge.Instance != null && MechChess.Multiplayer.LichessBridge.Instance.IsInLichessMatch)
+                {
+                    return MechChess.Multiplayer.LichessBridge.Instance.IsPlayerWhite ? PieceColor.White : PieceColor.Black;
+                }
+                if (MechChess.Multiplayer.OnlineMultiplayerManager.Instance != null && MechChess.Multiplayer.OnlineMultiplayerManager.Instance.IsOnlineMatch)
+                {
+                    return MechChess.Multiplayer.OnlineMultiplayerManager.Instance.MyRole;
+                }
+                if (isVsAI)
+                {
+                    return (aiColor == PieceColor.White) ? PieceColor.Black : PieceColor.White;
+                }
+                return PieceColor.White;
+            }
+        }
+        public PieceColor playerColor => PlayerColor;
+
         public void SetEnPassantTargetSquareForTest(Vector2Int? square)
         {
             _enPassantTargetSquare = square;

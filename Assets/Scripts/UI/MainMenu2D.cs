@@ -6301,7 +6301,7 @@ namespace MechChess.UI
                 if (_lastLaunchMode == GameLaunchMode.OnlineMultiplayer)
                 {
                     ShowMenu();
-                    OpenModeSelect();
+                    NavigateToChooseMode();
                 }
                 else
                 {
