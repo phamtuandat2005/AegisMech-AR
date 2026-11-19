@@ -7688,6 +7688,7 @@ namespace MechChess.UI
             }
 
             _currentReviewPly = 0;
+            UpdateReviewBoardAndDetails(0);
 
             // Check if analysis_json already exists on match
             if (match != null && !string.IsNullOrEmpty(match.analysis_json))
@@ -7836,17 +7837,18 @@ namespace MechChess.UI
 
         private void UpdateReviewBoardAndDetails(int plyIndex)
         {
-            if (_activeAnalysis == null || _activeAnalysis.moves == null) return;
-            int total = _activeAnalysis.moves.Length;
-
             if (plyIndex == 0)
             {
                 // Starting position
                 string startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
                 var startMarkers = ParseFenToMarkers(startFen);
+                if (startMarkers == null || startMarkers.Count == 0)
+                {
+                    startMarkers = ArcaneAssetLoader.GetStartingPieces();
+                }
                 if (_reviewBoardImg != null)
                 {
-                    _reviewBoardImg.sprite = ArcaneAssetLoader.GetCustomBoardDiagram(430, false, Vector2Int.zero, null, null, null, startMarkers);
+                    _reviewBoardImg.sprite = ArcaneAssetLoader.GetCustomBoardDiagram(430, false, new Vector2Int(-1, -1), null, null, null, startMarkers);
                 }
 
                 if (_reviewMoveNavTxt != null)
@@ -7874,19 +7876,38 @@ namespace MechChess.UI
                 return;
             }
 
+            if (_activeAnalysis == null || _activeAnalysis.moves == null) return;
+            int total = _activeAnalysis.moves.Length;
+
             int mIdx = plyIndex - 1;
             if (mIdx < 0 || mIdx >= total) return;
             var item = _activeAnalysis.moves[mIdx];
 
             // Board with move highlighted
             var markers = ParseFenToMarkers(item.fen_after);
+            if (markers == null || markers.Count == 0)
+            {
+                List<string> ucis = new List<string>();
+                for (int i = 0; i <= mIdx; i++)
+                {
+                    if (!string.IsNullOrEmpty(_activeAnalysis.moves[i].uci))
+                        ucis.Add(_activeAnalysis.moves[i].uci);
+                }
+                markers = ChessBoardSimulator.SimulateBoardUpToPly(ucis, ucis.Count);
+            }
+            if (markers == null || markers.Count == 0)
+            {
+                markers = ArcaneAssetLoader.GetStartingPieces();
+            }
+
             Vector2Int fromCoord = SquareToCoord(item.from_square);
             Vector2Int toCoord = SquareToCoord(item.to_square);
-            var moveList = new List<Vector2Int> { toCoord };
+            bool hasFrom = (fromCoord.x >= 0 && fromCoord.y >= 0);
+            var moveList = (toCoord.x >= 0 && toCoord.y >= 0) ? new List<Vector2Int> { toCoord } : null;
 
             if (_reviewBoardImg != null)
             {
-                _reviewBoardImg.sprite = ArcaneAssetLoader.GetCustomBoardDiagram(430, true, fromCoord, moveList, null, null, markers);
+                _reviewBoardImg.sprite = ArcaneAssetLoader.GetCustomBoardDiagram(430, hasFrom, fromCoord, moveList, null, null, markers);
             }
 
             // Move Counter
@@ -8050,9 +8071,10 @@ namespace MechChess.UI
 
         private Vector2Int SquareToCoord(string sq)
         {
-            if (string.IsNullOrEmpty(sq) || sq.Length < 2) return Vector2Int.zero;
-            int file = sq[0] - 'a';
-            int rank = sq[1] - '1';
+            if (string.IsNullOrEmpty(sq) || sq.Trim().Length < 2) return new Vector2Int(-1, -1);
+            string s = sq.Trim().ToLowerInvariant();
+            int file = s[0] - 'a';
+            int rank = s[1] - '1';
             return new Vector2Int(Mathf.Clamp(file, 0, 7), Mathf.Clamp(rank, 0, 7));
         }
 

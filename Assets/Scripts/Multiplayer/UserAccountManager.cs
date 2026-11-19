@@ -1321,6 +1321,7 @@ namespace MechChess.Multiplayer
 
             List<MoveAnalysisItem> items = new List<MoveAnalysisItem>();
             float currentScore = 0f;
+            char[,] simBoard = ChessBoardSimulator.GetInitialBoard();
 
             for (int i = 0; i < moveList.Count; i++)
             {
@@ -1329,6 +1330,10 @@ namespace MechChess.Multiplayer
                 string fromSq = m.Length >= 4 ? m.Substring(0, 2).ToUpper() : "";
                 string toSq = m.Length >= 4 ? m.Substring(2, 2).ToUpper() : "";
                 string san = (sanMoves != null && i < sanMoves.Length) ? sanMoves[i] : m;
+
+                string fenBefore = ChessBoardSimulator.BoardToFen(simBoard, isWhite);
+                ChessBoardSimulator.ApplyUciMove(simBoard, m);
+                string fenAfter = ChessBoardSimulator.BoardToFen(simBoard, !isWhite);
 
                 string judgment = "good";
                 string jVi = "Nước tốt 👍";
@@ -1376,8 +1381,8 @@ namespace MechChess.Multiplayer
                     san = san,
                     from_square = fromSq,
                     to_square = toSq,
-                    fen_before = "",
-                    fen_after = "",
+                    fen_before = fenBefore,
+                    fen_after = fenAfter,
                     score = Mathf.Round(currentScore * 100f) / 100f,
                     best_move_uci = m,
                     best_move_san = san,
@@ -1391,6 +1396,7 @@ namespace MechChess.Multiplayer
                 });
             }
 
+            res.final_fen = ChessBoardSimulator.BoardToFen(simBoard, moveList.Count % 2 == 0);
             res.moves = items.ToArray();
             return res;
         }
@@ -1431,6 +1437,166 @@ namespace MechChess.Multiplayer
             }
 
             OnLoggedOut?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// Pure C# Chess Board Simulator for replaying UCI moves, generating valid FENs,
+    /// and rendering piece positions on 2D diagrams during game review.
+    /// </summary>
+    public static class ChessBoardSimulator
+    {
+        public static char[,] GetInitialBoard()
+        {
+            char[,] b = new char[8, 8];
+            for (int f = 0; f < 8; f++)
+                for (int r = 0; r < 8; r++)
+                    b[f, r] = '.';
+
+            // White pieces (rank 0 = row 1 in chess)
+            b[0, 0] = 'R'; b[1, 0] = 'N'; b[2, 0] = 'B'; b[3, 0] = 'Q';
+            b[4, 0] = 'K'; b[5, 0] = 'B'; b[6, 0] = 'N'; b[7, 0] = 'R';
+            for (int f = 0; f < 8; f++) b[f, 1] = 'P';
+
+            // Black pieces (rank 7 = row 8 in chess)
+            b[0, 7] = 'r'; b[1, 7] = 'n'; b[2, 7] = 'b'; b[3, 7] = 'q';
+            b[4, 7] = 'k'; b[5, 7] = 'b'; b[6, 7] = 'n'; b[7, 7] = 'r';
+            for (int f = 0; f < 8; f++) b[f, 6] = 'p';
+
+            return b;
+        }
+
+        public static bool ApplyUciMove(char[,] board, string uci)
+        {
+            if (string.IsNullOrEmpty(uci) || uci.Length < 4) return false;
+            string m = uci.Trim().ToLowerInvariant();
+            int fromX = m[0] - 'a';
+            int fromY = m[1] - '1';
+            int toX = m[2] - 'a';
+            int toY = m[3] - '1';
+
+            if (fromX < 0 || fromX >= 8 || fromY < 0 || fromY >= 8) return false;
+            if (toX < 0 || toX >= 8 || toY < 0 || toY >= 8) return false;
+
+            char piece = board[fromX, fromY];
+            if (piece == '.') return false;
+
+            // Castling
+            if (piece == 'K' && fromX == 4 && fromY == 0)
+            {
+                if (toX == 6 && toY == 0) // e1g1: White kingside
+                {
+                    board[5, 0] = board[7, 0];
+                    board[7, 0] = '.';
+                }
+                else if (toX == 2 && toY == 0) // e1c1: White queenside
+                {
+                    board[3, 0] = board[0, 0];
+                    board[0, 0] = '.';
+                }
+            }
+            else if (piece == 'k' && fromX == 4 && fromY == 7)
+            {
+                if (toX == 6 && toY == 7) // e8g8: Black kingside
+                {
+                    board[5, 7] = board[7, 7];
+                    board[7, 7] = '.';
+                }
+                else if (toX == 2 && toY == 7) // e8c8: Black queenside
+                {
+                    board[3, 7] = board[0, 7];
+                    board[0, 7] = '.';
+                }
+            }
+
+            // En passant: pawn moves diagonally to empty square
+            if ((piece == 'P' || piece == 'p') && fromX != toX && board[toX, toY] == '.')
+            {
+                board[toX, fromY] = '.';
+            }
+
+            // Promotion
+            if (m.Length >= 5)
+            {
+                char promo = char.ToLowerInvariant(m[4]);
+                piece = (piece == 'P') ? char.ToUpperInvariant(promo) : promo;
+            }
+
+            board[toX, toY] = piece;
+            board[fromX, fromY] = '.';
+            return true;
+        }
+
+        public static string BoardToFen(char[,] board, bool whiteTurn)
+        {
+            StringBuilder sb = new StringBuilder();
+            for (int r = 7; r >= 0; r--)
+            {
+                int emptyCount = 0;
+                for (int f = 0; f < 8; f++)
+                {
+                    char c = board[f, r];
+                    if (c == '.')
+                    {
+                        emptyCount++;
+                    }
+                    else
+                    {
+                        if (emptyCount > 0)
+                        {
+                            sb.Append(emptyCount);
+                            emptyCount = 0;
+                        }
+                        sb.Append(c);
+                    }
+                }
+                if (emptyCount > 0) sb.Append(emptyCount);
+                if (r > 0) sb.Append('/');
+            }
+            sb.Append(whiteTurn ? " w" : " b");
+            sb.Append(" KQkq - 0 1");
+            return sb.ToString();
+        }
+
+        public static List<TutorialPieceMarker> BoardToPieceMarkers(char[,] board)
+        {
+            var list = new List<TutorialPieceMarker>();
+            for (int f = 0; f < 8; f++)
+            {
+                for (int r = 0; r < 8; r++)
+                {
+                    char c = board[f, r];
+                    if (c == '.') continue;
+                    bool isWhite = char.IsUpper(c);
+                    char lower = char.ToLowerInvariant(c);
+                    string sym = lower switch
+                    {
+                        'p' => isWhite ? "♙" : "♟",
+                        'n' => isWhite ? "♘" : "♞",
+                        'b' => isWhite ? "♗" : "♝",
+                        'r' => isWhite ? "♖" : "♜",
+                        'q' => isWhite ? "♕" : "♛",
+                        'k' => isWhite ? "♔" : "♚",
+                        _ => ""
+                    };
+                    list.Add(new TutorialPieceMarker(f, r, sym, isWhite));
+                }
+            }
+            return list;
+        }
+
+        public static List<TutorialPieceMarker> SimulateBoardUpToPly(IList<string> uciMoves, int targetPly)
+        {
+            char[,] board = GetInitialBoard();
+            if (uciMoves != null && targetPly > 0)
+            {
+                int limit = Mathf.Min(targetPly, uciMoves.Count);
+                for (int i = 0; i < limit; i++)
+                {
+                    ApplyUciMove(board, uciMoves[i]);
+                }
+            }
+            return BoardToPieceMarkers(board);
         }
     }
 }
