@@ -182,6 +182,25 @@ namespace MechChess.UI
         private readonly Image[] _leaderboardTabBgs = new Image[3];
         private readonly Text[] _leaderboardTabTexts = new Text[3];
 
+        // Screen 16: Game Review & Analysis references
+        private GameObject _gameReviewModal;
+        private Image _reviewBoardImg;
+        private Text _reviewTitleTxt;
+        private Text _reviewAccuracyTxt;
+        private Text _reviewPillsTxt;
+        private Text _reviewMoveNavTxt;
+        private Text _reviewEvalBadgeTxt;
+        private Text _reviewEvalScoreTxt;
+        private Text _reviewBestMoveTxt;
+        private Text _reviewCommentTxt;
+        private Transform _reviewMoveListParent;
+        private GameAnalysisData _activeAnalysis;
+        private int _currentReviewPly = 0;
+        private Coroutine _autoPlayCoroutine = null;
+        private bool _isAutoPlaying = false;
+        private Text _btnAutoPlayTxt = null;
+        private MatchHistoryItem _lastFinishedMatch = null;
+
         // Screen 8: Collection State & References
         private GameObject _collectionModal;
         private int _selectedCollectionTab = 0; // 0: Quân Cờ, 1: Skin, 2: Bàn Cờ, 3: Hiệu Ứng
@@ -904,6 +923,7 @@ namespace MechChess.UI
             if (_friendModal != null) _friendModal.SetActive(false);
             if (_challengeModal != null) _challengeModal.SetActive(false);
             if (_leaderboardModal != null) _leaderboardModal.SetActive(false);
+            if (_gameReviewModal != null) _gameReviewModal.SetActive(false);
             if (anyOpen) AegisAudioManager.PlayModalClose();
         }
 
@@ -954,6 +974,7 @@ namespace MechChess.UI
             BuildScreen13Learn(_menuCanvasObj.transform, font);
             BuildScreen14Confirm(_menuCanvasObj.transform, font);
             BuildScreen15ToastContainer(_menuCanvasObj.transform, font);
+            BuildScreen16GameReview(_menuCanvasObj.transform, font);
 
             // Build Multiplayer & Auth Dialogs
             BuildLoginModal(_menuCanvasObj.transform, font);
@@ -6317,8 +6338,18 @@ namespace MechChess.UI
             _resultDurationTxt = CreateStatRow(statsCard.transform, AegisLocalization.T("Thời gian", "Duration"), "08:36", -22f, font);
             _resultScoreTxt = CreateStatRow(statsCard.transform, AegisLocalization.T("Mã trận", "Result"), "1 - 0", -66f, font);
 
-            // 3 Bottom Action Buttons: [Phát lại] [Chia sẻ] [Ván mới]
-            CreateMenuActionButton(cardObj.transform, "BtnReplay", AegisLocalization.T("↺  Phát lại", "↺  Replay"), new Vector2(-175f, -220f), new Vector2(145f, 50f), new Color(0.02f, 0.10f, 0.22f, 0.95f), ColTextWhite, 17, () => ShowToast(AegisLocalization.T("Đang chuẩn bị bản xem lại...", "Preparing match replay..."), ToastType.Info), font, ColCyanBorder, 1.4f);
+            // 3 Bottom Action Buttons: [Phân tích / Xem lại] [Chia sẻ] [Ván mới]
+            CreateMenuActionButton(cardObj.transform, "BtnReplay", AegisLocalization.T("🔍  Phân tích", "🔍  Review"), new Vector2(-175f, -220f), new Vector2(145f, 50f), new Color(0.02f, 0.10f, 0.22f, 0.95f), ColCyanGlow, 17, () =>
+            {
+                if (_lastFinishedMatch != null)
+                {
+                    OpenGameReview(_lastFinishedMatch);
+                }
+                else
+                {
+                    ShowToast(AegisLocalization.T("Không có dữ liệu nước đi để xem lại!", "No move history available for review!"), ToastType.Warning);
+                }
+            }, font, ColCyanBorder, 1.4f);
             
             CreateMenuActionButton(cardObj.transform, "BtnShare", AegisLocalization.T("🔀  Chia sẻ", "🔀  Share"), new Vector2(0f, -220f), new Vector2(145f, 50f), new Color(0.02f, 0.10f, 0.22f, 0.95f), ColTextWhite, 17, () =>
             {
@@ -6577,21 +6608,55 @@ namespace MechChess.UI
             int safeMoves = Mathf.Max(1, moves);
             float safeDuration = Mathf.Max(5f, durationSec);
 
+            string[] uciMoves = null;
+            string[] sanMoves = null;
+            string pgn = null;
+            if (MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+            {
+                var uciList = MechChess.Chess3D.ChessBoard3DManager.Instance.CompletedUciMoves;
+                var sanList = MechChess.Chess3D.ChessBoard3DManager.Instance.CompletedSanMoves;
+                if (uciList != null && uciList.Count > 0) uciMoves = uciList.ToArray();
+                if (sanList != null && sanList.Count > 0) sanMoves = sanList.ToArray();
+                pgn = MechChess.Chess3D.ChessBoard3DManager.Instance.GetCurrentMatchPGN();
+            }
+
+            _lastFinishedMatch = new MatchHistoryItem
+            {
+                id = "last_" + System.DateTime.UtcNow.Ticks,
+                opponent_name = oppName,
+                is_ai = !isOnlinePvP,
+                player_role = myRole,
+                result = matchRes,
+                moves_count = safeMoves,
+                duration_seconds = safeDuration,
+                created_at = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                moves = uciMoves,
+                san_moves = sanMoves,
+                pgn = pgn
+            };
+
             if (UserAccountManager.Instance != null)
             {
-                UserAccountManager.Instance.RecordMatchResult(matchRes, oppName, isAi: !isOnlinePvP, myRole, safeMoves, safeDuration, oppElo, isOnlinePvP, (ok, res) =>
+                UserAccountManager.Instance.RecordMatchResult(matchRes, oppName, isAi: !isOnlinePvP, myRole, safeMoves, safeDuration, oppElo, isOnlinePvP, uciMoves, sanMoves, pgn, (ok, res) =>
                 {
-                    if (res != null && _resultEloTxt != null)
+                    if (res != null)
                     {
-                        if (isAborted)
+                        if (res.analysis != null && _lastFinishedMatch != null)
                         {
-                            _resultEloTxt.text = $"<color=#80d8ff>Elo +0 ({AegisLocalization.T("Hủy ván", "Aborted")})</color> (Tổng: {res.new_elo})";
+                            _lastFinishedMatch.analysis_json = JsonUtility.ToJson(res.analysis);
                         }
-                        else if (isOnlinePvP)
+                        if (_resultEloTxt != null)
                         {
-                            string sign = res.elo_change >= 0 ? "+" : "";
-                            string colorHex = res.elo_change > 0 ? "#00e676" : (res.elo_change < 0 ? "#ff5252" : "#80d8ff");
-                            _resultEloTxt.text = $"<color={colorHex}>Elo {sign}{res.elo_change}</color> (Tổng: {res.new_elo})";
+                            if (isAborted)
+                            {
+                                _resultEloTxt.text = $"<color=#80d8ff>Elo +0 ({AegisLocalization.T("Hủy ván", "Aborted")})</color> (Tổng: {res.new_elo})";
+                            }
+                            else if (isOnlinePvP)
+                            {
+                                string sign = res.elo_change >= 0 ? "+" : "";
+                                string colorHex = res.elo_change > 0 ? "#00e676" : (res.elo_change < 0 ? "#ff5252" : "#80d8ff");
+                                _resultEloTxt.text = $"<color={colorHex}>Elo {sign}{res.elo_change}</color> (Tổng: {res.new_elo})";
+                            }
                         }
                     }
                     UpdateUserProfileUI();
@@ -7135,6 +7200,7 @@ namespace MechChess.UI
             Image dcBg = descCard.AddComponent<Image>();
             dcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(450, 480, 20f, new Color(0.06f, 0.12f, 0.22f, 0.95f), ColCyanBorder, 1.5f);
             dcBg.type = Image.Type.Sliced;
+            descCard.AddComponent<RectMask2D>();
             RectTransform dcRt = descCard.GetComponent<RectTransform>() ?? descCard.AddComponent<RectTransform>();
             dcRt.anchorMin = new Vector2(1f, 0.5f);
             dcRt.anchorMax = new Vector2(1f, 0.5f);
@@ -7142,7 +7208,7 @@ namespace MechChess.UI
             dcRt.anchoredPosition = new Vector2(-40f, -20f);
             dcRt.sizeDelta = new Vector2(450f, 480f);
 
-            CreateTextComp(descCard.transform, AegisLocalization.T("Biến thể Najdorf", "Najdorf Variation"), 22, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 180f), new Vector2(390f, 36f));
+            CreateTextComp(descCard.transform, AegisLocalization.T("Biến thể Najdorf", "Najdorf Variation"), 22, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 180f), new Vector2(380f, 36f));
 
             GameObject bodyTxtObj = new GameObject("Body");
             bodyTxtObj.transform.SetParent(descCard.transform, false);
@@ -7151,18 +7217,18 @@ namespace MechChess.UI
                 "Đây là một trong những biến thể phổ biến và mạnh mẽ nhất của Phòng thủ Sicilian.\n\nĐặc trưng bởi nước đi 5...a6, ngăn chặn ô b5 của Trắng và chuẩn bị triển khai phản công cánh Hậu đầy uy lực.",
                 "One of the most popular and sharp variations of the Sicilian Defense.\n\nCharacterized by 5...a6, denying the b5 square to White and preparing powerful queenside counter-play.");
             bt.font = font;
-            bt.fontSize = 16;
+            bt.fontSize = 15;
             bt.lineSpacing = 1.35f;
             bt.alignment = TextAnchor.UpperLeft;
             bt.color = new Color(0.85f, 0.92f, 1.0f);
             bt.horizontalOverflow = HorizontalWrapMode.Wrap;
-            bt.verticalOverflow = VerticalWrapMode.Overflow;
+            bt.verticalOverflow = VerticalWrapMode.Truncate;
             RectTransform btRt = bodyTxtObj.GetComponent<RectTransform>() ?? bodyTxtObj.AddComponent<RectTransform>();
             btRt.anchorMin = new Vector2(0.5f, 0.5f);
             btRt.anchorMax = new Vector2(0.5f, 0.5f);
             btRt.pivot = new Vector2(0.5f, 0.5f);
-            btRt.anchoredPosition = new Vector2(0f, 30f);
-            btRt.sizeDelta = new Vector2(390f, 220f);
+            btRt.anchoredPosition = new Vector2(0f, 25f);
+            btRt.sizeDelta = new Vector2(370f, 210f);
 
             // [Xem tiếp] Button
             CreateMenuActionButton(descCard.transform, "BtnNextLesson", AegisLocalization.T("Xem tiếp  ❯", "Continue  ❯"), new Vector2(0f, -170f), new Vector2(390f, 52f), ColGoldCta, ColDarkBtnText, 16, () => ShowToast(AegisLocalization.T("Đã hoàn thành bài học 2!", "Lesson 2 completed!"), ToastType.Success), font, ColGoldBorder, 1.5f);
@@ -7324,6 +7390,712 @@ namespace MechChess.UI
             _toastContainer.SetActive(true);
             yield return new WaitForSecondsRealtime(2.5f);
             _toastContainer.SetActive(false);
+        }
+
+        // =========================================================================
+        // SCREEN 16: PHÂN TÍCH & ĐÁNH GIÁ VÁN ĐẤU (Game Review & Analysis)
+        // =========================================================================
+        private void BuildScreen16GameReview(Transform parent, Font font)
+        {
+            _gameReviewModal = CreateModalOverlay(parent, "Screen16_GameReviewModal");
+
+            // Main Review Window Card (1320 x 740)
+            GameObject cardObj = new GameObject("ReviewCard");
+            cardObj.transform.SetParent(_gameReviewModal.transform, false);
+            RectTransform cRt = cardObj.AddComponent<RectTransform>();
+            cRt.anchorMin = new Vector2(0.5f, 0.5f);
+            cRt.anchorMax = new Vector2(0.5f, 0.5f);
+            cRt.pivot = new Vector2(0.5f, 0.5f);
+            cRt.anchoredPosition = Vector2.zero;
+            cRt.sizeDelta = new Vector2(1320f, 740f);
+
+            Image cardBg = cardObj.AddComponent<Image>();
+            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1320, 740, 24f, new Color(0.02f, 0.05f, 0.12f, 0.96f), ColCyanBorder, 2f);
+            cardBg.type = Image.Type.Sliced;
+
+            // Modal Header
+            CreateModalHeader(cardObj.transform, AegisLocalization.T("PHÂN TÍCH & ĐÁNH GIÁ VÁN ĐẤU", "GAME REVIEW & ANALYSIS"), () => CloseReviewModal(), font);
+
+            // ==================== LEFT COLUMN: 2D Interactive Board (x: -380) ====================
+            GameObject boardCard = new GameObject("ReviewBoardCard");
+            boardCard.transform.SetParent(cardObj.transform, false);
+            Image bcBg = boardCard.AddComponent<Image>();
+            bcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(500, 600, 18f, new Color(0.04f, 0.08f, 0.16f, 0.95f), ColCyanBorder, 1.5f);
+            bcBg.type = Image.Type.Sliced;
+            RectTransform bcRt = boardCard.GetComponent<RectTransform>();
+            bcRt.anchoredPosition = new Vector2(-380f, -25f);
+            bcRt.sizeDelta = new Vector2(500f, 600f);
+
+            // 2D Board Image
+            GameObject boardImgObj = new GameObject("BoardImage");
+            boardImgObj.transform.SetParent(boardCard.transform, false);
+            _reviewBoardImg = boardImgObj.AddComponent<Image>();
+            _reviewBoardImg.sprite = ArcaneAssetLoader.GetMiniChessboardDiagram(420);
+            RectTransform bImgRt = boardImgObj.GetComponent<RectTransform>();
+            bImgRt.anchoredPosition = new Vector2(0f, 50f);
+            bImgRt.sizeDelta = new Vector2(430f, 430f);
+
+            // Navigation Stepper Bar
+            GameObject navBarObj = new GameObject("NavBar");
+            navBarObj.transform.SetParent(boardCard.transform, false);
+            RectTransform nbRt = navBarObj.AddComponent<RectTransform>();
+            nbRt.anchoredPosition = new Vector2(0f, -210f);
+            nbRt.sizeDelta = new Vector2(450f, 50f);
+
+            // Buttons: |< (First), < (Prev), AutoPlay, > (Next), >| (Last)
+            CreateMenuActionButton(navBarObj.transform, "BtnFirst", "|◀", new Vector2(-170f, 0f), new Vector2(54f, 44f), ColGlassFill, ColCyanGlow, 18, () => JumpToReviewPly(0), font, ColCyanBorder, 1.2f);
+            CreateMenuActionButton(navBarObj.transform, "BtnPrev", "◀", new Vector2(-105f, 0f), new Vector2(54f, 44f), ColGlassFill, ColCyanGlow, 18, () => StepReviewMove(-1), font, ColCyanBorder, 1.2f);
+
+            // Auto Play Button
+            GameObject autoBtnObj = new GameObject("BtnAutoPlay");
+            autoBtnObj.transform.SetParent(navBarObj.transform, false);
+            Image abBg = autoBtnObj.AddComponent<Image>();
+            abBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(130, 44, 22f, ColGoldCta, ColGoldBorder, 1.4f);
+            abBg.type = Image.Type.Sliced;
+            Button abBtn = autoBtnObj.AddComponent<Button>();
+            abBtn.onClick.AddListener(ToggleAutoPlay);
+            autoBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform abRt = autoBtnObj.GetComponent<RectTransform>();
+            abRt.anchoredPosition = new Vector2(0f, 0f);
+            abRt.sizeDelta = new Vector2(130f, 44f);
+            _btnAutoPlayTxt = CreateTextComp(autoBtnObj.transform, AegisLocalization.T("▶ Tự chạy", "▶ Auto Play"), 15, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(120f, 30f));
+
+            CreateMenuActionButton(navBarObj.transform, "BtnNext", "▶", new Vector2(105f, 0f), new Vector2(54f, 44f), ColGlassFill, ColCyanGlow, 18, () => StepReviewMove(1), font, ColCyanBorder, 1.2f);
+            CreateMenuActionButton(navBarObj.transform, "BtnLast", "▶|", new Vector2(170f, 0f), new Vector2(54f, 44f), ColGlassFill, ColCyanGlow, 18, () =>
+            {
+                if (_activeAnalysis != null && _activeAnalysis.moves != null)
+                {
+                    JumpToReviewPly(_activeAnalysis.moves.Length);
+                }
+            }, font, ColCyanBorder, 1.2f);
+
+            // Move Navigation Indicator Text (e.g. "Nước 12 / 34 (12. e4)")
+            GameObject navTxtObj = new GameObject("NavMoveTxt");
+            navTxtObj.transform.SetParent(boardCard.transform, false);
+            _reviewMoveNavTxt = navTxtObj.AddComponent<Text>();
+            _reviewMoveNavTxt.text = AegisLocalization.T("Bắt đầu ván cờ", "Start Position");
+            _reviewMoveNavTxt.font = font;
+            _reviewMoveNavTxt.fontSize = 16;
+            _reviewMoveNavTxt.fontStyle = FontStyle.Bold;
+            _reviewMoveNavTxt.alignment = TextAnchor.MiddleCenter;
+            _reviewMoveNavTxt.color = ColTextWhite;
+            _reviewMoveNavTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _reviewMoveNavTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform ntRt = navTxtObj.GetComponent<RectTransform>();
+            ntRt.anchoredPosition = new Vector2(0f, -258f);
+            ntRt.sizeDelta = new Vector2(450f, 28f);
+
+            // ==================== RIGHT COLUMN: Analysis & PGN Details (x: +240) ====================
+            GameObject detailsCard = new GameObject("ReviewDetailsCard");
+            detailsCard.transform.SetParent(cardObj.transform, false);
+            Image dcBg = detailsCard.AddComponent<Image>();
+            dcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(720, 600, 18f, new Color(0.04f, 0.08f, 0.16f, 0.95f), ColCyanBorder, 1.5f);
+            dcBg.type = Image.Type.Sliced;
+            RectTransform dcRt = detailsCard.GetComponent<RectTransform>();
+            dcRt.anchoredPosition = new Vector2(240f, -25f);
+            dcRt.sizeDelta = new Vector2(720f, 600f);
+
+            // Top Info Header: Match Players & Result
+            GameObject titleObj = new GameObject("ReviewMatchTitle");
+            titleObj.transform.SetParent(detailsCard.transform, false);
+            _reviewTitleTxt = titleObj.AddComponent<Text>();
+            _reviewTitleTxt.text = "Trắng: Player  VS  Đen: Đối thủ";
+            _reviewTitleTxt.font = font;
+            _reviewTitleTxt.fontSize = 18;
+            _reviewTitleTxt.fontStyle = FontStyle.Bold;
+            _reviewTitleTxt.alignment = TextAnchor.MiddleLeft;
+            _reviewTitleTxt.color = ColTextWhite;
+            _reviewTitleTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _reviewTitleTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform ttRt = titleObj.GetComponent<RectTransform>();
+            ttRt.anchoredPosition = new Vector2(0f, 260f);
+            ttRt.sizeDelta = new Vector2(670f, 28f);
+
+            // Accuracy CAPS Bar
+            GameObject accObj = new GameObject("ReviewAccuracy");
+            accObj.transform.SetParent(detailsCard.transform, false);
+            _reviewAccuracyTxt = accObj.AddComponent<Text>();
+            _reviewAccuracyTxt.text = AegisLocalization.T("🎯 Độ chính xác (CAPS): Đang phân tích...", "🎯 CAPS Accuracy: Analyzing...");
+            _reviewAccuracyTxt.font = font;
+            _reviewAccuracyTxt.fontSize = 17;
+            _reviewAccuracyTxt.fontStyle = FontStyle.Bold;
+            _reviewAccuracyTxt.alignment = TextAnchor.MiddleLeft;
+            _reviewAccuracyTxt.color = ColCyanGlow;
+            _reviewAccuracyTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _reviewAccuracyTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform accRt = accObj.GetComponent<RectTransform>();
+            accRt.anchoredPosition = new Vector2(0f, 226f);
+            accRt.sizeDelta = new Vector2(670f, 26f);
+
+            // Move Quality Badges Summary (e.g. "⭐ Tốt nhất: 14  👍 Tốt: 6  ⁉️ Không chuẩn: 2  ❓ Sai lầm: 1  ⁇ Đại sai lầm: 0")
+            GameObject pillsObj = new GameObject("ReviewPills");
+            pillsObj.transform.SetParent(detailsCard.transform, false);
+            _reviewPillsTxt = pillsObj.AddComponent<Text>();
+            _reviewPillsTxt.text = "⭐ Tốt: 0  |  ❓ Sai sót: 0";
+            _reviewPillsTxt.font = font;
+            _reviewPillsTxt.fontSize = 14;
+            _reviewPillsTxt.alignment = TextAnchor.MiddleLeft;
+            _reviewPillsTxt.color = new Color(0.75f, 0.88f, 1.0f);
+            _reviewPillsTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _reviewPillsTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform pillsRt = pillsObj.GetComponent<RectTransform>();
+            pillsRt.anchoredPosition = new Vector2(0f, 194f);
+            pillsRt.sizeDelta = new Vector2(670f, 26f);
+
+            // Middle Box: Current Move Evaluation Card (Eval score, Best Move, Evaluation comment)
+            GameObject evalBoxObj = new GameObject("EvalBox");
+            evalBoxObj.transform.SetParent(detailsCard.transform, false);
+            Image ebBg = evalBoxObj.AddComponent<Image>();
+            ebBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(670, 140, 14f, new Color(0.02f, 0.05f, 0.12f, 0.9f), ColCyanBorder, 1.2f);
+            ebBg.type = Image.Type.Sliced;
+            RectTransform ebRt = evalBoxObj.GetComponent<RectTransform>();
+            ebRt.anchoredPosition = new Vector2(0f, 95f);
+            ebRt.sizeDelta = new Vector2(670f, 140f);
+
+            // Badge + Eval Score
+            GameObject badgeObj = new GameObject("EvalBadge");
+            badgeObj.transform.SetParent(evalBoxObj.transform, false);
+            _reviewEvalBadgeTxt = badgeObj.AddComponent<Text>();
+            _reviewEvalBadgeTxt.text = "⭐ Nước đi tốt nhất (Best Move)";
+            _reviewEvalBadgeTxt.font = font;
+            _reviewEvalBadgeTxt.fontSize = 17;
+            _reviewEvalBadgeTxt.fontStyle = FontStyle.Bold;
+            _reviewEvalBadgeTxt.alignment = TextAnchor.MiddleLeft;
+            _reviewEvalBadgeTxt.color = ColGoldBorder;
+            _reviewEvalBadgeTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _reviewEvalBadgeTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform badgeRt = badgeObj.GetComponent<RectTransform>();
+            badgeRt.anchoredPosition = new Vector2(-105f, 42f);
+            badgeRt.sizeDelta = new Vector2(420f, 26f);
+
+            GameObject scoreObj = new GameObject("EvalScore");
+            scoreObj.transform.SetParent(evalBoxObj.transform, false);
+            _reviewEvalScoreTxt = scoreObj.AddComponent<Text>();
+            _reviewEvalScoreTxt.text = "+0.20";
+            _reviewEvalScoreTxt.font = font;
+            _reviewEvalScoreTxt.fontSize = 17;
+            _reviewEvalScoreTxt.fontStyle = FontStyle.Bold;
+            _reviewEvalScoreTxt.alignment = TextAnchor.MiddleRight;
+            _reviewEvalScoreTxt.color = ColCyanGlow;
+            _reviewEvalScoreTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _reviewEvalScoreTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform scoreRt = scoreObj.GetComponent<RectTransform>();
+            scoreRt.anchoredPosition = new Vector2(215f, 42f);
+            scoreRt.sizeDelta = new Vector2(200f, 26f);
+
+            // Best Move Suggestion Text
+            GameObject bestMoveObj = new GameObject("BestMoveTxt");
+            bestMoveObj.transform.SetParent(evalBoxObj.transform, false);
+            _reviewBestMoveTxt = bestMoveObj.AddComponent<Text>();
+            _reviewBestMoveTxt.text = "Động cơ đề xuất: e2e4";
+            _reviewBestMoveTxt.font = font;
+            _reviewBestMoveTxt.fontSize = 15;
+            _reviewBestMoveTxt.fontStyle = FontStyle.Italic;
+            _reviewBestMoveTxt.alignment = TextAnchor.MiddleLeft;
+            _reviewBestMoveTxt.color = new Color(0.3f, 0.95f, 0.6f);
+            _reviewBestMoveTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _reviewBestMoveTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform bmRt = bestMoveObj.GetComponent<RectTransform>();
+            bmRt.anchoredPosition = new Vector2(0f, 8f);
+            bmRt.sizeDelta = new Vector2(630f, 24f);
+
+            // Comment text
+            GameObject commentObj = new GameObject("CommentTxt");
+            commentObj.transform.SetParent(evalBoxObj.transform, false);
+            _reviewCommentTxt = commentObj.AddComponent<Text>();
+            _reviewCommentTxt.text = "Nước đi mở đầu tiêu chuẩn kiểm soát trung tâm.";
+            _reviewCommentTxt.font = font;
+            _reviewCommentTxt.fontSize = 14;
+            _reviewCommentTxt.alignment = TextAnchor.UpperLeft;
+            _reviewCommentTxt.color = new Color(0.85f, 0.92f, 1.0f);
+            _reviewCommentTxt.lineSpacing = 1.2f;
+            _reviewCommentTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _reviewCommentTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform cmRt = commentObj.GetComponent<RectTransform>();
+            cmRt.anchoredPosition = new Vector2(0f, -34f);
+            cmRt.sizeDelta = new Vector2(630f, 46f);
+
+            // Bottom Move List Scroll Area (PGN moves)
+            GameObject scrollObj = new GameObject("MoveListScrollView");
+            scrollObj.transform.SetParent(detailsCard.transform, false);
+            RectTransform sRt = scrollObj.AddComponent<RectTransform>();
+            sRt.anchoredPosition = new Vector2(0f, -140f);
+            sRt.sizeDelta = new Vector2(670f, 280f);
+
+            // Mask viewport
+            GameObject vpObj = new GameObject("Viewport");
+            vpObj.transform.SetParent(scrollObj.transform, false);
+            RectTransform vpRt = vpObj.AddComponent<RectTransform>();
+            vpRt.anchorMin = Vector2.zero;
+            vpRt.anchorMax = Vector2.one;
+            vpRt.offsetMin = Vector2.zero;
+            vpRt.offsetMax = Vector2.zero;
+            Image vpImg = vpObj.AddComponent<Image>();
+            vpImg.color = new Color(0.01f, 0.03f, 0.08f, 0.5f);
+            Mask vpMask = vpObj.AddComponent<Mask>();
+            vpMask.showMaskGraphic = false;
+
+            GameObject contentObj = new GameObject("Content");
+            contentObj.transform.SetParent(vpObj.transform, false);
+            _reviewMoveListParent = contentObj.transform;
+            RectTransform ctRt = contentObj.AddComponent<RectTransform>();
+            ctRt.anchorMin = new Vector2(0f, 1f);
+            ctRt.anchorMax = new Vector2(1f, 1f);
+            ctRt.pivot = new Vector2(0.5f, 1f);
+            ctRt.anchoredPosition = Vector2.zero;
+            ctRt.sizeDelta = new Vector2(0f, 400f);
+
+            ScrollRect sr = scrollObj.AddComponent<ScrollRect>();
+            sr.content = ctRt;
+            sr.viewport = vpRt;
+            sr.horizontal = false;
+            sr.vertical = true;
+            sr.movementType = ScrollRect.MovementType.Clamped;
+            sr.scrollSensitivity = 25f;
+
+            _gameReviewModal.SetActive(false);
+        }
+
+        public void OpenGameReview(MatchHistoryItem match)
+        {
+            if (_gameReviewModal == null) return;
+            _gameReviewModal.SetActive(true);
+            AegisAudioManager.PlayModalOpen();
+
+            if (_autoPlayCoroutine != null)
+            {
+                StopCoroutine(_autoPlayCoroutine);
+                _autoPlayCoroutine = null;
+                _isAutoPlaying = false;
+                if (_btnAutoPlayTxt != null) _btnAutoPlayTxt.text = AegisLocalization.T("▶ Tự chạy", "▶ Auto Play");
+            }
+
+            string myName = (UserAccountManager.Instance != null && UserAccountManager.Instance.IsLoggedIn)
+                ? UserAccountManager.Instance.CurrentUsername
+                : "Player";
+            string oppName = !string.IsNullOrEmpty(match?.opponent_name) ? match.opponent_name : "Opponent";
+            string resScore = (match != null && match.result == "win") ? "1 - 0" : ((match != null && match.result == "loss") ? "0 - 1" : "½ - ½");
+
+            if (_reviewTitleTxt != null)
+            {
+                _reviewTitleTxt.text = $"<b>{myName}</b> ({resScore}) <b>{oppName}</b>";
+            }
+            if (_reviewAccuracyTxt != null)
+            {
+                _reviewAccuracyTxt.text = AegisLocalization.T("🎯 Đang phân tích động cơ AI (Stockfish Engine)...", "🎯 Running AI Engine Analysis...");
+            }
+
+            _currentReviewPly = 0;
+
+            // Check if analysis_json already exists on match
+            if (match != null && !string.IsNullOrEmpty(match.analysis_json))
+            {
+                try
+                {
+                    var data = JsonUtility.FromJson<GameAnalysisData>(match.analysis_json);
+                    if (data != null && data.moves != null && data.moves.Length > 0)
+                    {
+                        ApplyAnalysisData(data);
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[GameReview] Error parsing cached analysis: {ex.Message}");
+                }
+            }
+
+            // Otherwise, request analysis from backend or local fallback
+            string[] uciMoves = match?.moves;
+            string[] sanMoves = match?.san_moves;
+            string pgn = match?.pgn;
+
+            // If empty, generate a demo/practice opening sequence so player can test
+            if (uciMoves == null || uciMoves.Length == 0)
+            {
+                uciMoves = new[] { "e2e4", "c7c5", "g1f3", "d7d6", "d2d4", "c5d4", "f3d4", "g8f6", "b1c3", "a7a6" };
+                sanMoves = new[] { "e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "a6" };
+            }
+
+            if (UserAccountManager.Instance != null)
+            {
+                UserAccountManager.Instance.RequestMatchAnalysis(uciMoves, sanMoves, pgn, (ok, data) =>
+                {
+                    if (ok && data != null)
+                    {
+                        ApplyAnalysisData(data);
+                    }
+                    else
+                    {
+                        ShowToast(AegisLocalization.T("Không thể kết nối máy chủ phân tích!", "Could not reach analysis engine!"), ToastType.Warning);
+                    }
+                });
+            }
+        }
+
+        private void ApplyAnalysisData(GameAnalysisData data)
+        {
+            _activeAnalysis = data;
+            if (_activeAnalysis == null || _activeAnalysis.moves == null) return;
+
+            if (_reviewAccuracyTxt != null)
+            {
+                _reviewAccuracyTxt.text = string.Format(
+                    AegisLocalization.T("🎯 Độ chính xác: Trắng {0:F1}%  |  Đen {1:F1}%", "🎯 Accuracy: White {0:F1}%  |  Black {1:F1}%"),
+                    data.white_accuracy, data.black_accuracy);
+            }
+
+            // Count badges
+            int bestCount = 0, goodCount = 0, inaccCount = 0, mistCount = 0, blundCount = 0, brillCount = 0;
+            foreach (var m in data.moves)
+            {
+                if (m.judgment == "Brilliant") brillCount++;
+                else if (m.judgment == "Best") bestCount++;
+                else if (m.judgment == "Good" || m.judgment == "Book") goodCount++;
+                else if (m.judgment == "Inaccuracy") inaccCount++;
+                else if (m.judgment == "Mistake") mistCount++;
+                else if (m.judgment == "Blunder") blundCount++;
+            }
+
+            if (_reviewPillsTxt != null)
+            {
+                _reviewPillsTxt.text = $"‼️ {brillCount}   ⭐ {bestCount}   👍 {goodCount}   ⁉️ {inaccCount}   ❓ {mistCount}   ⁇ {blundCount}";
+            }
+
+            PopulateReviewMoveList();
+            JumpToReviewPly(0);
+        }
+
+        private void CloseReviewModal()
+        {
+            if (_autoPlayCoroutine != null)
+            {
+                StopCoroutine(_autoPlayCoroutine);
+                _autoPlayCoroutine = null;
+                _isAutoPlaying = false;
+            }
+            if (_gameReviewModal != null) _gameReviewModal.SetActive(false);
+            AegisAudioManager.PlayModalClose();
+        }
+
+        private void StepReviewMove(int step)
+        {
+            if (_activeAnalysis == null || _activeAnalysis.moves == null) return;
+            int maxPly = _activeAnalysis.moves.Length;
+            int nextPly = Mathf.Clamp(_currentReviewPly + step, 0, maxPly);
+            if (nextPly != _currentReviewPly)
+            {
+                JumpToReviewPly(nextPly);
+            }
+        }
+
+        private void JumpToReviewPly(int targetPly)
+        {
+            if (_activeAnalysis == null || _activeAnalysis.moves == null) return;
+            int maxPly = _activeAnalysis.moves.Length;
+            _currentReviewPly = Mathf.Clamp(targetPly, 0, maxPly);
+            UpdateReviewBoardAndDetails(_currentReviewPly);
+        }
+
+        private void ToggleAutoPlay()
+        {
+            if (_isAutoPlaying)
+            {
+                if (_autoPlayCoroutine != null) StopCoroutine(_autoPlayCoroutine);
+                _autoPlayCoroutine = null;
+                _isAutoPlaying = false;
+                if (_btnAutoPlayTxt != null) _btnAutoPlayTxt.text = AegisLocalization.T("▶ Tự chạy", "▶ Auto Play");
+            }
+            else
+            {
+                _isAutoPlaying = true;
+                if (_btnAutoPlayTxt != null) _btnAutoPlayTxt.text = AegisLocalization.T("⏸ Dừng", "⏸ Pause");
+                _autoPlayCoroutine = StartCoroutine(AutoPlayRoutine());
+            }
+        }
+
+        private IEnumerator AutoPlayRoutine()
+        {
+            if (_activeAnalysis == null || _activeAnalysis.moves == null) yield break;
+            while (_isAutoPlaying)
+            {
+                yield return new WaitForSecondsRealtime(1.8f);
+                if (_currentReviewPly >= _activeAnalysis.moves.Length)
+                {
+                    _currentReviewPly = 0;
+                }
+                else
+                {
+                    _currentReviewPly++;
+                }
+                UpdateReviewBoardAndDetails(_currentReviewPly);
+            }
+        }
+
+        private void UpdateReviewBoardAndDetails(int plyIndex)
+        {
+            if (_activeAnalysis == null || _activeAnalysis.moves == null) return;
+            int total = _activeAnalysis.moves.Length;
+
+            if (plyIndex == 0)
+            {
+                // Starting position
+                string startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+                var startMarkers = ParseFenToMarkers(startFen);
+                if (_reviewBoardImg != null)
+                {
+                    _reviewBoardImg.sprite = ArcaneAssetLoader.GetCustomBoardDiagram(430, false, Vector2Int.zero, null, null, null, startMarkers);
+                }
+
+                if (_reviewMoveNavTxt != null)
+                {
+                    _reviewMoveNavTxt.text = AegisLocalization.T("Vị trí khởi đầu (Start)", "Start Position");
+                }
+                if (_reviewEvalBadgeTxt != null)
+                {
+                    _reviewEvalBadgeTxt.text = "♟ " + AegisLocalization.T("Khởi đầu ván cờ", "Game Start");
+                    _reviewEvalBadgeTxt.color = ColTextWhite;
+                }
+                if (_reviewEvalScoreTxt != null)
+                {
+                    _reviewEvalScoreTxt.text = "0.00";
+                }
+                if (_reviewBestMoveTxt != null)
+                {
+                    _reviewBestMoveTxt.text = AegisLocalization.T("Nước mở cờ phổ biến: e4, d4, Nf3, c4", "Standard opening moves: e4, d4, Nf3, c4");
+                }
+                if (_reviewCommentTxt != null)
+                {
+                    _reviewCommentTxt.text = AegisLocalization.T("Ván đấu bắt đầu. Cả hai bên triển khai quân và tranh giành trung tâm.", "Game begins. Both sides develop pieces and contest center.");
+                }
+                HighlightActiveMoveButton(-1);
+                return;
+            }
+
+            int mIdx = plyIndex - 1;
+            if (mIdx < 0 || mIdx >= total) return;
+            var item = _activeAnalysis.moves[mIdx];
+
+            // Board with move highlighted
+            var markers = ParseFenToMarkers(item.fen_after);
+            Vector2Int fromCoord = SquareToCoord(item.from_square);
+            Vector2Int toCoord = SquareToCoord(item.to_square);
+            var moveList = new List<Vector2Int> { toCoord };
+
+            if (_reviewBoardImg != null)
+            {
+                _reviewBoardImg.sprite = ArcaneAssetLoader.GetCustomBoardDiagram(430, true, fromCoord, moveList, null, null, markers);
+            }
+
+            // Move Counter
+            string movePrefix = (item.color == "white") ? $"{item.move_number}." : $"{item.move_number}...";
+            if (_reviewMoveNavTxt != null)
+            {
+                _reviewMoveNavTxt.text = AegisLocalization.T($"Nước {plyIndex} / {total}  ({movePrefix} {item.san})", $"Move {plyIndex} / {total}  ({movePrefix} {item.san})");
+            }
+
+            // Evaluation Badge & Color
+            Color badgeCol = ColGoldBorder;
+            string symbol = item.badge_symbol ?? "⭐";
+            string judgmentText = item.judgment_vi ?? item.judgment ?? "Tốt";
+
+            if (item.judgment == "Brilliant") { badgeCol = new Color(0.1f, 0.95f, 0.95f); symbol = "‼️"; }
+            else if (item.judgment == "Best") { badgeCol = new Color(0.1f, 0.95f, 0.45f); symbol = "⭐"; }
+            else if (item.judgment == "Great") { badgeCol = new Color(0.2f, 0.85f, 0.95f); symbol = "!"; }
+            else if (item.judgment == "Good" || item.judgment == "Book") { badgeCol = new Color(0.55f, 0.85f, 1.0f); symbol = (item.judgment == "Book") ? "📖" : "👍"; }
+            else if (item.judgment == "Inaccuracy") { badgeCol = new Color(1.0f, 0.85f, 0.2f); symbol = "⁉️"; }
+            else if (item.judgment == "Mistake") { badgeCol = new Color(1.0f, 0.55f, 0.15f); symbol = "❓"; }
+            else if (item.judgment == "Blunder") { badgeCol = new Color(1.0f, 0.25f, 0.25f); symbol = "⁇"; }
+            else if (item.judgment == "Missed Win") { badgeCol = new Color(0.95f, 0.15f, 0.35f); symbol = "❌"; }
+
+            if (_reviewEvalBadgeTxt != null)
+            {
+                _reviewEvalBadgeTxt.text = $"{symbol}  {judgmentText}";
+                _reviewEvalBadgeTxt.color = badgeCol;
+            }
+
+            // Score formatting
+            if (_reviewEvalScoreTxt != null)
+            {
+                string sign = item.score > 0 ? "+" : "";
+                _reviewEvalScoreTxt.text = $"{sign}{item.score:F2}";
+                _reviewEvalScoreTxt.color = (item.score >= 0f) ? ColCyanGlow : new Color(1f, 0.4f, 0.5f);
+            }
+
+            // Best move suggestion
+            if (_reviewBestMoveTxt != null)
+            {
+                string bestSan = !string.IsNullOrEmpty(item.best_move_san) ? item.best_move_san : item.best_move_uci;
+                if (!string.IsNullOrEmpty(bestSan) && item.judgment != "Best" && item.judgment != "Brilliant")
+                {
+                    _reviewBestMoveTxt.text = AegisLocalization.T($"Động cơ gợi ý: <b>{bestSan}</b>", $"Engine recommendation: <b>{bestSan}</b>");
+                }
+                else
+                {
+                    _reviewBestMoveTxt.text = AegisLocalization.T("✓ Nước đi tối ưu nhất theo đánh giá động cơ AI.", "✓ Optimal move according to AI engine.");
+                }
+            }
+
+            // Comment explanation
+            if (_reviewCommentTxt != null)
+            {
+                string comment = item.comment_vi;
+                if (string.IsNullOrEmpty(comment))
+                {
+                    comment = (item.judgment == "Blunder") ? "Sai lầm nghiêm trọng làm thay đổi cục diện trận đấu." :
+                              (item.judgment == "Mistake") ? "Nước đi chưa tối ưu, đối thủ có thể khai thác thế cờ." :
+                              (item.judgment == "Brilliant") ? "Nước cờ thiên tài! Tạo đòn chiến thuật bất ngờ." :
+                              "Duy trì thế cờ vững chắc và cân bằng.";
+                }
+                _reviewCommentTxt.text = comment;
+            }
+
+            HighlightActiveMoveButton(mIdx);
+        }
+
+        private void PopulateReviewMoveList()
+        {
+            if (_reviewMoveListParent == null || _activeAnalysis == null || _activeAnalysis.moves == null) return;
+
+            // Clear old buttons
+            for (int i = _reviewMoveListParent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(_reviewMoveListParent.GetChild(i).gameObject);
+            }
+
+            int count = _activeAnalysis.moves.Length;
+            int numTurns = Mathf.CeilToInt(count / 2f);
+            float rowHeight = 36f;
+            float totalHeight = Mathf.Max(280f, numTurns * rowHeight + 20f);
+
+            RectTransform parentRt = _reviewMoveListParent.GetComponent<RectTransform>();
+            if (parentRt != null) parentRt.sizeDelta = new Vector2(0f, totalHeight);
+
+            Font font = GetDefaultFont();
+
+            for (int t = 0; t < numTurns; t++)
+            {
+                int turnNum = t + 1;
+                int whiteIdx = t * 2;
+                int blackIdx = t * 2 + 1;
+
+                GameObject rowObj = new GameObject("TurnRow_" + turnNum);
+                rowObj.transform.SetParent(_reviewMoveListParent, false);
+                RectTransform rRt = rowObj.AddComponent<RectTransform>();
+                rRt.anchorMin = new Vector2(0f, 1f);
+                rRt.anchorMax = new Vector2(1f, 1f);
+                rRt.pivot = new Vector2(0.5f, 1f);
+                rRt.anchoredPosition = new Vector2(0f, -t * rowHeight);
+                rRt.sizeDelta = new Vector2(0f, rowHeight);
+
+                // Turn Number text
+                CreateTextComp(rowObj.transform, $"{turnNum}.", 14, FontStyle.Bold, ColTextMuted, font, new Vector2(-280f, 0f), new Vector2(50f, 26f), TextAnchor.MiddleRight);
+
+                // White Move button
+                if (whiteIdx < count)
+                {
+                    var wItem = _activeAnalysis.moves[whiteIdx];
+                    int targetPly = whiteIdx + 1;
+                    string wText = $"{wItem.badge_symbol ?? ""} {wItem.san}";
+                    CreateMoveButton(rowObj.transform, "BtnWhiteMove_" + whiteIdx, wText, new Vector2(-150f, 0f), new Vector2(180f, 30f), () => JumpToReviewPly(targetPly), font);
+                }
+
+                // Black Move button
+                if (blackIdx < count)
+                {
+                    var bItem = _activeAnalysis.moves[blackIdx];
+                    int targetPly = blackIdx + 1;
+                    string bText = $"{bItem.badge_symbol ?? ""} {bItem.san}";
+                    CreateMoveButton(rowObj.transform, "BtnBlackMove_" + blackIdx, bText, new Vector2(80f, 0f), new Vector2(180f, 30f), () => JumpToReviewPly(targetPly), font);
+                }
+            }
+        }
+
+        private void CreateMoveButton(Transform parent, string name, string label, Vector2 pos, Vector2 size, Action onClick, Font font)
+        {
+            GameObject btnObj = new GameObject(name);
+            btnObj.transform.SetParent(parent, false);
+            Image bg = btnObj.AddComponent<Image>();
+            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)size.x, (int)size.y, 8f, ColGlassFill, ColCyanBorder, 1f);
+            bg.type = Image.Type.Sliced;
+            Button b = btnObj.AddComponent<Button>();
+            b.onClick.AddListener(() => onClick?.Invoke());
+            btnObj.AddComponent<MenuButtonEffect>();
+
+            RectTransform rt = btnObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+
+            CreateTextComp(btnObj.transform, label, 14, FontStyle.Normal, ColTextWhite, font, Vector2.zero, size - new Vector2(10f, 0f), TextAnchor.MiddleCenter);
+        }
+
+        private void HighlightActiveMoveButton(int activeIdx)
+        {
+            if (_reviewMoveListParent == null) return;
+            for (int i = 0; i < _reviewMoveListParent.childCount; i++)
+            {
+                Transform row = _reviewMoveListParent.GetChild(i);
+                for (int c = 0; c < row.childCount; c++)
+                {
+                    Transform btn = row.GetChild(c);
+                    Image bg = btn.GetComponent<Image>();
+                    if (bg == null) continue;
+                    bool isThisBtn = (activeIdx >= 0 && (btn.name == "BtnWhiteMove_" + activeIdx || btn.name == "BtnBlackMove_" + activeIdx));
+                    bg.color = isThisBtn ? new Color(0f, 0.85f, 1f, 0.45f) : Color.white;
+                }
+            }
+        }
+
+        private Vector2Int SquareToCoord(string sq)
+        {
+            if (string.IsNullOrEmpty(sq) || sq.Length < 2) return Vector2Int.zero;
+            int file = sq[0] - 'a';
+            int rank = sq[1] - '1';
+            return new Vector2Int(Mathf.Clamp(file, 0, 7), Mathf.Clamp(rank, 0, 7));
+        }
+
+        private List<TutorialPieceMarker> ParseFenToMarkers(string fen)
+        {
+            var list = new List<TutorialPieceMarker>();
+            if (string.IsNullOrEmpty(fen)) return list;
+            string[] parts = fen.Trim().Split(' ');
+            string boardPart = parts[0];
+            string[] ranks = boardPart.Split('/');
+            if (ranks.Length != 8) return list;
+
+            for (int r = 0; r < 8; r++)
+            {
+                int rankIdx = 7 - r;
+                int fileIdx = 0;
+                foreach (char c in ranks[r])
+                {
+                    if (char.IsDigit(c))
+                    {
+                        fileIdx += (c - '0');
+                    }
+                    else
+                    {
+                        bool isWhite = char.IsUpper(c);
+                        char lower = char.ToLower(c);
+                        string symbol = lower switch
+                        {
+                            'p' => isWhite ? "♙" : "♟",
+                            'n' => isWhite ? "♘" : "♞",
+                            'b' => isWhite ? "♗" : "♝",
+                            'r' => isWhite ? "♖" : "♜",
+                            'q' => isWhite ? "♕" : "♛",
+                            'k' => isWhite ? "♔" : "♚",
+                            _ => ""
+                        };
+                        if (fileIdx < 8)
+                        {
+                            list.Add(new TutorialPieceMarker(fileIdx, rankIdx, symbol, isWhite));
+                        }
+                        fileIdx++;
+                    }
+                }
+            }
+            return list;
         }
 
         // =========================================================================
@@ -7765,15 +8537,15 @@ namespace MechChess.UI
             _matchmakingStatusTxt = sObj.AddComponent<Text>();
             _matchmakingStatusTxt.text = AegisLocalization.T("Ghép ngẫu nhiên người chơi trực tuyến có mức Rank tương đồng.", "Matching online players with similar Elo ratings.");
             _matchmakingStatusTxt.font = font;
-            _matchmakingStatusTxt.fontSize = 15;
+            _matchmakingStatusTxt.fontSize = 13;
             _matchmakingStatusTxt.alignment = TextAnchor.MiddleCenter;
             _matchmakingStatusTxt.color = ColTextMuted;
-            _matchmakingStatusTxt.lineSpacing = 1.15f;
+            _matchmakingStatusTxt.lineSpacing = 1.25f;
             _matchmakingStatusTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _matchmakingStatusTxt.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform sRt = sObj.GetComponent<RectTransform>();
             sRt.anchoredPosition = new Vector2(0f, 0f);
-            sRt.sizeDelta = new Vector2(540f, 52f);
+            sRt.sizeDelta = new Vector2(480f, 65f);
 
             GameObject timerObj = new GameObject("Timer");
             timerObj.transform.SetParent(cardObj.transform, false);
@@ -8261,7 +9033,8 @@ namespace MechChess.UI
                    (_matchmakingModal != null && _matchmakingModal.activeSelf) ||
                    (_friendModal != null && _friendModal.activeSelf) ||
                    (_challengeModal != null && _challengeModal.activeSelf) ||
-                   (_leaderboardModal != null && _leaderboardModal.activeSelf);
+                   (_leaderboardModal != null && _leaderboardModal.activeSelf) ||
+                   (_gameReviewModal != null && _gameReviewModal.activeSelf);
         }
 
         public void EnsureBaseScreenActive()
@@ -9047,7 +9820,14 @@ namespace MechChess.UI
                         string sign = m.elo_change > 0 ? "+" : "";
                         string eloStr = $"{sign}{m.elo_change}";
                         Color eloCol = m.elo_change > 0 ? new Color(0f, 0.90f, 0.45f) : (m.elo_change < 0 ? new Color(1f, 0.35f, 0.35f) : new Color(0.6f, 0.8f, 1f));
-                        CreateTextComp(rowObj.transform, $"Elo {eloStr}", 17, FontStyle.Bold, eloCol, font, new Vector2(215f, 0f), new Vector2(90f, 30f), TextAnchor.MiddleCenter);
+                        CreateTextComp(rowObj.transform, $"Elo {eloStr}", 16, FontStyle.Bold, eloCol, font, new Vector2(185f, 0f), new Vector2(80f, 30f), TextAnchor.MiddleCenter);
+
+                        // Review button [🔍]
+                        var curM = m;
+                        CreateMenuActionButton(rowObj.transform, "BtnReview", "🔍", new Vector2(250f, 0f), new Vector2(42f, 36f), ColGlassFill, ColCyanGlow, 18, () =>
+                        {
+                            OpenGameReview(curM);
+                        }, font, ColCyanBorder, 1.2f);
                     }
                     catch (Exception ex)
                     {

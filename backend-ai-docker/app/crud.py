@@ -5,6 +5,7 @@ Handles Player Profile, Secure Match Results, Elo Rating Transitions, and Leader
 
 import re
 import uuid
+import json
 from datetime import datetime, timezone
 from typing import Optional, Tuple, Dict, Any, List
 
@@ -14,6 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models import Player, PlayerStats, MatchHistory
 from app.security import hash_password, verify_password
+from app.chess_analyzer import analyze_chess_game
 from app.schemas import (
     PlayerProfileResponse, PlayerStatsResponse, MatchHistoryItemResponse,
     MatchRecordRequest, MatchRecordResponse, LeaderboardItemResponse
@@ -316,6 +318,19 @@ async def get_match_history_list(
 
     items = []
     for r in records:
+        parsed_moves = None
+        if r.moves_json:
+            try:
+                parsed_moves = json.loads(r.moves_json)
+            except Exception:
+                pass
+        parsed_analysis = None
+        if r.analysis_json:
+            try:
+                parsed_analysis = json.loads(r.analysis_json)
+            except Exception:
+                pass
+
         items.append(MatchHistoryItemResponse(
             id=str(r.id),
             match_code=r.match_code,
@@ -327,7 +342,10 @@ async def get_match_history_list(
             elo_change=r.elo_change,
             moves_count=r.moves_count,
             duration_sec=r.duration_sec,
-            ended_at=r.ended_at.strftime("%d/%m/%Y") if r.ended_at else ""
+            ended_at=r.ended_at.strftime("%d/%m/%Y") if r.ended_at else "",
+            pgn=r.pgn,
+            moves=parsed_moves,
+            analysis=parsed_analysis
         ))
     return items
 
@@ -462,7 +480,20 @@ async def record_match_result(
 
     player.updated_at = datetime.now(timezone.utc)
 
-    # Insert Match History
+    # Insert Match History with moves & automated Game Review analysis
+    moves_to_save = data.moves or data.san_moves
+    moves_json_str = json.dumps(moves_to_save, ensure_ascii=False) if moves_to_save else None
+    analysis_json_str = None
+    analysis_payload = None
+
+    if moves_to_save or data.pgn:
+        try:
+            analysis_dict = analyze_chess_game(moves_list=moves_to_save, pgn_string=data.pgn)
+            analysis_payload = analysis_dict
+            analysis_json_str = json.dumps(analysis_dict, ensure_ascii=False)
+        except Exception:
+            pass
+
     match_code = f"M_{uuid.uuid4().hex[:8].upper()}"
     history_record = MatchHistory(
         match_code=match_code,
@@ -475,6 +506,9 @@ async def record_match_result(
         elo_change=elo_change,
         moves_count=data.moves_count or 0,
         duration_sec=data.duration_sec or 0.0,
+        pgn=data.pgn,
+        moves_json=moves_json_str,
+        analysis_json=analysis_json_str,
         ended_at=datetime.now(timezone.utc)
     )
     session.add(history_record)
@@ -490,7 +524,9 @@ async def record_match_result(
         "leveled_up": leveled_up,
         "new_level": player.level,
         "new_exp": player.exp,
-        "new_gold": player.gold
+        "new_gold": player.gold,
+        "match_id": str(history_record.id),
+        "analysis": analysis_payload
     }
     return True, "Ghi nhận kết quả trận đấu thành công!", result_payload
 
@@ -518,3 +554,44 @@ async def get_leaderboard_list(
             win_rate=stats.win_rate
         ))
     return board
+
+async def get_match_analysis_by_id(
+    session: AsyncSession, match_id: str
+) -> Optional[Dict[str, Any]]:
+    """
+    Retrieves stored Game Review analysis for a match or generates it on-the-fly.
+    """
+    try:
+        m_uuid = uuid.UUID(match_id)
+        stmt = select(MatchHistory).where(MatchHistory.id == m_uuid)
+    except Exception:
+        stmt = select(MatchHistory).where(MatchHistory.match_code == match_id)
+
+    res = await session.execute(stmt)
+    record = res.scalar_one_or_none()
+    if not record:
+        return None
+
+    if record.analysis_json:
+        try:
+            return json.loads(record.analysis_json)
+        except Exception:
+            pass
+
+    moves = None
+    if record.moves_json:
+        try:
+            moves = json.loads(record.moves_json)
+        except Exception:
+            pass
+
+    if moves or record.pgn:
+        analysis = analyze_chess_game(moves_list=moves, pgn_string=record.pgn)
+        try:
+            record.analysis_json = json.dumps(analysis, ensure_ascii=False)
+            await session.commit()
+        except Exception:
+            pass
+        return analysis
+
+    return None

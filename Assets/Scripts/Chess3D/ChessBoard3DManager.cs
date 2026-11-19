@@ -93,6 +93,27 @@ namespace MechChess.Chess3D
         private Stack<MoveHistoryRecord> _moveHistoryStack = new Stack<MoveHistoryRecord>();
         public int TotalMovesCount => _moveHistoryStack != null ? _moveHistoryStack.Count : 0;
 
+        private List<string> _completedUciMoves = new List<string>();
+        private List<string> _completedSanMoves = new List<string>();
+        public List<string> CompletedUciMoves => new List<string>(_completedUciMoves);
+        public List<string> CompletedSanMoves => new List<string>(_completedSanMoves);
+
+        public string GetCurrentMatchPGN()
+        {
+            if (_completedSanMoves == null || _completedSanMoves.Count == 0) return "";
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            for (int i = 0; i < _completedSanMoves.Count; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    sb.Append($"{(i / 2) + 1}. ");
+                }
+                sb.Append(_completedSanMoves[i]);
+                sb.Append(" ");
+            }
+            return sb.ToString().Trim();
+        }
+
         public PieceColor PlayerColor
         {
             get
@@ -454,6 +475,8 @@ namespace MechChess.Chess3D
             _nextEnPassantSquare = null;
             _halfMoveClock = 0;
             _moveHistoryStack.Clear();
+            _completedUciMoves.Clear();
+            _completedSanMoves.Clear();
             _isBusyAnimating = false;
             _selectedPiece = null;
             ClearHighlights();
@@ -982,6 +1005,17 @@ namespace MechChess.Chess3D
 
         private void PostMoveStateEvaluation(string notation, int startFile, int startRank, int targetFile, int targetRank)
         {
+            string fromSq = GetAlgebraic(startFile, startRank);
+            string toSq = GetAlgebraic(targetFile, targetRank);
+            string uciMove = (fromSq + toSq).ToLower();
+            if (_moveHistoryStack.Count > 0 && _moveHistoryStack.Peek().wasPromotion)
+            {
+                uciMove += "q";
+            }
+
+            _completedUciMoves.Add(uciMove);
+            _completedSanMoves.Add(notation);
+
             // Log to HUD
             if (UIManager2D.Instance != null)
             {
@@ -993,8 +1027,6 @@ namespace MechChess.Chess3D
                 && MechChess.Multiplayer.OnlineMultiplayerManager.Instance.IsOnlineMatch 
                 && !_isExecutingRemoteMove)
             {
-                string fromSq = GetAlgebraic(startFile, startRank);
-                string toSq = GetAlgebraic(targetFile, targetRank);
                 MechChess.Multiplayer.OnlineMultiplayerManager.Instance.SendMove(fromSq, toSq, notation);
             }
 
@@ -1003,13 +1035,6 @@ namespace MechChess.Chess3D
                 && MechChess.Multiplayer.LichessBridge.Instance.IsInLichessMatch 
                 && !_isExecutingRemoteMove)
             {
-                string fromSq = GetAlgebraic(startFile, startRank);
-                string toSq = GetAlgebraic(targetFile, targetRank);
-                string uciMove = (fromSq + toSq).ToLower();
-                if (_moveHistoryStack.Count > 0 && _moveHistoryStack.Peek().wasPromotion)
-                {
-                    uciMove += "q";
-                }
                 MechChess.Multiplayer.LichessBridge.Instance.SendMove(uciMove);
             }
 
@@ -1644,6 +1669,8 @@ namespace MechChess.Chess3D
             }
 
             var record = _moveHistoryStack.Pop();
+            if (_completedUciMoves.Count > 0) _completedUciMoves.RemoveAt(_completedUciMoves.Count - 1);
+            if (_completedSanMoves.Count > 0) _completedSanMoves.RemoveAt(_completedSanMoves.Count - 1);
 
             // 1. Move piece back
             boardPieces[record.toF, record.toR] = null;

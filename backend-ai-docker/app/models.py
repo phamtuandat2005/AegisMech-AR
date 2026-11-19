@@ -156,6 +156,15 @@ class MatchHistory(Base):
     duration_sec: Mapped[float] = mapped_column(
         Float, default=0.0, nullable=False
     )
+    pgn: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )
+    moves_json: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )
+    analysis_json: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )
     ended_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now(), index=True, nullable=False
     )

@@ -64,8 +64,11 @@ from app.schemas import (
     MatchRecordResponse,
     LeaderboardResponse,
     GoogleAuthRequest,
-    GooglePollResponse
+    GooglePollResponse,
+    AnalyzeMatchRequest,
+    GameAnalysisResponse
 )
+from app.chess_analyzer import analyze_chess_game
 from app.presence import presence_manager, PlayerStatus, PresenceClient
 from PIL import Image
 # Protect against DecompressionBomb Denial-of-Service attacks
@@ -1595,6 +1598,45 @@ async def record_match_api(
         message=msg,
         **res
     )
+
+@app.post("/api/match/analyze", response_model=GameAnalysisResponse)
+async def analyze_match_api(req: AnalyzeMatchRequest):
+    """
+    On-demand Game Review engine (Playchess / Chess.com style).
+    Analyzes moves or PGN, evaluates each move, and computes accuracy & classification.
+    """
+    moves = req.moves or req.san_moves
+    if not moves and not req.pgn:
+        raise HTTPException(
+            status_code=400,
+            detail="Cần cung cấp danh sách nước đi ('moves' / 'san_moves') hoặc chuỗi 'pgn' để phân tích ván cờ!"
+        )
+    try:
+        analysis = analyze_chess_game(
+            moves_list=moves,
+            pgn_string=req.pgn,
+            search_depth=req.depth or 2
+        )
+        return GameAnalysisResponse(**analysis)
+    except Exception as e:
+        logger.error(f"[AnalyzeMatch] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Lỗi khi phân tích ván cờ: {str(e)}")
+
+@app.get("/api/match/{match_id}/analysis", response_model=GameAnalysisResponse)
+async def get_match_analysis_api(
+    match_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Fetches stored or on-the-fly Game Review analysis for a recorded match.
+    """
+    analysis = await crud.get_match_analysis_by_id(db, match_id)
+    if not analysis:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Không tìm thấy dữ liệu phân tích cho ván cờ '{match_id}'!"
+        )
+    return GameAnalysisResponse(**analysis)
 
 @app.get("/api/leaderboard", response_model=LeaderboardResponse)
 async def get_leaderboard_api(

@@ -119,12 +119,24 @@ async def init_db():
             try:
                 if not IS_SQLITE:
                     await conn.execute(text("ALTER TABLE players ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);"))
+                    await conn.execute(text("ALTER TABLE match_history ADD COLUMN IF NOT EXISTS pgn TEXT;"))
+                    await conn.execute(text("ALTER TABLE match_history ADD COLUMN IF NOT EXISTS moves_json TEXT;"))
+                    await conn.execute(text("ALTER TABLE match_history ADD COLUMN IF NOT EXISTS analysis_json TEXT;"))
                 else:
-                    # SQLite: check if column exists
+                    # SQLite: check if columns exist in players and match_history
                     col_check = await conn.execute(text("PRAGMA table_info(players)"))
                     cols = [row[1] for row in col_check.fetchall()]
                     if "password_hash" not in cols:
                         await conn.execute(text("ALTER TABLE players ADD COLUMN password_hash VARCHAR(255);"))
+
+                    mh_check = await conn.execute(text("PRAGMA table_info(match_history)"))
+                    mh_cols = [row[1] for row in mh_check.fetchall()]
+                    if "pgn" not in mh_cols:
+                        await conn.execute(text("ALTER TABLE match_history ADD COLUMN pgn TEXT;"))
+                    if "moves_json" not in mh_cols:
+                        await conn.execute(text("ALTER TABLE match_history ADD COLUMN moves_json TEXT;"))
+                    if "analysis_json" not in mh_cols:
+                        await conn.execute(text("ALTER TABLE match_history ADD COLUMN analysis_json TEXT;"))
             except Exception as alt_err:
                 logger.warning(f"[Database] Schema auto-upgrade notification: {alt_err}")
         logger.info(f"[Database] Tables verified and created on {target_info}.")

@@ -73,6 +73,10 @@ class MatchHistoryItemResponse(BaseModel):
     moves_count: int
     duration_sec: float
     ended_at: str
+    pgn: Optional[str] = None
+    moves: Optional[List[str]] = None
+    san_moves: Optional[List[str]] = None
+    analysis: Optional[Dict[str, Any]] = None
 
 class MatchHistoryResponse(BaseModel):
     total: int
@@ -89,6 +93,9 @@ class MatchRecordRequest(BaseModel):
     duration_sec: Optional[float] = 0.0
     match_ticket: Optional[str] = Field(None, description="Cryptographic ticket issued by /api/match/start")
     match_id: Optional[str] = Field(None, description="Match ID tied to the ticket")
+    moves: Optional[List[str]] = Field(None, description="List of UCI moves e.g. ['e2e4', 'e7e5']")
+    san_moves: Optional[List[str]] = Field(None, description="List of SAN moves e.g. ['e4', 'e5']")
+    pgn: Optional[str] = Field(None, description="Complete PGN notation of the match")
 
 class MatchRecordResponse(BaseModel):
     success: bool
@@ -125,3 +132,39 @@ class GooglePollResponse(BaseModel):
     status: str  # "pending", "completed", "error"
     message: Optional[str] = None
     data: Optional[LoginResponse] = None
+
+class AnalyzeMatchRequest(BaseModel):
+    moves: Optional[List[str]] = Field(None, description="List of UCI moves")
+    san_moves: Optional[List[str]] = Field(None, description="List of SAN moves")
+    pgn: Optional[str] = Field(None, description="PGN string")
+    depth: Optional[int] = Field(2, ge=1, le=4, description="Analysis search depth")
+
+class MoveAnalysisItem(BaseModel):
+    ply: int
+    move_number: int
+    color: str
+    uci: str
+    san: str
+    from_square: str
+    to_square: str
+    fen_before: str
+    fen_after: str
+    score: float
+    best_move_uci: str
+    best_move_san: str
+    judgment: str
+    judgment_vi: str
+    judgment_en: str
+    comment_vi: str
+    comment_en: str
+    accuracy: float
+
+class GameAnalysisResponse(BaseModel):
+    success: bool
+    total_moves: int
+    white_accuracy: float
+    black_accuracy: float
+    white_stats: Dict[str, int]
+    black_stats: Dict[str, int]
+    final_fen: str
+    moves: List[MoveAnalysisItem]
