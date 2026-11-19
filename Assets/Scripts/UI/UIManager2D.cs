@@ -329,7 +329,16 @@ namespace MechChess.UI
         {
             get
             {
-                if (_instance == null) _instance = FindObjectOfType<UIManager2D>();
+                if (_instance == null)
+                {
+                    _instance = FindObjectOfType<UIManager2D>();
+                    if (_instance == null)
+                    {
+                        var go = GameObject.Find("GameController");
+                        if (go == null) go = new GameObject("GameController");
+                        _instance = go.AddComponent<UIManager2D>();
+                    }
+                }
                 return _instance;
             }
             private set => _instance = value;
@@ -502,12 +511,22 @@ namespace MechChess.UI
 
         private void Awake()
         {
-            if (Instance == null) Instance = this;
-            else { Destroy(this); return; }
+            if (_instance == null)
+            {
+                _instance = this;
+            }
+            else if (_instance != this)
+            {
+                Destroy(this);
+                return;
+            }
 
             AegisLocalization.OnLanguageChanged += RefreshLanguageHUD;
 
-            BuildHUD();
+            if (_hudCanvasObj == null)
+            {
+                BuildHUD();
+            }
             SetHUDVisible(false);
         }
 
@@ -572,16 +591,29 @@ namespace MechChess.UI
                 SetHUDVisible(false);
                 _isTimerRunning = false;
             }
+            else if (MainMenu2D.Instance != null && MainMenu2D.Instance.IsInGameMatch)
+            {
+                SetHUDVisible(true);
+            }
         }
 
         public void SetHUDVisible(bool visible)
         {
+            if (_hudCanvasObj == null && visible)
+            {
+                BuildHUD();
+            }
+
             if (_hudCanvasObj != null)
             {
                 _hudCanvasObj.SetActive(visible);
             }
             if (visible)
             {
+                if (!isAROverlayActive && _standardHudRoot != null)
+                {
+                    _standardHudRoot.SetActive(true);
+                }
                 UpdateOpponentDisplay();
             }
             else

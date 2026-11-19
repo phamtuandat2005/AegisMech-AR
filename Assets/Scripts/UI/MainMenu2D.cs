@@ -3297,6 +3297,7 @@ namespace MechChess.UI
                 UIManager2D.Instance.RecordMove(AegisLocalization.T(
                     $"[BẮT ĐẦU] Đấu với Máy: Cấp độ {levelStr} | Bên: {_selectedAIPieceColor} | Thời gian: {GetAITimeDisplay(_selectedAITimeIndex)}",
                     $"[START] Vs Computer: Level {levelStr} | Side: {_selectedAIPieceColor} | Time: {GetAITimeDisplay(_selectedAITimeIndex)}"));
+                UIManager2D.Instance.SetHUDVisible(true);
             }
 
             ShowToast(AegisLocalization.T($"Bắt đầu ván đấu với AI ({level})!", $"Started match vs AI ({level})!"), ToastType.Success);
@@ -7953,6 +7954,7 @@ namespace MechChess.UI
                 UIManager2D.Instance.SetOnlineOpponent(oppName, oppElo);
                 string colorStr = (role == PieceColor.White) ? AegisLocalization.T("TRẮNG (đi trước)", "WHITE (plays first)") : AegisLocalization.T("ĐEN (đi sau)", "BLACK (plays second)");
                 UIManager2D.Instance.RecordMove(AegisLocalization.T($"[TRẬN ĐẤU ONLINE] Bạn cầm quân {colorStr} đấu với {oppName} (Elo {oppElo}) | Phòng: {roomId}", $"[ONLINE MATCH] You play {colorStr} vs {oppName} (Elo {oppElo}) | Room: {roomId}"));
+                UIManager2D.Instance.SetHUDVisible(true);
             }
 
             ShowToast(AegisLocalization.T($"Trận đấu bắt đầu! Đối thủ: {oppName}", $"Match started! Opponent: {oppName}"), ToastType.Success);
@@ -8002,6 +8004,7 @@ namespace MechChess.UI
                 UIManager2D.Instance.SetOnlineOpponent(oppName, oppElo);
                 string colorStr = isWhite ? AegisLocalization.T("TRẮNG (đi trước)", "WHITE (plays first)") : AegisLocalization.T("ĐEN (đi sau)", "BLACK (plays second)");
                 UIManager2D.Instance.RecordMove(AegisLocalization.T($"[TRẬN ĐẤU LICHESS] Bạn cầm quân {colorStr} đấu với {oppName} (Elo {oppElo})", $"[LICHESS MATCH] You play {colorStr} vs {oppName} (Elo {oppElo})"));
+                UIManager2D.Instance.SetHUDVisible(true);
             }
 
             ShowToast(AegisLocalization.T($"Trận đấu bắt đầu! Đối thủ Lichess: {oppName} ({oppElo})", $"Match started! Lichess Opponent: {oppName} ({oppElo})"), ToastType.Success);
@@ -8074,6 +8077,7 @@ namespace MechChess.UI
                         UIManager2D.Instance.isRankedMode = false;
                         UIManager2D.Instance.ConfigureTimeControl("10 + 0");
                         UIManager2D.Instance.RecordMove(AegisLocalization.T("[BẮT ĐẦU] Chế độ: Hai người chơi luân phiên (Pass & Play)", "[START] Mode: Local Pass & Play"));
+                        UIManager2D.Instance.SetHUDVisible(true);
                     }
                     ShowToast(AegisLocalization.T("Bắt đầu chế độ Hai người!", "Starting Pass & Play mode!"), ToastType.Success);
                     break;
