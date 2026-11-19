@@ -7191,7 +7191,7 @@ namespace MechChess.UI
             GameObject boardObj = new GameObject("SicilianBoard");
             boardObj.transform.SetParent(cardObj.transform, false);
             Image bImg = boardObj.AddComponent<Image>();
-            bImg.sprite = ArcaneAssetLoader.GetMiniChessboardDiagram(360);
+            bImg.sprite = ArcaneAssetLoader.GetSicilianDefenseDiagram(380);
             RectTransform bRt = boardObj.GetComponent<RectTransform>();
             bRt.anchoredPosition = new Vector2(20f, -20f);
             bRt.sizeDelta = new Vector2(380f, 380f);

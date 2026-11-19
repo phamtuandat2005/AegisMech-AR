@@ -851,15 +851,87 @@ namespace MechChess.UI
             }
         }
 
+        public static List<TutorialPieceMarker> GetStartingPieces()
+        {
+            var list = new List<TutorialPieceMarker>();
+            // White pieces (rank 0 and 1)
+            list.Add(new TutorialPieceMarker(0, 0, "♖", true));
+            list.Add(new TutorialPieceMarker(1, 0, "♘", true));
+            list.Add(new TutorialPieceMarker(2, 0, "♗", true));
+            list.Add(new TutorialPieceMarker(3, 0, "♕", true));
+            list.Add(new TutorialPieceMarker(4, 0, "♔", true));
+            list.Add(new TutorialPieceMarker(5, 0, "♗", true));
+            list.Add(new TutorialPieceMarker(6, 0, "♘", true));
+            list.Add(new TutorialPieceMarker(7, 0, "♖", true));
+            for (int f = 0; f < 8; f++) list.Add(new TutorialPieceMarker(f, 1, "♙", true));
+
+            // Black pieces (rank 7 and 6)
+            list.Add(new TutorialPieceMarker(0, 7, "♜", false));
+            list.Add(new TutorialPieceMarker(1, 7, "♞", false));
+            list.Add(new TutorialPieceMarker(2, 7, "♝", false));
+            list.Add(new TutorialPieceMarker(3, 7, "♛", false));
+            list.Add(new TutorialPieceMarker(4, 7, "♚", false));
+            list.Add(new TutorialPieceMarker(5, 7, "♝", false));
+            list.Add(new TutorialPieceMarker(6, 7, "♞", false));
+            list.Add(new TutorialPieceMarker(7, 7, "♜", false));
+            for (int f = 0; f < 8; f++) list.Add(new TutorialPieceMarker(f, 6, "♟", false));
+
+            return list;
+        }
+
+        public static List<TutorialPieceMarker> GetSicilianNajdorfPieces()
+        {
+            var list = new List<TutorialPieceMarker>();
+            // White pieces
+            list.Add(new TutorialPieceMarker(0, 0, "♖", true));
+            list.Add(new TutorialPieceMarker(2, 0, "♗", true));
+            list.Add(new TutorialPieceMarker(3, 0, "♕", true));
+            list.Add(new TutorialPieceMarker(4, 0, "♔", true));
+            list.Add(new TutorialPieceMarker(5, 0, "♗", true));
+            list.Add(new TutorialPieceMarker(7, 0, "♖", true));
+            list.Add(new TutorialPieceMarker(0, 1, "♙", true));
+            list.Add(new TutorialPieceMarker(1, 1, "♙", true));
+            list.Add(new TutorialPieceMarker(5, 1, "♙", true));
+            list.Add(new TutorialPieceMarker(6, 1, "♙", true));
+            list.Add(new TutorialPieceMarker(7, 1, "♙", true));
+            list.Add(new TutorialPieceMarker(2, 2, "♘", true)); // Nc3
+            list.Add(new TutorialPieceMarker(3, 3, "♘", true)); // Nd4
+            list.Add(new TutorialPieceMarker(4, 3, "♙", true)); // e4
+
+            // Black pieces
+            list.Add(new TutorialPieceMarker(0, 7, "♜", false));
+            list.Add(new TutorialPieceMarker(1, 7, "♞", false)); // Nb8
+            list.Add(new TutorialPieceMarker(2, 7, "♝", false));
+            list.Add(new TutorialPieceMarker(3, 7, "♛", false));
+            list.Add(new TutorialPieceMarker(4, 7, "♚", false));
+            list.Add(new TutorialPieceMarker(5, 7, "♝", false));
+            list.Add(new TutorialPieceMarker(7, 7, "♜", false));
+            list.Add(new TutorialPieceMarker(1, 6, "♟", false)); // b7
+            list.Add(new TutorialPieceMarker(4, 6, "♟", false)); // e7
+            list.Add(new TutorialPieceMarker(5, 6, "♟", false)); // f7
+            list.Add(new TutorialPieceMarker(6, 6, "♟", false)); // g7
+            list.Add(new TutorialPieceMarker(7, 6, "♟", false)); // h7
+            list.Add(new TutorialPieceMarker(0, 5, "♟", false)); // a6 (The key Najdorf move!)
+            list.Add(new TutorialPieceMarker(3, 5, "♟", false)); // d6
+            list.Add(new TutorialPieceMarker(5, 5, "♞", false)); // Nf6
+
+            return list;
+        }
+
         /// <summary>
-        /// Procedural 2D Chessboard diagram texture with highlighted squares for Tutorial & Learn screens.
+        /// Procedural 2D Chessboard diagram texture with starting pieces for Tutorial & Learn screens.
         /// </summary>
         public static Sprite GetMiniChessboardDiagram(int size = 256)
         {
-            return GetCustomBoardDiagram(size, false, Vector2Int.zero, 
-                new List<Vector2Int> { new Vector2Int(5, 2) }, 
-                null, 
-                new List<Vector2Int> { new Vector2Int(4, 3), new Vector2Int(4, 4) });
+            return GetCustomBoardDiagram(size, false, Vector2Int.zero, null, null, null, GetStartingPieces());
+        }
+
+        /// <summary>
+        /// Procedural 2D Chessboard diagram for the Sicilian Defense (Najdorf Variation, 5...a6).
+        /// </summary>
+        public static Sprite GetSicilianDefenseDiagram(int size = 360)
+        {
+            return GetCustomBoardDiagram(size, true, new Vector2Int(0, 6), new List<Vector2Int> { new Vector2Int(0, 5) }, null, null, GetSicilianNajdorfPieces());
         }
 
         /// <summary>
