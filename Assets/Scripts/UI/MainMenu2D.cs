@@ -7615,7 +7615,7 @@ namespace MechChess.UI
 
             RectTransform cardRt = cardObj.GetComponent<RectTransform>();
             cardRt.anchoredPosition = Vector2.zero;
-            cardRt.sizeDelta = new Vector2(600f, 420f);
+            cardRt.sizeDelta = new Vector2(620f, 430f);
 
             // Radar Icon
             GameObject radarObj = new GameObject("RadarIcon");
@@ -7623,29 +7623,30 @@ namespace MechChess.UI
             Text radarTxt = radarObj.AddComponent<Text>();
             radarTxt.text = "◎";
             radarTxt.font = font;
-            radarTxt.fontSize = 54;
+            radarTxt.fontSize = 52;
             radarTxt.fontStyle = FontStyle.Bold;
             radarTxt.alignment = TextAnchor.MiddleCenter;
             radarTxt.color = ColCyanBorder;
             _radarIconRt = radarObj.GetComponent<RectTransform>();
-            _radarIconRt.anchoredPosition = new Vector2(0f, 110f);
+            _radarIconRt.anchoredPosition = new Vector2(0f, 120f);
             _radarIconRt.sizeDelta = new Vector2(80f, 80f);
 
-            CreateTextComp(cardObj.transform, AegisLocalization.T("ĐANG TÌM ĐỐI THỦ ONLINE...", "SEARCHING FOR ONLINE OPPONENT..."), 22, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 45f), new Vector2(540f, 36f));
+            CreateTextComp(cardObj.transform, AegisLocalization.T("ĐANG TÌM ĐỐI THỦ ONLINE...", "SEARCHING FOR ONLINE OPPONENT..."), 22, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 55f), new Vector2(560f, 36f));
 
             GameObject sObj = new GameObject("Status");
             sObj.transform.SetParent(cardObj.transform, false);
             _matchmakingStatusTxt = sObj.AddComponent<Text>();
             _matchmakingStatusTxt.text = AegisLocalization.T("Ghép ngẫu nhiên người chơi trực tuyến có mức Rank tương đồng.", "Matching online players with similar Elo ratings.");
             _matchmakingStatusTxt.font = font;
-            _matchmakingStatusTxt.fontSize = 18;
+            _matchmakingStatusTxt.fontSize = 15;
             _matchmakingStatusTxt.alignment = TextAnchor.MiddleCenter;
             _matchmakingStatusTxt.color = ColTextMuted;
-            _matchmakingStatusTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _matchmakingStatusTxt.lineSpacing = 1.15f;
+            _matchmakingStatusTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _matchmakingStatusTxt.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform sRt = sObj.GetComponent<RectTransform>();
-            sRt.anchoredPosition = new Vector2(0f, 10f);
-            sRt.sizeDelta = new Vector2(520f, 26f);
+            sRt.anchoredPosition = new Vector2(0f, 0f);
+            sRt.sizeDelta = new Vector2(540f, 52f);
 
             GameObject timerObj = new GameObject("Timer");
             timerObj.transform.SetParent(cardObj.transform, false);
@@ -7659,10 +7660,10 @@ namespace MechChess.UI
             _matchmakingTimerTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             _matchmakingTimerTxt.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform tRt = timerObj.GetComponent<RectTransform>();
-            tRt.anchoredPosition = new Vector2(0f, -35f);
+            tRt.anchoredPosition = new Vector2(0f, -50f);
             tRt.sizeDelta = new Vector2(520f, 32f);
 
-            CreateMenuActionButton(cardObj.transform, "BtnCancelMatchmaking", AegisLocalization.T("HỦY TÌM TRẬN", "CANCEL QUEUE"), new Vector2(0f, -115f), new Vector2(260f, 52f), new Color(0.28f, 0.08f, 0.08f, 0.95f), new Color(1f, 0.45f, 0.45f), 18, () =>
+            CreateMenuActionButton(cardObj.transform, "BtnCancelMatchmaking", AegisLocalization.T("HỦY TÌM TRẬN", "CANCEL QUEUE"), new Vector2(0f, -125f), new Vector2(260f, 52f), new Color(0.28f, 0.08f, 0.08f, 0.95f), new Color(1f, 0.45f, 0.45f), 18, () =>
             {
                 if (OnlineMultiplayerManager.Instance != null) OnlineMultiplayerManager.Instance.CancelRandomMatchmaking();
                 if (LichessBridge.Instance != null) LichessBridge.Instance.CancelMatch();

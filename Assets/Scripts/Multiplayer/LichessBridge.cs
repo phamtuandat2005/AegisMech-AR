@@ -321,7 +321,10 @@ namespace MechChess.Multiplayer
                                 }
                                 if (int.TryParse(digits, out int m)) mins = m;
                             }
-                            onComplete?.Invoke(false, $"Lichess: Tài khoản cần chờ {mins} phút nữa để hết thời gian tạm ngưng, hoặc dùng Token tài khoản mới để đấu người thật ngay!");
+                            onComplete?.Invoke(false, AegisLocalization.T(
+                                $"Lichess: Tài khoản bị tạm dừng {mins} phút (do rời/hủy bàn nhiều). Đổi Token mới để ghép ngay!",
+                                $"Lichess: Account paused {mins}m (too many aborts). Switch token to play now!"
+                            ));
                         }
                         else
                         {
