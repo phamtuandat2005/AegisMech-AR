@@ -1391,6 +1391,16 @@ namespace MechChess.Multiplayer
             return res;
         }
 
+        private static string EscapeJson(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            return s.Replace("\\", "\\\\")
+                    .Replace("\"", "\\\"")
+                    .Replace("\r", "\\r")
+                    .Replace("\n", "\\n")
+                    .Replace("\t", "\\t");
+        }
+
         public void Logout()
         {
             CurrentGmail = "";
