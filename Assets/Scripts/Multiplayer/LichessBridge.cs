@@ -799,6 +799,7 @@ namespace MechChess.Multiplayer
                     moves: _lastMoveCount,
                     durationSec: duration,
                     opponentElo: OpponentElo,
+                    isOnlineMatch: true,
                     onComplete: (ok, res) =>
                     {
                         int eloDelta = (res != null) ? res.elo_change : (result == "win" ? 8 : (result == "loss" ? -8 : 0));

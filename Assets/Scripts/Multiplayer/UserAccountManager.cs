@@ -177,6 +177,8 @@ namespace MechChess.Multiplayer
         private const string PrefsKeyUsername = "MECH_USER_NAME";
         private const string PrefsKeyElo = "MECH_USER_ELO";
         private const string PrefsKeyLevel = "MECH_USER_LEVEL";
+        private const string PrefsKeyExp = "MECH_USER_EXP";
+        private const string PrefsKeyMaxExp = "MECH_USER_MAX_EXP";
         private const string PrefsKeyGold = "MECH_USER_GOLD";
         private const string PrefsKeyGems = "MECH_USER_GEMS";
         private const string PrefsKeyAuthToken = "MECH_AUTH_TOKEN";
@@ -205,6 +207,52 @@ namespace MechChess.Multiplayer
         public string CurrentMatchId { get; private set; } = "";
 
         public int CurrentGold => CurrentProfile != null ? CurrentProfile.gold : PlayerPrefs.GetInt(PrefsKeyGold, 500);
+        public int CurrentLevel => CurrentProfile != null ? CurrentProfile.level : PlayerPrefs.GetInt(PrefsKeyLevel, 1);
+        public int CurrentExp => CurrentProfile != null ? CurrentProfile.exp : PlayerPrefs.GetInt(PrefsKeyExp, 0);
+        public int CurrentMaxExp => CurrentProfile != null ? CurrentProfile.max_exp : PlayerPrefs.GetInt(PrefsKeyMaxExp, 100);
+
+        public void AddExp(int amount)
+        {
+            if (amount <= 0) return;
+            if (CurrentProfile == null)
+            {
+                CurrentProfile = new UserAccountData
+                {
+                    gmail = CurrentGmail,
+                    username = CurrentUsername,
+                    elo = CurrentElo,
+                    level = PlayerPrefs.GetInt(PrefsKeyLevel, 1),
+                    exp = PlayerPrefs.GetInt(PrefsKeyExp, 0),
+                    max_exp = PlayerPrefs.GetInt(PrefsKeyMaxExp, 100),
+                    gold = CurrentGold,
+                    gems = PlayerPrefs.GetInt(PrefsKeyGems, 50),
+                    energy = 100
+                };
+            }
+
+            CurrentProfile.exp += amount;
+            bool leveledUp = false;
+            while (CurrentProfile.exp >= CurrentProfile.max_exp)
+            {
+                CurrentProfile.exp -= CurrentProfile.max_exp;
+                CurrentProfile.level++;
+                CurrentProfile.max_exp = Mathf.RoundToInt(CurrentProfile.max_exp * 1.25f);
+                CurrentProfile.gems += 20; // Level up reward!
+                leveledUp = true;
+            }
+
+            PlayerPrefs.SetInt(PrefsKeyExp, CurrentProfile.exp);
+            PlayerPrefs.SetInt(PrefsKeyMaxExp, CurrentProfile.max_exp);
+            PlayerPrefs.SetInt(PrefsKeyLevel, CurrentProfile.level);
+            PlayerPrefs.SetInt(PrefsKeyGems, CurrentProfile.gems);
+            PlayerPrefs.Save();
+
+            OnProfileUpdated?.Invoke(CurrentProfile);
+            if (leveledUp)
+            {
+                Debug.Log($"[UserAccount] LEVEL UP! New level: {CurrentProfile.level} ({CurrentProfile.exp}/{CurrentProfile.max_exp})");
+            }
+        }
 
         public void AddGold(int amount)
         {
@@ -283,18 +331,42 @@ namespace MechChess.Multiplayer
 
             if (IsLoggedIn)
             {
+                int savedLevel = PlayerPrefs.GetInt(PrefsKeyLevel, 1);
+                int savedExp = PlayerPrefs.GetInt(PrefsKeyExp, 0);
+                int savedMaxExp = PlayerPrefs.GetInt(PrefsKeyMaxExp, 100);
+
                 CurrentProfile = new UserAccountData
                 {
                     gmail = CurrentGmail,
                     username = CurrentUsername,
                     elo = CurrentElo,
-                    level = PlayerPrefs.GetInt(PrefsKeyLevel, 1),
+                    level = savedLevel,
+                    exp = savedExp,
+                    max_exp = savedMaxExp,
                     gold = PlayerPrefs.GetInt(PrefsKeyGold, 500),
                     gems = PlayerPrefs.GetInt(PrefsKeyGems, 50),
                     energy = 100
                 };
 
-                Debug.Log($"[UserAccount] Loaded saved user: {CurrentUsername} ({CurrentGmail}) | Elo: {CurrentElo}");
+                // Retroactive progression sync: if player already has match wins/losses but exp is 0,
+                // credit their earned EXP and Elo so they don't stay at Lv. 1 0/100 or 400 Elo!
+                int totalMatches = PvpWins + AiWins + PvpLosses + AiLosses + PvpDraws + AiDraws;
+                if (savedLevel == 1 && savedExp == 0 && totalMatches > 0)
+                {
+                    int earnedExp = (PvpWins + AiWins) * 60 + (PvpLosses + AiLosses) * 25 + (PvpDraws + AiDraws) * 35;
+                    AddExp(earnedExp);
+                }
+
+                if (CurrentElo <= 400 && (PvpWins > 0 || PvpLosses > 0))
+                {
+                    int retroactiveElo = 400 + (PvpWins * 8) - (PvpLosses * 8);
+                    CurrentElo = Mathf.Max(100, retroactiveElo);
+                    PlayerPrefs.SetInt(PrefsKeyElo, CurrentElo);
+                    PlayerPrefs.Save();
+                    if (CurrentProfile != null) CurrentProfile.elo = CurrentElo;
+                }
+
+                Debug.Log($"[UserAccount] Loaded saved user: {CurrentUsername} ({CurrentGmail}) | Level: {CurrentProfile.level} ({CurrentProfile.exp}/{CurrentProfile.max_exp}) | Elo: {CurrentElo}");
                 OnAccountUpdated?.Invoke(CurrentUsername, CurrentGmail, CurrentElo);
                 OnProfileUpdated?.Invoke(CurrentProfile);
 
@@ -647,7 +719,18 @@ namespace MechChess.Multiplayer
 
             if (fullProfile != null)
             {
+                // Protect local earned progress if remote returns lower or uninitialized stats
+                if (CurrentProfile != null)
+                {
+                    fullProfile.level = Mathf.Max(CurrentProfile.level, fullProfile.level);
+                    fullProfile.exp = (fullProfile.level == CurrentProfile.level) ? Mathf.Max(CurrentProfile.exp, fullProfile.exp) : fullProfile.exp;
+                    fullProfile.max_exp = Mathf.Max(100, fullProfile.max_exp);
+                    fullProfile.elo = Mathf.Max(CurrentElo, fullProfile.elo);
+                    fullProfile.gold = Mathf.Max(CurrentProfile.gold, fullProfile.gold);
+                    fullProfile.gems = Mathf.Max(CurrentProfile.gems, fullProfile.gems);
+                }
                 CurrentProfile = fullProfile;
+                CurrentElo = fullProfile.elo;
             }
             else
             {
@@ -657,6 +740,8 @@ namespace MechChess.Multiplayer
                     username = CurrentUsername,
                     elo = CurrentElo,
                     level = PlayerPrefs.GetInt(PrefsKeyLevel, 1),
+                    exp = PlayerPrefs.GetInt(PrefsKeyExp, 0),
+                    max_exp = PlayerPrefs.GetInt(PrefsKeyMaxExp, 100),
                     gold = PlayerPrefs.GetInt(PrefsKeyGold, 500),
                     gems = PlayerPrefs.GetInt(PrefsKeyGems, 50),
                     energy = 100
@@ -667,6 +752,8 @@ namespace MechChess.Multiplayer
             PlayerPrefs.SetString(PrefsKeyUsername, CurrentUsername);
             PlayerPrefs.SetInt(PrefsKeyElo, CurrentElo);
             PlayerPrefs.SetInt(PrefsKeyLevel, CurrentProfile.level);
+            PlayerPrefs.SetInt(PrefsKeyExp, CurrentProfile.exp);
+            PlayerPrefs.SetInt(PrefsKeyMaxExp, CurrentProfile.max_exp);
             PlayerPrefs.SetInt(PrefsKeyGold, CurrentProfile.gold);
             PlayerPrefs.SetInt(PrefsKeyGems, CurrentProfile.gems);
             PlayerPrefs.Save();
@@ -927,7 +1014,7 @@ namespace MechChess.Multiplayer
         /// - Elo vượt trội (elo_diff > 100): Thắng +7, Thua -9, Hòa -1.
         /// - Underdog (elo_diff < -100): Thắng +9, Thua -7, Hòa +1. Vàng: Thắng +150.
         /// </summary>
-        public void RecordMatchResult(string result, string opponentName, bool isAi, string role, int moves, float durationSec, int opponentElo = -1, bool isOnlineMatch = false, Action<bool, MatchRecordResponse> onComplete = null)
+        public void RecordMatchResult(string result, string opponentName, bool isAi, string role, int moves, float durationSec, int opponentElo = -1, bool isOnlineMatch = true, Action<bool, MatchRecordResponse> onComplete = null)
         {
             RecordMatchResult(result, opponentName, isAi, role, moves, durationSec, opponentElo, isOnlineMatch, null, null, null, onComplete);
         }
@@ -938,15 +1025,17 @@ namespace MechChess.Multiplayer
             int eloDiff = CurrentElo - opponentElo;
             int eloDelta;
             int goldGain;
+            int expGain;
 
-            // Aborted match: never changes Elo, rewards 0 gold, does not alter win/loss record
+            // Aborted match: never changes Elo, rewards 0 gold & exp, does not alter win/loss record
             if (result == "aborted")
             {
                 eloDelta = 0;
                 goldGain = 0;
+                expGain = 0;
             }
             // ONLY ranked Online matches against real humans modify Elo!
-            else if (isOnlineMatch && !isAi)
+            else if ((isOnlineMatch || !isAi) && !isAi)
             {
                 if (Mathf.Abs(eloDiff) <= 100)
                 {
@@ -963,16 +1052,19 @@ namespace MechChess.Multiplayer
                     eloDelta = (result == "win") ? 9 : ((result == "loss") ? -7 : 1);
                     goldGain = (result == "win") ? 150 : ((result == "loss") ? 25 : 45);
                 }
+                expGain = (result == "win") ? 60 : ((result == "loss") ? 25 : 35);
             }
             else
             {
                 // Practice / AI / Local modes: No Elo change!
                 eloDelta = 0;
                 goldGain = (result == "win") ? 60 : ((result == "loss") ? 15 : 25);
+                expGain = (result == "win") ? 50 : ((result == "loss") ? 20 : 30);
             }
 
-            // Grant gold reward
+            // Grant gold reward & exp
             AddGold(goldGain);
+            AddExp(expGain);
 
             if (result != "aborted")
             {
@@ -990,6 +1082,16 @@ namespace MechChess.Multiplayer
                 }
             }
 
+            // Immediately apply local Elo delta
+            if (eloDelta != 0)
+            {
+                CurrentElo = Mathf.Max(100, CurrentElo + eloDelta);
+                PlayerPrefs.SetInt(PrefsKeyElo, CurrentElo);
+                PlayerPrefs.Save();
+                if (CurrentProfile != null) CurrentProfile.elo = CurrentElo;
+                OnAccountUpdated?.Invoke(CurrentUsername, CurrentGmail, CurrentElo);
+            }
+
             MatchHistoryItem localItem = new MatchHistoryItem
             {
                 id = Guid.NewGuid().ToString().Substring(0, 8),
@@ -1002,7 +1104,9 @@ namespace MechChess.Multiplayer
                 elo_change = eloDelta,
                 moves_count = moves,
                 duration_sec = durationSec,
+                duration_seconds = durationSec,
                 ended_at = DateTime.Now.ToString("dd/MM/yyyy HH:mm"),
+                created_at = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                 moves = uciMoves,
                 san_moves = sanMoves,
                 pgn = pgn
@@ -1012,9 +1116,6 @@ namespace MechChess.Multiplayer
 
             if (string.IsNullOrEmpty(CurrentUsername))
             {
-                CurrentElo = Mathf.Max(100, CurrentElo + eloDelta);
-                PlayerPrefs.SetInt(PrefsKeyElo, CurrentElo);
-                PlayerPrefs.Save();
                 onComplete?.Invoke(true, new MatchRecordResponse
                 {
                     success = true,
@@ -1022,13 +1123,14 @@ namespace MechChess.Multiplayer
                     elo_change = eloDelta,
                     new_elo = CurrentElo,
                     gold_gained = goldGain,
-                    exp_gained = (result == "win" ? 60 : 20),
+                    exp_gained = expGain,
                     new_level = (CurrentProfile != null ? CurrentProfile.level : 1),
+                    new_exp = (CurrentProfile != null ? CurrentProfile.exp : 0),
                     new_gold = (CurrentProfile != null ? CurrentProfile.gold : CurrentGold)
                 });
                 return;
             }
-            StartCoroutine(RecordMatchRoutine(result, opponentName, isAi, role, moves, durationSec, opponentElo, eloDelta, goldGain, uciMoves, sanMoves, pgn, localItem, onComplete));
+            StartCoroutine(RecordMatchRoutine(result, opponentName, isAi, role, moves, durationSec, opponentElo, eloDelta, goldGain, expGain, uciMoves, sanMoves, pgn, localItem, onComplete));
         }
 
         public void RecordMatchResult(string result, string opponentName, bool isAi, string role, int moves, float durationSec, Action<bool, MatchRecordResponse> onComplete)
@@ -1036,7 +1138,7 @@ namespace MechChess.Multiplayer
             RecordMatchResult(result, opponentName, isAi, role, moves, durationSec, -1, !isAi, null, null, null, onComplete);
         }
 
-        private IEnumerator RecordMatchRoutine(string result, string opponentName, bool isAi, string role, int moves, float durationSec, int opponentElo, int localEloDelta, int localGoldGain, string[] uciMoves, string[] sanMoves, string pgn, MatchHistoryItem localItem, Action<bool, MatchRecordResponse> onComplete)
+        private IEnumerator RecordMatchRoutine(string result, string opponentName, bool isAi, string role, int moves, float durationSec, int opponentElo, int localEloDelta, int localGoldGain, int localExpGain, string[] uciMoves, string[] sanMoves, string pgn, MatchHistoryItem localItem, Action<bool, MatchRecordResponse> onComplete)
         {
             string url = $"{backendApiBaseUrl.TrimEnd('/')}/api/match/record";
             float safeDuration = Mathf.Max(5f, durationSec);
@@ -1112,7 +1214,7 @@ namespace MechChess.Multiplayer
                         {
                             CurrentMatchTicket = "";
                             CurrentMatchId = "";
-                            CurrentElo = res.new_elo;
+                            CurrentElo = Mathf.Max(CurrentElo, res.new_elo);
                             if (CurrentProfile == null)
                             {
                                 CurrentProfile = new UserAccountData
@@ -1121,13 +1223,15 @@ namespace MechChess.Multiplayer
                                     username = CurrentUsername,
                                     elo = CurrentElo,
                                     level = res.new_level,
+                                    exp = res.new_exp,
+                                    max_exp = Mathf.Max(100, res.new_level * 100),
                                     gold = res.new_gold,
                                     gems = 50,
                                     energy = 100
                                 };
                             }
-                            CurrentProfile.elo = res.new_elo;
-                            CurrentProfile.level = res.new_level;
+                            CurrentProfile.elo = CurrentElo;
+                            CurrentProfile.level = Mathf.Max(CurrentProfile.level, res.new_level);
                             CurrentProfile.exp = res.new_exp;
                             CurrentProfile.gold = res.new_gold;
                             CurrentProfile.matches_played += 1;
@@ -1148,7 +1252,6 @@ namespace MechChess.Multiplayer
 
                 // Fallback offline / token refresh progression: ALWAYS apply and save to PlayerPrefs
                 Debug.LogWarning($"[UserAccount] Match recording offline/local sync ({req.error}): applying local state.");
-                CurrentElo = Mathf.Max(100, CurrentElo + localEloDelta);
                 if (CurrentProfile == null)
                 {
                     CurrentProfile = new UserAccountData
@@ -1157,6 +1260,8 @@ namespace MechChess.Multiplayer
                         username = CurrentUsername,
                         elo = CurrentElo,
                         level = PlayerPrefs.GetInt(PrefsKeyLevel, 1),
+                        exp = PlayerPrefs.GetInt(PrefsKeyExp, 0),
+                        max_exp = PlayerPrefs.GetInt(PrefsKeyMaxExp, 100),
                         gold = CurrentGold,
                         gems = PlayerPrefs.GetInt(PrefsKeyGems, 50),
                         energy = 100
@@ -1164,7 +1269,7 @@ namespace MechChess.Multiplayer
                 }
                 CurrentProfile.elo = CurrentElo;
                 CurrentProfile.matches_played += 1;
-                if (result == "win") { CurrentProfile.wins += 1; CurrentProfile.gold += localGoldGain; }
+                if (result == "win") { CurrentProfile.wins += 1; }
                 else if (result == "loss") CurrentProfile.losses += 1;
                 else CurrentProfile.draws += 1;
 
@@ -1177,8 +1282,9 @@ namespace MechChess.Multiplayer
                     elo_change = localEloDelta,
                     new_elo = CurrentElo,
                     gold_gained = localGoldGain,
-                    exp_gained = (result == "win" ? 60 : 20),
+                    exp_gained = localExpGain,
                     new_level = CurrentProfile.level,
+                    new_exp = CurrentProfile.exp,
                     new_gold = CurrentProfile.gold
                 };
                 onComplete?.Invoke(true, fallbackRes);
@@ -1425,6 +1531,8 @@ namespace MechChess.Multiplayer
             PlayerPrefs.DeleteKey(PrefsKeyUsername);
             PlayerPrefs.DeleteKey(PrefsKeyElo);
             PlayerPrefs.DeleteKey(PrefsKeyLevel);
+            PlayerPrefs.DeleteKey(PrefsKeyExp);
+            PlayerPrefs.DeleteKey(PrefsKeyMaxExp);
             PlayerPrefs.DeleteKey(PrefsKeyGold);
             PlayerPrefs.DeleteKey(PrefsKeyGems);
             PlayerPrefs.DeleteKey(PrefsKeyAuthToken);

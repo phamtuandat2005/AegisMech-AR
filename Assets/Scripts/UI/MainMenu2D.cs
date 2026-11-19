@@ -9781,10 +9781,10 @@ namespace MechChess.UI
             string username = (UserAccountManager.Instance != null && !string.IsNullOrEmpty(UserAccountManager.Instance.CurrentUsername))
                 ? UserAccountManager.Instance.CurrentUsername
                 : "Player001";
-            int elo = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentElo : 400;
-            int level = profile != null ? profile.level : 1;
-            int exp = profile != null ? profile.exp : 0;
-            int maxExp = profile != null ? Mathf.Max(100, profile.max_exp) : 100;
+            int elo = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentElo : PlayerPrefs.GetInt("MECH_USER_ELO", 400);
+            int level = profile != null ? profile.level : (UserAccountManager.Instance != null ? UserAccountManager.Instance.CurrentLevel : PlayerPrefs.GetInt("MECH_USER_LEVEL", 1));
+            int exp = profile != null ? profile.exp : (UserAccountManager.Instance != null ? UserAccountManager.Instance.CurrentExp : PlayerPrefs.GetInt("MECH_USER_EXP", 0));
+            int maxExp = profile != null ? Mathf.Max(100, profile.max_exp) : (UserAccountManager.Instance != null ? UserAccountManager.Instance.CurrentMaxExp : PlayerPrefs.GetInt("MECH_USER_MAX_EXP", 100));
 
             int currentGold = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentGold : _currentGold;
             _currentGold = currentGold;
@@ -9836,6 +9836,9 @@ namespace MechChess.UI
             if (_profileModalWinsComp != null) _profileModalWinsComp.text = pvpWins.ToString();
             if (_profileModalLossesComp != null) _profileModalLossesComp.text = pvpLosses.ToString();
             if (_profileModalDrawsComp != null) _profileModalDrawsComp.text = pvpDraws.ToString();
+
+            // Dynamic match history refresh
+            LoadDynamicMatchHistory();
         }
 
         public void LoadDynamicMatchHistory()
@@ -9861,9 +9864,9 @@ namespace MechChess.UI
 
             if (localMatches == null || localMatches.Count == 0)
             {
-                GameObject emptyNotice = new GameObject("EmptyNotice");
+                GameObject emptyNotice = new GameObject("EmptyNotice", typeof(RectTransform));
                 emptyNotice.transform.SetParent(_matchHistoryRowsParent, false);
-                RectTransform enRt = emptyNotice.GetComponent<RectTransform>() ?? emptyNotice.AddComponent<RectTransform>();
+                RectTransform enRt = emptyNotice.GetComponent<RectTransform>();
                 enRt.anchorMin = new Vector2(0.5f, 0.5f);
                 enRt.anchorMax = new Vector2(0.5f, 0.5f);
                 enRt.pivot = new Vector2(0.5f, 0.5f);
@@ -9885,9 +9888,9 @@ namespace MechChess.UI
                         var m = localMatches[i];
                         if (m == null) continue;
 
-                        GameObject rowObj = new GameObject("DynamicRow_" + i);
+                        GameObject rowObj = new GameObject("DynamicRow_" + i, typeof(RectTransform));
                         rowObj.transform.SetParent(_matchHistoryRowsParent, false);
-                        RectTransform rRt = rowObj.GetComponent<RectTransform>() ?? rowObj.AddComponent<RectTransform>();
+                        RectTransform rRt = rowObj.GetComponent<RectTransform>();
                         rRt.anchorMin = new Vector2(0.5f, 0.5f);
                         rRt.anchorMax = new Vector2(0.5f, 0.5f);
                         rRt.pivot = new Vector2(0.5f, 0.5f);
@@ -9895,7 +9898,7 @@ namespace MechChess.UI
                         rRt.sizeDelta = new Vector2(570f, 75f);
 
                         // Row Icon
-                        GameObject rIconObj = new GameObject("Icon");
+                        GameObject rIconObj = new GameObject("Icon", typeof(RectTransform));
                         rIconObj.transform.SetParent(rowObj.transform, false);
                         Image rIconImg = rIconObj.AddComponent<Image>();
                         string iconName = m.is_ai ? "profile_vs_ai_icon.png" : "profile_vs_player_icon.png";
@@ -9903,7 +9906,7 @@ namespace MechChess.UI
                         if (icSp != null) rIconImg.sprite = icSp;
                         else rIconImg.color = ColCyanGlow;
                         rIconImg.preserveAspect = true;
-                        RectTransform riRt = rIconObj.GetComponent<RectTransform>() ?? rIconObj.AddComponent<RectTransform>();
+                        RectTransform riRt = rIconObj.GetComponent<RectTransform>();
                         riRt.anchorMin = new Vector2(0.5f, 0.5f);
                         riRt.anchorMax = new Vector2(0.5f, 0.5f);
                         riRt.pivot = new Vector2(0.5f, 0.5f);
