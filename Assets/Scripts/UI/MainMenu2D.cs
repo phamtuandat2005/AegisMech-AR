@@ -955,6 +955,7 @@ namespace MechChess.UI
             _menuScaler = _menuCanvasObj.AddComponent<CanvasScaler>();
             _menuScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             _menuScaler.referenceResolution = new Vector2(1920, 1080);
+            _menuScaler.dynamicPixelsPerUnit = 2.5f;
             float aspect = (float)Screen.width / Mathf.Max(1, Screen.height);
             _menuScaler.matchWidthOrHeight = 0.5f;
 
@@ -7970,7 +7971,8 @@ namespace MechChess.UI
             string movePrefix = (item.color == "white") ? $"{item.move_number}." : $"{item.move_number}...";
             if (_reviewMoveNavTxt != null)
             {
-                _reviewMoveNavTxt.text = AegisLocalization.T($"Nước {plyIndex} / {total}  ({movePrefix} {item.san})", $"Move {plyIndex} / {total}  ({movePrefix} {item.san})");
+                string cleanMoveSan = UserAccountManager.FormatCleanMoveNotation(item.san, item.uci);
+                _reviewMoveNavTxt.text = AegisLocalization.T($"Nước {plyIndex} / {total}  ({movePrefix} {cleanMoveSan})", $"Move {plyIndex} / {total}  ({movePrefix} {cleanMoveSan})");
             }
 
             // Evaluation Badge & Color (case-insensitive)
@@ -8005,7 +8007,8 @@ namespace MechChess.UI
             // Best move suggestion
             if (_reviewBestMoveTxt != null)
             {
-                string bestSan = !string.IsNullOrEmpty(item.best_move_san) ? item.best_move_san : item.best_move_uci;
+                string rawBest = !string.IsNullOrEmpty(item.best_move_san) ? item.best_move_san : item.best_move_uci;
+                string bestSan = UserAccountManager.FormatCleanMoveNotation(rawBest, item.best_move_uci);
                 if (!string.IsNullOrEmpty(bestSan) && j != "best" && j != "brilliant")
                 {
                     _reviewBestMoveTxt.text = AegisLocalization.T($"💡 Động cơ gợi ý: <b>{bestSan}</b>", $"💡 Engine recommendation: <b>{bestSan}</b>");
@@ -8094,8 +8097,9 @@ namespace MechChess.UI
                     int targetPly = whiteIdx + 1;
                     string wSym = GetMoveBadgeSymbol(wItem.judgment);
                     string wScore = wItem.score >= 0 ? $"+{wItem.score:F1}" : $"{wItem.score:F1}";
-                    string wText = $"{wSym} {wItem.san} <color=#94A3B8>({wScore})</color>";
-                    CreateMoveButton(rowObj.transform, "BtnWhiteMove_" + whiteIdx, wText, new Vector2(-120f, 0f), new Vector2(240f, 34f), () => JumpToReviewPly(targetPly), font);
+                    string wClean = UserAccountManager.FormatCleanMoveNotation(wItem.san, wItem.uci);
+                    string wText = $"{wSym} {wClean} <color=#94A3B8>({wScore})</color>";
+                    CreateMoveButton(rowObj.transform, "BtnWhiteMove_" + whiteIdx, wText, new Vector2(-115f, 0f), new Vector2(230f, 32f), () => JumpToReviewPly(targetPly), font);
                 }
 
                 // Black Move button
@@ -8105,8 +8109,9 @@ namespace MechChess.UI
                     int targetPly = blackIdx + 1;
                     string bSym = GetMoveBadgeSymbol(bItem.judgment);
                     string bScore = bItem.score >= 0 ? $"+{bItem.score:F1}" : $"{bItem.score:F1}";
-                    string bText = $"{bSym} {bItem.san} <color=#94A3B8>({bScore})</color>";
-                    CreateMoveButton(rowObj.transform, "BtnBlackMove_" + blackIdx, bText, new Vector2(155f, 0f), new Vector2(240f, 34f), () => JumpToReviewPly(targetPly), font);
+                    string bClean = UserAccountManager.FormatCleanMoveNotation(bItem.san, bItem.uci);
+                    string bText = $"{bSym} {bClean} <color=#94A3B8>({bScore})</color>";
+                    CreateMoveButton(rowObj.transform, "BtnBlackMove_" + blackIdx, bText, new Vector2(145f, 0f), new Vector2(230f, 32f), () => JumpToReviewPly(targetPly), font);
                 }
             }
         }
@@ -8126,8 +8131,12 @@ namespace MechChess.UI
             rt.anchoredPosition = pos;
             rt.sizeDelta = size;
 
-            Text t = CreateTextComp(btnObj.transform, label, 14, FontStyle.Bold, ColTextWhite, font, Vector2.zero, size - new Vector2(12f, 0f), TextAnchor.MiddleCenter);
-            MakeTextCrisp(t);
+            Text t = CreateTextComp(btnObj.transform, label, 13, FontStyle.Bold, ColTextWhite, font, Vector2.zero, size - new Vector2(16f, 4f), TextAnchor.MiddleCenter);
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            t.verticalOverflow = VerticalWrapMode.Truncate;
+            t.resizeTextForBestFit = true;
+            t.resizeTextMinSize = 11;
+            t.resizeTextMaxSize = 13;
         }
 
         private void HighlightActiveMoveButton(int activeIdx)
@@ -10140,9 +10149,25 @@ namespace MechChess.UI
         private static void MakeTextCrisp(Text t, Color? outlineCol = null)
         {
             if (t == null) return;
-            var outline = t.gameObject.GetComponent<Outline>() ?? t.gameObject.AddComponent<Outline>();
-            outline.effectColor = outlineCol ?? new Color(0.01f, 0.02f, 0.06f, 0.90f);
-            outline.effectDistance = new Vector2(1f, -1f);
+            if (t.fontSize <= 15)
+            {
+                var existingOutline = t.gameObject.GetComponent<Outline>();
+                if (existingOutline != null)
+                {
+                    if (Application.isPlaying) UnityEngine.Object.Destroy(existingOutline);
+                    else UnityEngine.Object.DestroyImmediate(existingOutline);
+                }
+
+                var shadow = t.gameObject.GetComponent<Shadow>() ?? t.gameObject.AddComponent<Shadow>();
+                shadow.effectColor = outlineCol ?? new Color(0.01f, 0.02f, 0.05f, 0.70f);
+                shadow.effectDistance = new Vector2(1f, -1f);
+            }
+            else
+            {
+                var outline = t.gameObject.GetComponent<Outline>() ?? t.gameObject.AddComponent<Outline>();
+                outline.effectColor = outlineCol ?? new Color(0.01f, 0.02f, 0.06f, 0.85f);
+                outline.effectDistance = new Vector2(1f, -1f);
+            }
         }
 
         private Text CreateTextComp(Transform parent, string content, int size, FontStyle style, Color color, Font font, Vector2 pos, Vector2 delta, TextAnchor anchor = TextAnchor.MiddleCenter)

@@ -1435,7 +1435,8 @@ namespace MechChess.Multiplayer
                 bool isWhite = (i % 2 == 0);
                 string fromSq = m.Length >= 4 ? m.Substring(0, 2).ToUpper() : "";
                 string toSq = m.Length >= 4 ? m.Substring(2, 2).ToUpper() : "";
-                string san = (sanMoves != null && i < sanMoves.Length) ? sanMoves[i] : m;
+                string rawSan = (sanMoves != null && i < sanMoves.Length) ? sanMoves[i] : m;
+                string san = FormatCleanMoveNotation(rawSan, m);
 
                 string fenBefore = ChessBoardSimulator.BoardToFen(simBoard, isWhite);
                 ChessBoardSimulator.ApplyUciMove(simBoard, m);
@@ -1505,6 +1506,104 @@ namespace MechChess.Multiplayer
             res.final_fen = ChessBoardSimulator.BoardToFen(simBoard, moveList.Count % 2 == 0);
             res.moves = items.ToArray();
             return res;
+        }
+
+        public static string FormatCleanMoveNotation(string raw, string uci = null)
+        {
+            if (string.IsNullOrEmpty(raw))
+            {
+                if (!string.IsNullOrEmpty(uci))
+                {
+                    if (uci.Length == 4) return $"{uci.Substring(0, 2)}-{uci.Substring(2, 2)}";
+                    if (uci.Length == 5) return $"{uci.Substring(0, 2)}-{uci.Substring(2, 2)}={char.ToUpperInvariant(uci[4])}";
+                    return uci;
+                }
+                return "-";
+            }
+
+            string s = raw.Trim();
+            if (s.Contains("O-O-O") || s.IndexOf("Queenside", StringComparison.OrdinalIgnoreCase) >= 0) return "O-O-O";
+            if (s.Contains("O-O") || s.IndexOf("Kingside", StringComparison.OrdinalIgnoreCase) >= 0) return "O-O";
+
+            if (!s.Contains(":") && !s.Contains("->") && !s.Contains("[") && s.Length <= 8)
+            {
+                return s;
+            }
+
+            string promoSuffix = "";
+            if (s.IndexOf("=QUEEN", StringComparison.OrdinalIgnoreCase) >= 0 || s.EndsWith("q", StringComparison.OrdinalIgnoreCase)) promoSuffix = "=Q";
+            else if (s.IndexOf("=ROOK", StringComparison.OrdinalIgnoreCase) >= 0 || s.EndsWith("r", StringComparison.OrdinalIgnoreCase)) promoSuffix = "=R";
+            else if (s.IndexOf("=BISHOP", StringComparison.OrdinalIgnoreCase) >= 0 || s.EndsWith("b", StringComparison.OrdinalIgnoreCase)) promoSuffix = "=B";
+            else if (s.IndexOf("=KNIGHT", StringComparison.OrdinalIgnoreCase) >= 0 || s.EndsWith("n", StringComparison.OrdinalIgnoreCase)) promoSuffix = "=N";
+
+            bool isCapture = s.IndexOf("[CAPTURED]", StringComparison.OrdinalIgnoreCase) >= 0 || s.Contains(" x ") || s.Contains("x");
+
+            char pieceLetter = '\0';
+            string prefix = s;
+            int colonIdx = s.IndexOf(':');
+            if (colonIdx > 0)
+            {
+                prefix = s.Substring(0, colonIdx);
+            }
+            string prefixLower = prefix.ToLowerInvariant();
+            if (prefixLower.Contains("knight")) pieceLetter = 'N';
+            else if (prefixLower.Contains("bishop")) pieceLetter = 'B';
+            else if (prefixLower.Contains("rook")) pieceLetter = 'R';
+            else if (prefixLower.Contains("queen")) pieceLetter = 'Q';
+            else if (prefixLower.Contains("king")) pieceLetter = 'K';
+
+            string fromSq = "";
+            string toSq = "";
+            int arrowIdx = s.IndexOf("->");
+            if (arrowIdx > 0)
+            {
+                string beforeArrow = s.Substring(0, arrowIdx);
+                string afterArrow = s.Substring(arrowIdx + 2);
+                var mBefore = Regex.Match(beforeArrow, @"([a-hA-H][1-8])");
+                if (mBefore.Success) fromSq = mBefore.Groups[1].Value.ToLowerInvariant();
+                var mAfter = Regex.Match(afterArrow, @"([a-hA-H][1-8])");
+                if (mAfter.Success) toSq = mAfter.Groups[1].Value.ToLowerInvariant();
+            }
+            else if (!string.IsNullOrEmpty(uci) && uci.Length >= 4)
+            {
+                fromSq = uci.Substring(0, 2).ToLowerInvariant();
+                toSq = uci.Substring(2, 2).ToLowerInvariant();
+            }
+
+            if (!string.IsNullOrEmpty(toSq))
+            {
+                string moveRes;
+                if (pieceLetter == '\0') // Pawn
+                {
+                    if (isCapture && !string.IsNullOrEmpty(fromSq))
+                    {
+                        moveRes = $"{fromSq[0]}x{toSq}{promoSuffix}";
+                    }
+                    else
+                    {
+                        moveRes = $"{toSq}{promoSuffix}";
+                    }
+                }
+                else
+                {
+                    if (isCapture)
+                    {
+                        moveRes = $"{pieceLetter}x{toSq}{promoSuffix}";
+                    }
+                    else
+                    {
+                        moveRes = $"{pieceLetter}{toSq}{promoSuffix}";
+                    }
+                }
+
+                if (s.Contains("#") && !moveRes.Contains("#")) moveRes += "#";
+                else if (s.Contains("+") && !moveRes.Contains("+") && !moveRes.Contains("#")) moveRes += "+";
+                return moveRes;
+            }
+
+            string clean = Regex.Replace(s, @"\[.*?\]", "").Trim();
+            clean = clean.Replace("White ", "").Replace("Black ", "").Trim();
+            return clean.Length > 10 ? clean.Substring(0, 10) : clean;
         }
 
         private static string EscapeJson(string s)

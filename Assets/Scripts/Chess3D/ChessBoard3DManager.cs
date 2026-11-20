@@ -1013,8 +1013,9 @@ namespace MechChess.Chess3D
                 uciMove += "q";
             }
 
+            string cleanSan = MechChess.Multiplayer.UserAccountManager.FormatCleanMoveNotation(notation, uciMove);
             _completedUciMoves.Add(uciMove);
-            _completedSanMoves.Add(notation);
+            _completedSanMoves.Add(cleanSan);
 
             // Log to HUD
             if (UIManager2D.Instance != null)

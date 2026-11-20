@@ -729,6 +729,7 @@ namespace MechChess.UI
             _hudScaler = canvasObj.AddComponent<CanvasScaler>();
             _hudScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             _hudScaler.referenceResolution = new Vector2(1920, 1080);
+            _hudScaler.dynamicPixelsPerUnit = 2.5f;
             float initialHudAspect = (float)Screen.width / Mathf.Max(1, Screen.height);
             _lastHudAspect = initialHudAspect;
             _hudScaler.matchWidthOrHeight = (initialHudAspect < 1.7777f) ? 0f : 1f;
