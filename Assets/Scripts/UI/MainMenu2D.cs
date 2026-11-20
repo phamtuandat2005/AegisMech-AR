@@ -8534,8 +8534,18 @@ namespace MechChess.UI
                 }
             }, font, ColGoldBorder, 1.5f);
 
-            // Nút Đóng
-            CreateMenuActionButton(cardObj.transform, "BtnCloseLichess", AegisLocalization.T("ĐÓNG", "CLOSE"), new Vector2(0f, -150f), new Vector2(180f, 44f), ColGlassFill, ColTextMuted, 16, () => _lichessTokenModal.SetActive(false), font, ColMutedBorder, 1.2f);
+            // Nút Xóa Token & Nút Đóng
+            CreateMenuActionButton(cardObj.transform, "BtnClearToken", AegisLocalization.T("🗑️  XÓA TOKEN", "🗑️  CLEAR TOKEN"), new Vector2(-110f, -150f), new Vector2(190f, 44f), new Color(0.28f, 0.08f, 0.08f, 0.90f), new Color(1f, 0.5f, 0.5f), 15, () =>
+            {
+                if (LichessBridge.Instance != null)
+                {
+                    LichessBridge.Instance.SaveToken("");
+                    if (_lichessTokenInputField != null) _lichessTokenInputField.text = "";
+                    ShowToast(AegisLocalization.T("Đã xóa Token Lichess!", "Lichess Token cleared!"), ToastType.Info);
+                }
+            }, font, new Color(0.85f, 0.25f, 0.25f), 1.2f);
+
+            CreateMenuActionButton(cardObj.transform, "BtnCloseLichess", AegisLocalization.T("ĐÓNG", "CLOSE"), new Vector2(110f, -150f), new Vector2(190f, 44f), ColGlassFill, ColTextMuted, 16, () => _lichessTokenModal.SetActive(false), font, ColMutedBorder, 1.2f);
 
             _lichessTokenModal.SetActive(false);
         }
@@ -8669,13 +8679,22 @@ namespace MechChess.UI
             tRt.anchoredPosition = new Vector2(0f, -50f);
             tRt.sizeDelta = new Vector2(520f, 32f);
 
-            CreateMenuActionButton(cardObj.transform, "BtnCancelMatchmaking", AegisLocalization.T("HỦY TÌM TRẬN", "CANCEL QUEUE"), new Vector2(0f, -125f), new Vector2(260f, 52f), new Color(0.28f, 0.08f, 0.08f, 0.95f), new Color(1f, 0.45f, 0.45f), 18, () =>
+            CreateMenuActionButton(cardObj.transform, "BtnCancelMatchmaking", AegisLocalization.T("HỦY TÌM TRẬN", "CANCEL QUEUE"), new Vector2(-125f, -125f), new Vector2(230f, 48f), new Color(0.28f, 0.08f, 0.08f, 0.95f), new Color(1f, 0.45f, 0.45f), 17, () =>
             {
                 if (OnlineMultiplayerManager.Instance != null) OnlineMultiplayerManager.Instance.CancelRandomMatchmaking();
                 if (LichessBridge.Instance != null) LichessBridge.Instance.CancelMatch();
                 if (_matchmakingTimerCoroutine != null) StopCoroutine(_matchmakingTimerCoroutine);
                 _matchmakingModal.SetActive(false);
             }, font, new Color(0.85f, 0.25f, 0.25f), 1.5f);
+
+            CreateMenuActionButton(cardObj.transform, "BtnChangeLichessToken", AegisLocalization.T("🔑  ĐỔI TOKEN LICHESS", "🔑  CHANGE TOKEN"), new Vector2(125f, -125f), new Vector2(230f, 48f), new Color(0.12f, 0.18f, 0.32f, 0.95f), ColCyanGlow, 15, () =>
+            {
+                if (OnlineMultiplayerManager.Instance != null) OnlineMultiplayerManager.Instance.CancelRandomMatchmaking();
+                if (LichessBridge.Instance != null) LichessBridge.Instance.CancelMatch();
+                if (_matchmakingTimerCoroutine != null) StopCoroutine(_matchmakingTimerCoroutine);
+                _matchmakingModal.SetActive(false);
+                ShowLichessTokenModal();
+            }, font, ColCyanBorder, 1.5f);
 
             _matchmakingModal.SetActive(false);
         }
