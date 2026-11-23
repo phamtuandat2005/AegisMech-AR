@@ -944,8 +944,8 @@ namespace MechChess.ProceduralMech
         /// </summary>
         public void AnimateAttackAndCapture(Vector3 defenderWorldPos, MechPieceAnimator defender, Action onImpact, Action onComplete)
         {
-            ChessPiece3D selfPiece = GetComponent<ChessPiece3D>();
-            ChessPiece3D defPiece = defender != null ? defender.GetComponent<ChessPiece3D>() : null;
+            ChessPiece3D selfPiece = (this != null && gameObject != null) ? GetComponent<ChessPiece3D>() : null;
+            ChessPiece3D defPiece = (defender != null && defender.gameObject != null) ? defender.GetComponent<ChessPiece3D>() : null;
             if (CaptureCutsceneDirector.TryPlay(selfPiece, defPiece, onImpact, onComplete)) return;
             AnimateAttackAndCaptureClassic(defenderWorldPos, defender, onImpact, onComplete);
         }
@@ -991,7 +991,7 @@ namespace MechChess.ProceduralMech
                 float smoothT = Mathf.SmoothStep(0f, 1f, t);
 
                 DriveCombatChoreography(attType, CombatRole.Attacker, CombatPhase.Dash, t);
-                if (defender != null) defender.DriveCombatChoreography(defType, CombatRole.Defender, CombatPhase.Dash, t);
+                if (defender != null && defender.gameObject != null) defender.DriveCombatChoreography(defType, CombatRole.Defender, CombatPhase.Dash, t);
 
                 Vector3 curPos = Vector3.Lerp(startPos, meleePos, smoothT);
                 curPos.y += Mathf.Sin(t * Mathf.PI) * 0.15f;
@@ -1032,7 +1032,7 @@ namespace MechChess.ProceduralMech
                 float t = Mathf.Clamp01(elapsed / slashDuration);
 
                 DriveCombatChoreography(attType, CombatRole.Attacker, CombatPhase.Finisher, t);
-                if (defender != null) defender.DriveCombatChoreography(defType, CombatRole.Defender, CombatPhase.Finisher, t);
+                if (defender != null && defender.gameObject != null) defender.DriveCombatChoreography(defType, CombatRole.Defender, CombatPhase.Finisher, t);
 
                 if (bladeObj != null)
                 {
@@ -1183,7 +1183,9 @@ namespace MechChess.ProceduralMech
             impactObj.transform.position = hitPoint;
 
             ParticleSystem ps = impactObj.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = ps.main;
+            main.playOnAwake = false;
             main.loop = false;
             main.duration = 0.35f;
             main.startLifetime = 0.35f;
@@ -1432,7 +1434,9 @@ namespace MechChess.ProceduralMech
             explosion.transform.position = worldPos;
 
             ParticleSystem ps = explosion.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = ps.main;
+            main.playOnAwake = false;
             main.loop = false;
             main.duration = 0.6f;
             main.startLifetime = 0.8f;

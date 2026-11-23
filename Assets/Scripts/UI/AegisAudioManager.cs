@@ -79,6 +79,23 @@ namespace MechChess.UI
             }
         }
 
+        /// <summary>
+        /// Pre-synthesizes core startup and click clips in memory during Awake so audio plays with 0ms latency.
+        /// </summary>
+        public static void Prewarm()
+        {
+            EnsureInitialized();
+            try
+            {
+                GetOrSynthesizeClip("sfx_startup", () => SynthesizeStartupJingle());
+                GetOrSynthesizeClip("sfx_click", () => SynthesizeButtonClick());
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[AegisAudioManager] Prewarm error: {ex.Message}");
+            }
+        }
+
         // =========================================================================
         // PUBLIC SFX PLAYBACK API
         // =========================================================================

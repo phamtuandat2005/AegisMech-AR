@@ -674,6 +674,7 @@ namespace MechChess.Chess3D
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
             var main = ps.main;
+            main.playOnAwake = false;
             main.loop = true;
             main.duration = 5.0f;
             main.startLifetime = 8.5f;

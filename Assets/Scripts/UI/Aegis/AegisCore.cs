@@ -34,6 +34,7 @@ namespace AegisMech.UI
     {
         const string P = "aegis.";
         public static event Action CoinsChanged;
+        public static event Action GemsChanged;
 
         public static int GetInt(string key, int def) { return PlayerPrefs.GetInt(P + key, def); }
         public static void SetInt(string key, int v) { PlayerPrefs.SetInt(P + key, v); PlayerPrefs.Save(); }
@@ -47,6 +48,18 @@ namespace AegisMech.UI
                 PlayerPrefs.SetInt("MECH_USER_GOLD", Mathf.Max(0, value));
                 PlayerPrefs.Save();
                 if (CoinsChanged != null) CoinsChanged(); 
+            }
+        }
+
+        public static int Gems
+        {
+            get { return MechChess.Multiplayer.UserAccountManager.Instance != null ? MechChess.Multiplayer.UserAccountManager.Instance.CurrentGems : GetInt("gems", 320); }
+            set 
+            { 
+                SetInt("gems", Mathf.Max(0, value)); 
+                PlayerPrefs.SetInt("MECH_USER_GEMS", Mathf.Max(0, value));
+                PlayerPrefs.Save();
+                if (GemsChanged != null) GemsChanged(); 
             }
         }
 

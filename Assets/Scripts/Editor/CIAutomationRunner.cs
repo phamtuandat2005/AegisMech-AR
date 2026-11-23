@@ -241,12 +241,16 @@ namespace MechChess.EditorTests
             string fixtureFullName,
             List<T> results)
         {
+            var propName = typeof(T).GetProperty("TestName");
+            var propPassed = typeof(T).GetProperty("Passed");
+            var propDetails = typeof(T).GetProperty("Details");
+
             int fTotal = results.Count;
             int fFailed = 0;
             foreach (var item in results)
             {
-                dynamic r = item;
-                if (!r.Passed) fFailed++;
+                bool passed = (bool)(propPassed?.GetValue(item) ?? false);
+                if (!passed) fFailed++;
             }
             int fPassed = fTotal - fFailed;
             string fResult = fFailed == 0 ? "Passed" : "Failed";
@@ -265,11 +269,10 @@ namespace MechChess.EditorTests
             int caseIndex = 1;
             foreach (var item in results)
             {
-                dynamic r = item;
                 string testId = $"{fixtureId}_{caseIndex:D3}";
-                string testName = (string)r.TestName;
-                bool passed = (bool)r.Passed;
-                string details = (string)r.Details ?? "";
+                string testName = (string)(propName?.GetValue(item) ?? "UnknownTest");
+                bool passed = (bool)(propPassed?.GetValue(item) ?? false);
+                string details = (string)(propDetails?.GetValue(item) ?? "");
 
                 writer.WriteStartElement("test-case");
                 writer.WriteAttributeString("id", testId);

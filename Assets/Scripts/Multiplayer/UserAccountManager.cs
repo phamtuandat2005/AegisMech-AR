@@ -207,6 +207,7 @@ namespace MechChess.Multiplayer
         public string CurrentMatchId { get; private set; } = "";
 
         public int CurrentGold => CurrentProfile != null ? CurrentProfile.gold : PlayerPrefs.GetInt(PrefsKeyGold, 500);
+        public int CurrentGems => CurrentProfile != null ? CurrentProfile.gems : PlayerPrefs.GetInt(PrefsKeyGems, 50);
         public int CurrentLevel => CurrentProfile != null ? CurrentProfile.level : PlayerPrefs.GetInt(PrefsKeyLevel, 1);
         public int CurrentExp => CurrentProfile != null ? CurrentProfile.exp : PlayerPrefs.GetInt(PrefsKeyExp, 0);
         public int CurrentMaxExp => CurrentProfile != null ? CurrentProfile.max_exp : PlayerPrefs.GetInt(PrefsKeyMaxExp, 100);
@@ -273,6 +274,30 @@ namespace MechChess.Multiplayer
             if (CurrentProfile != null) CurrentProfile.gold = newGold;
             PlayerPrefs.SetInt(PrefsKeyGold, newGold);
             AegisMech.UI.AegisPrefs.Coins = newGold;
+            PlayerPrefs.Save();
+            OnProfileUpdated?.Invoke(CurrentProfile);
+            return true;
+        }
+
+        public void AddGems(int amount)
+        {
+            if (amount <= 0) return;
+            int newGems = CurrentGems + amount;
+            if (CurrentProfile != null) CurrentProfile.gems = newGems;
+            PlayerPrefs.SetInt(PrefsKeyGems, newGems);
+            AegisMech.UI.AegisPrefs.Gems = newGems;
+            PlayerPrefs.Save();
+            OnProfileUpdated?.Invoke(CurrentProfile);
+        }
+
+        public bool SpendGems(int amount)
+        {
+            if (amount <= 0) return true;
+            if (CurrentGems < amount) return false;
+            int newGems = CurrentGems - amount;
+            if (CurrentProfile != null) CurrentProfile.gems = newGems;
+            PlayerPrefs.SetInt(PrefsKeyGems, newGems);
+            AegisMech.UI.AegisPrefs.Gems = newGems;
             PlayerPrefs.Save();
             OnProfileUpdated?.Invoke(CurrentProfile);
             return true;

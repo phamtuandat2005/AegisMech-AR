@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MechChess.ProceduralMech
@@ -715,27 +716,50 @@ namespace MechChess.ProceduralMech
 
         /// <summary>
         /// Checks if a custom 3D model (.glb, .fbx, .obj, .prefab) exists in Assets/Resources/Models/
-        /// organized by team color folders (Red/ for Black, Blue/ for White).
+        /// organized by equipped skin. Default skin is Classic Wood & Marble Set (from Blender).
+        /// Other premium mech models are loaded when unlocked and equipped.
         /// Instantiates with normalized scale, proportional height, and grounded positioning.
         /// </summary>
         private static bool TryInstantiateCustomModel(PieceType type, PieceColor color, Transform root, Material armorMat, Material glowMat)
         {
+            string equippedSkin = PlayerPrefs.GetString("AegisMech_Equipped_Skin", "Quân Cờ Cổ Điển");
+            bool isClassic = string.IsNullOrEmpty(equippedSkin) ||
+                             equippedSkin.IndexOf("Classic", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                             equippedSkin.IndexOf("Cổ Điển", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                             equippedSkin.IndexOf("skin_classic", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
             string colorFolder = (color == PieceColor.White) ? "Blue" : "Red";
             string altColorFolder = (color == PieceColor.White) ? "White" : "Black";
 
-            string[] possiblePaths = {
-                $"Models/{colorFolder}/{type}",
-                $"Models/{colorFolder}/{color}_{type}",
-                $"Models/{colorFolder}/{type}_{color}",
-                $"Models/{altColorFolder}/{type}",
-                $"Models/{altColorFolder}/{color}_{type}",
-                $"Models/{color}_{type}",
-                $"Models/{color}_{type}_Model",
-                $"Models/{type}_{color}",
-                $"Models/{type}",
-                $"Models/{type}_Model",
-                $"Models/{color}_{type}_Mech"
-            };
+            List<string> possiblePaths = new List<string>();
+            if (isClassic)
+            {
+                // Default Free Classic Wood & Marble Chess Models (from Blender Chess_Scene.blend)
+                possiblePaths.Add($"Models/Classic/{altColorFolder}/{type}");
+                possiblePaths.Add($"Models/Classic/{colorFolder}/{type}");
+                possiblePaths.Add($"Models/Classic/{altColorFolder}_{type}");
+                possiblePaths.Add($"Models/Classic/{type}_{altColorFolder}");
+                possiblePaths.Add($"Models/Classic/{type}");
+            }
+            else
+            {
+                // Premium Mech Models (Knight of Light, Dark Legion, Arcane Paladin)
+                possiblePaths.Add($"Models/Mech/{colorFolder}/{type}");
+                possiblePaths.Add($"Models/Mech/{altColorFolder}/{type}");
+                possiblePaths.Add($"Models/Mech/{colorFolder}/{color}_{type}");
+                possiblePaths.Add($"Models/Mech/{colorFolder}/{type}_{color}");
+                possiblePaths.Add($"Models/{colorFolder}/{type}");
+                possiblePaths.Add($"Models/{colorFolder}/{color}_{type}");
+                possiblePaths.Add($"Models/{colorFolder}/{type}_{color}");
+                possiblePaths.Add($"Models/{altColorFolder}/{type}");
+                possiblePaths.Add($"Models/{altColorFolder}/{color}_{type}");
+                possiblePaths.Add($"Models/{color}_{type}");
+                possiblePaths.Add($"Models/{color}_{type}_Model");
+                possiblePaths.Add($"Models/{type}_{color}");
+                possiblePaths.Add($"Models/{type}");
+                possiblePaths.Add($"Models/{type}_Model");
+                possiblePaths.Add($"Models/{color}_{type}_Mech");
+            }
 
             GameObject prefab = null;
             foreach (var path in possiblePaths)
@@ -777,7 +801,20 @@ namespace MechChess.ProceduralMech
                     if (Mathf.Abs(currentHeight - targetHeight) > 0.05f)
                     {
                         float scaleFactor = targetHeight / currentHeight;
-                        modelInstance.transform.localScale *= scaleFactor;
+                        if (type == PieceType.Knight)
+                        {
+                            // Knight head was too thin/narrow along X compared to its height, making it look like a 2D cut-out / half piece.
+                            // Widen X and Z slightly so the chest, neck and muzzle are muscular, full-bodied 3D.
+                            modelInstance.transform.localScale = new Vector3(
+                                modelInstance.transform.localScale.x * scaleFactor * 1.35f,
+                                modelInstance.transform.localScale.y * scaleFactor,
+                                modelInstance.transform.localScale.z * scaleFactor * 1.15f
+                            );
+                        }
+                        else
+                        {
+                            modelInstance.transform.localScale *= scaleFactor;
+                        }
                     }
 
                     // Re-calculate bounds after scaling to align feet with y=0

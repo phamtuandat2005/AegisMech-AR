@@ -19,6 +19,28 @@ namespace AegisMech.UI.EditorTools
         static Font F;
         static List<AegisScreen> Screens;
 
+        [MenuItem("Aegis/▶ Hiện toàn bộ màn hình 2D lên Scene (Edit Mode)", false, 0)]
+        public static void ShowUIInScene()
+        {
+            var menu = Object.FindFirstObjectByType<MechChess.UI.MainMenu2D>();
+            if (menu == null)
+            {
+                var go = new GameObject("MainMenu2D");
+                menu = go.AddComponent<MechChess.UI.MainMenu2D>();
+            }
+            menu.EditorBuildUIInScene();
+        }
+
+        [MenuItem("Aegis/✕ Xóa màn hình 2D khỏi Scene (Edit Mode)", false, 1)]
+        public static void ClearUIInScene()
+        {
+            var menu = Object.FindFirstObjectByType<MechChess.UI.MainMenu2D>();
+            if (menu != null)
+            {
+                menu.EditorClearUI();
+            }
+        }
+
         [MenuItem("Aegis/Build Menu UI Scene")]
         static void BuildMenu() { Debug.Log(BuildAll()); }
 
