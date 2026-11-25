@@ -235,6 +235,11 @@ namespace MechChess.UI
         }
 
         /// <summary>
+        /// 2x2 white pixel sprite for fallback UI background fills.
+        /// </summary>
+        public static Sprite GetPixelSprite() => GetSolidSprite(2, 2, Color.white);
+
+        /// <summary>
         /// Highly detailed procedural Dark Fantasy chess piece token medallion for 2D boards and UI markers.
         /// Features double metal filigree rim (Gold for White, Crimson for Black), subtle radial shading, and crisp contrast.
         /// </summary>
@@ -1821,6 +1826,60 @@ namespace MechChess.UI
             Sprite s = Sprite.Create(tex, new Rect(0, 0, sw, sh), new Vector2(0.5f, 0.5f), 100f * PROC_SCALE);
             _proceduralCache[key] = s;
             return s;
+        }
+
+        /// <summary>
+        /// Antialiased procedural Music Note icon sprite.
+        /// </summary>
+        public static Sprite GetMusicNoteIconSprite(int size = 64, Color? iconColor = null)
+        {
+            Color baseCol = iconColor ?? new Color(0.0f, 0.92f, 1.0f);
+            string key = $"MusicIcon_{size}_{baseCol}";
+            if (_proceduralCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            int sw = size * PROC_SCALE;
+            int sh = size * PROC_SCALE;
+            float scale = (float)sw / 64f;
+
+            Texture2D tex = new Texture2D(sw, sh, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Color[] colors = new Color[sw * sh];
+
+            for (int y = 0; y < sh; y++)
+            {
+                float py = (y + 0.5f) / scale;
+                for (int x = 0; x < sw; x++)
+                {
+                    float px = (x + 0.5f) / scale;
+
+                    // Note Head: circle at (22, 18), radius 9
+                    float dHead = Vector2.Distance(new Vector2(px, py), new Vector2(22f, 18f)) - 9f;
+                    // Stem: x in [27, 33], y in [18, 50]
+                    float dStem = Mathf.Max(Mathf.Abs(px - 30f) - 3f, Mathf.Abs(py - 34f) - 16f);
+                    // Flag: top flag curving to right
+                    float dFlag = (px >= 30f && px <= 46f && py >= 42f && py <= 52f) ? 0f : 999f;
+
+                    float dist = Mathf.Min(dHead, Mathf.Min(dStem, dFlag));
+                    if (dist > 1.2f)
+                    {
+                        colors[y * sw + x] = Color.clear;
+                        continue;
+                    }
+                    float alpha = Mathf.Clamp01(-dist + 1f);
+                    Color c = baseCol;
+                    c.a *= alpha;
+                    colors[y * sw + x] = c;
+                }
+            }
+
+            tex.SetPixels(colors);
+            tex.Apply();
+
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, sw, sh), new Vector2(0.5f, 0.5f), 100f * PROC_SCALE);
+            _proceduralCache[key] = sprite;
+            return sprite;
         }
     }
 }

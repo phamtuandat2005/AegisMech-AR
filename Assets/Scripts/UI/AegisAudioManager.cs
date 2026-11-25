@@ -46,7 +46,10 @@ namespace MechChess.UI
                 if (audioHost == null)
                 {
                     audioHost = new GameObject("Aegis_Audio_Host");
-                    GameObject.DontDestroyOnLoad(audioHost);
+                    if (Application.isPlaying)
+                    {
+                        GameObject.DontDestroyOnLoad(audioHost);
+                    }
                 }
 
                 AudioSource[] sources = audioHost.GetComponents<AudioSource>();

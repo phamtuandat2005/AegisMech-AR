@@ -68,6 +68,8 @@ namespace MechChess.Chess3D
         private Material _lastMoveMat;
         private Material _checkWarningMat;
         private Material _borderMat;
+        private Renderer _pedestalRend;
+        private Renderer _frameRend;
 
         [Header("Gameplay State")]
         public PieceColor currentTurn = PieceColor.White;
@@ -153,7 +155,7 @@ namespace MechChess.Chess3D
 
         public void TriggerWatchdogCheckForTest(bool forceTimeout = false)
         {
-            if (forceTimeout || (_isBusyAnimating && (Time.time - _busyAnimStartTime > BusyTimeout)))
+            if (forceTimeout || (_isBusyAnimating && (Time.time - _busyAnimStartTime > 2.5f)))
             {
                 SkipActiveAnimation();
             }
@@ -164,7 +166,6 @@ namespace MechChess.Chess3D
         private bool _isBusyAnimating = false;
         private ChessPiece3D _animatingPiece = null;
         private float _busyAnimStartTime = 0f;
-        private float BusyTimeout { get { return MechChess.ProceduralMech.CaptureCutsceneDirector.IsPlaying ? 12f : 2.5f; } }
 
         private Transform _boardRoot;
         private Transform _piecesRoot;
@@ -175,7 +176,7 @@ namespace MechChess.Chess3D
         private void Update()
         {
             // Animation Watchdog: Prevents input from ever locking permanently if an animation or coroutine hangs
-            if (_isBusyAnimating && (Time.time - _busyAnimStartTime > BusyTimeout))
+            if (_isBusyAnimating && (Time.time - _busyAnimStartTime > 2.5f))
             {
                 Debug.LogWarning("[ChessBoard3D] Animation watchdog timeout! Force-releasing animation lock.");
                 SkipActiveAnimation();
@@ -292,6 +293,165 @@ namespace MechChess.Chess3D
             _lastMoveMat.enableInstancing = true;
             _checkWarningMat.enableInstancing = true;
             _borderMat.enableInstancing = true;
+
+            ApplyBoardTheme();
+        }
+
+        public void ApplyBoardTheme(string themeName = null)
+        {
+            if (string.IsNullOrEmpty(themeName))
+            {
+                themeName = PlayerPrefs.GetString(MechChess.UI.MainMenu2D.PrefsEquippedBoard, "Royal Antique Board");
+            }
+
+            if (_lightTileMat == null || _darkTileMat == null || _borderMat == null) return;
+
+            if (themeName.Contains("Dung Nham") || themeName.Contains("Magma"))
+            {
+                // Magma Board: Glowing molten lava + volcanic obsidian
+                SetMatColor(_lightTileMat, new Color(1.0f, 0.45f, 0.10f), 0.2f, 0.7f);
+                _lightTileMat.EnableKeyword("_EMISSION");
+                if (_lightTileMat.HasProperty("_EmissionColor"))
+                    _lightTileMat.SetColor("_EmissionColor", new Color(2.5f, 0.7f, 0.1f) * 1.6f);
+
+                SetMatColor(_darkTileMat, new Color(0.10f, 0.08f, 0.09f), 0.8f, 0.35f);
+                _darkTileMat.DisableKeyword("_EMISSION");
+
+                SetMatColor(_borderMat, new Color(0.20f, 0.07f, 0.05f), 0.6f, 0.5f);
+                _borderMat.EnableKeyword("_EMISSION");
+                if (_borderMat.HasProperty("_EmissionColor"))
+                    _borderMat.SetColor("_EmissionColor", new Color(1.2f, 0.2f, 0.05f) * 0.8f);
+            }
+            else if (themeName.Contains("Pha Lê") || themeName.Contains("Crystal"))
+            {
+                // Crystal Board: Frost Diamond White & Arcane Sapphire
+                SetMatColor(_lightTileMat, new Color(0.85f, 0.95f, 1.0f), 0.3f, 0.95f);
+                _lightTileMat.EnableKeyword("_EMISSION");
+                if (_lightTileMat.HasProperty("_EmissionColor"))
+                    _lightTileMat.SetColor("_EmissionColor", new Color(0.3f, 0.7f, 1.4f) * 0.9f);
+
+                SetMatColor(_darkTileMat, new Color(0.08f, 0.16f, 0.38f), 0.4f, 0.95f);
+                _darkTileMat.EnableKeyword("_EMISSION");
+                if (_darkTileMat.HasProperty("_EmissionColor"))
+                    _darkTileMat.SetColor("_EmissionColor", new Color(0.1f, 0.3f, 0.9f) * 0.7f);
+
+                SetMatColor(_borderMat, new Color(0.05f, 0.12f, 0.28f), 0.5f, 0.9f);
+                _borderMat.EnableKeyword("_EMISSION");
+                if (_borderMat.HasProperty("_EmissionColor"))
+                    _borderMat.SetColor("_EmissionColor", new Color(0.2f, 0.6f, 1.6f) * 1.0f);
+            }
+            else if ((themeName.Contains("Classic") || themeName.Contains("Cổ Điển")) && !themeName.Contains("Hoàng Gia"))
+            {
+                // Classic Board: Polished Carrara Marble & Dark Obsidian Slate
+                SetMatColor(_lightTileMat, new Color(0.95f, 0.95f, 0.98f), 0.1f, 0.90f);
+                _lightTileMat.DisableKeyword("_EMISSION");
+
+                SetMatColor(_darkTileMat, new Color(0.12f, 0.13f, 0.16f), 0.2f, 0.85f);
+                _darkTileMat.DisableKeyword("_EMISSION");
+
+                SetMatColor(_borderMat, new Color(0.35f, 0.38f, 0.42f), 0.7f, 0.85f);
+                _borderMat.DisableKeyword("_EMISSION");
+            }
+            else
+            {
+                // Default: Royal Antique Board / Spirit Blossom Arena
+                ApplyWoodTexture(_lightTileMat, "WoodLight_Diffuse", "WoodLight_Normal", new Color(0.98f, 0.88f, 0.68f), 0.60f);
+                _lightTileMat.DisableKeyword("_EMISSION");
+
+                ApplyWoodTexture(_darkTileMat, "WoodDark_Diffuse", "WoodDark_Normal", new Color(0.85f, 0.58f, 0.32f), 0.60f);
+                _darkTileMat.DisableKeyword("_EMISSION");
+
+                ApplyWoodTexture(_borderMat, "WoodBorder_Diffuse", "WoodBorder_Normal", new Color(0.96f, 0.84f, 0.62f), 0.70f);
+                _borderMat.DisableKeyword("_EMISSION");
+            }
+
+            if (_pedestalRend != null) _pedestalRend.sharedMaterial = _borderMat;
+            if (_frameRend != null) _frameRend.sharedMaterial = _borderMat;
+
+            if (_boardRoot != null)
+            {
+                MapArenaManager.BuildArena(_boardRoot, new Vector3(3.5f, 0f, 3.5f), themeName);
+            }
+
+            ClearHighlights();
+        }
+
+        public void ApplySkinTheme(string skinName = null)
+        {
+            if (string.IsNullOrEmpty(skinName))
+            {
+                skinName = PlayerPrefs.GetString(MechChess.UI.MainMenu2D.PrefsEquippedSkin, "Knight of Light");
+            }
+
+            for (int f = 0; f < 8; f++)
+            {
+                for (int r = 0; r < 8; r++)
+                {
+                    var piece = boardPieces[f, r];
+                    if (piece != null)
+                    {
+                        ApplySkinToPiece(piece, skinName);
+                    }
+                }
+            }
+        }
+
+        public void ApplySkinToPiece(ChessPiece3D piece, string skinName)
+        {
+            if (piece == null) return;
+            Renderer[] rends = piece.GetComponentsInChildren<Renderer>(true);
+            if (rends == null || rends.Length == 0) return;
+
+            bool isWhite = piece.pieceColor == PieceColor.White;
+
+            Color armorTint;
+            Color glowColor;
+
+            if (skinName.Contains("Dark") || skinName.Contains("Bóng Tối"))
+            {
+                // Dark Legion: Pitch black obsidian with fiery crimson glow
+                armorTint = isWhite ? new Color(0.32f, 0.35f, 0.38f) : new Color(0.08f, 0.08f, 0.10f);
+                glowColor = isWhite ? new Color(1.8f, 0.1f, 0.25f) * 1.5f : new Color(2.5f, 0.15f, 0.25f) * 2.2f;
+            }
+            else if (skinName.Contains("Cyber") || skinName.Contains("Paladin") || skinName.Contains("Arcane"))
+            {
+                // Arcane Paladin: High tech platinum cyan / midnight ultraviolet neon
+                armorTint = isWhite ? new Color(0.88f, 0.92f, 0.98f) : new Color(0.10f, 0.10f, 0.15f);
+                glowColor = isWhite ? new Color(0.0f, 1.8f, 2.5f) * 2.0f : new Color(1.8f, 0.1f, 2.5f) * 2.0f;
+            }
+            else if (skinName.Contains("Forest") || skinName.Contains("Rừng"))
+            {
+                // Forest Spirit: Ancient Ivory & Jade Emerald / Sacred Moss Bark
+                armorTint = isWhite ? new Color(0.90f, 0.95f, 0.88f) : new Color(0.12f, 0.16f, 0.12f);
+                glowColor = isWhite ? new Color(0.2f, 1.8f, 0.5f) * 1.8f : new Color(0.5f, 1.6f, 0.3f) * 1.8f;
+            }
+            else
+            {
+                // Knight of Light (Default): Solar Pearl Gold & Antique Bronze
+                armorTint = isWhite ? new Color(0.96f, 0.94f, 0.85f) : new Color(0.18f, 0.16f, 0.14f);
+                glowColor = isWhite ? new Color(1.5f, 1.2f, 0.3f) * 1.5f : new Color(1.2f, 0.8f, 0.15f) * 1.2f;
+            }
+
+            foreach (var rend in rends)
+            {
+                if (rend == null) continue;
+                Material[] mats = rend.materials;
+                foreach (var mat in mats)
+                {
+                    if (mat == null) continue;
+                    string matName = mat.name.ToLower();
+                    if (matName.Contains("glow") || matName.Contains("neon") || matName.Contains("eye") || matName.Contains("core") || mat.IsKeywordEnabled("_EMISSION"))
+                    {
+                        mat.EnableKeyword("_EMISSION");
+                        if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", glowColor);
+                    }
+                    else
+                    {
+                        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", armorTint);
+                        else if (mat.HasProperty("_Color")) mat.SetColor("_Color", armorTint);
+                    }
+                }
+            }
         }
 
         private void ApplyWoodTexture(Material mat, string diffName, string normName, Color tint, float smoothness)
@@ -346,8 +506,9 @@ namespace MechChess.Chess3D
             _boardRoot = new GameObject("ProceduralChessBoard_3D").transform;
             _boardRoot.SetParent(BoardRootContainer, false);
 
-            // Build the Spirit Blossom / Ionia floating sanctuary environment around the board
-            SpiritBlossomArena.BuildArena(_boardRoot, new Vector3(3.5f, 0f, 3.5f));
+            // Build the 3D Arena Environment matching equipped Map theme
+            string equippedMapTheme = PlayerPrefs.GetString(MechChess.UI.MainMenu2D.PrefsEquippedBoard, "Royal Antique Board");
+            MapArenaManager.BuildArena(_boardRoot, new Vector3(3.5f, 0f, 3.5f), equippedMapTheme);
 
             // Outer Wooden Board Base Pedestal
             GameObject arenaPedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -355,10 +516,10 @@ namespace MechChess.Chess3D
             arenaPedestal.transform.SetParent(_boardRoot, false);
             arenaPedestal.transform.localPosition = new Vector3(3.5f, -0.15f, 3.5f);
             arenaPedestal.transform.localScale = new Vector3(8.9f, 0.15f, 8.9f);
-            Renderer pedRend = arenaPedestal.GetComponent<Renderer>();
-            pedRend.sharedMaterial = _borderMat;
-            pedRend.receiveShadows = true;
-            pedRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _pedestalRend = arenaPedestal.GetComponent<Renderer>();
+            _pedestalRend.sharedMaterial = _borderMat;
+            _pedestalRend.receiveShadows = true;
+            _pedestalRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             // Outer Wooden Frame
             float totalSize = 8 * tileSize;
@@ -367,10 +528,10 @@ namespace MechChess.Chess3D
             frame.transform.SetParent(_boardRoot, false);
             frame.transform.localPosition = new Vector3(totalSize / 2f - (tileSize / 2f), -tileHeight / 2f, totalSize / 2f - (tileSize / 2f));
             frame.transform.localScale = new Vector3(totalSize + 0.8f, tileHeight, totalSize + 0.8f);
-            Renderer frameRend = frame.GetComponent<Renderer>();
-            frameRend.sharedMaterial = _borderMat;
-            frameRend.receiveShadows = true;
-            frameRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _frameRend = frame.GetComponent<Renderer>();
+            _frameRend.sharedMaterial = _borderMat;
+            _frameRend.receiveShadows = true;
+            _frameRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             // 64 Tiles
             for (int file = 0; file < 8; file++)
@@ -488,6 +649,8 @@ namespace MechChess.Chess3D
             // Setup Black (Ranks 7 & 6)
             SetupBackRank(PieceColor.Black, 7);
             for (int f = 0; f < 8; f++) SpawnPiece(PieceType.Pawn, PieceColor.Black, f, 6);
+
+            ApplySkinTheme();
         }
 
         private void SetupBackRank(PieceColor color, int rank)
@@ -541,12 +704,6 @@ namespace MechChess.Chess3D
         // Selection & Move Logic
         // =========================================================================
         public void SkipActiveAnimation()
-        {
-            if (MechChess.ProceduralMech.CaptureCutsceneDirector.IsPlaying) MechChess.ProceduralMech.CaptureCutsceneDirector.SkipActive();
-            SkipActiveAnimationCore();
-        }
-
-        private void SkipActiveAnimationCore()
         {
             if (_isBusyAnimating)
             {
@@ -804,46 +961,39 @@ namespace MechChess.Chess3D
                 _selectedPiece = null;
                 ClearHighlights();
 
+                // Immediate capture resolution without cutscenes:
+                // Defender is destroyed/deactivated cleanly on the spot
+                if (captured.Animator != null) captured.Animator.PlayCaptureDestruction();
+                else captured.gameObject.SetActive(false);
+
+                // Attacking piece advances directly to target tile with standard movement animation
+                Vector3 targetPos = GetWorldPosition(targetFile, targetRank);
                 if (piece.Animator != null)
                 {
                     _isBusyAnimating = true;
                     _busyAnimStartTime = Time.time;
                     _animatingPiece = piece;
-                    Vector3 defenderPos = captured.transform.position;
 
-                    piece.Animator.AnimateAttackAndCapture(
-                        defenderPos,
-                        captured.Animator,
-                        onImpact: () =>
+                    float moveDuration = 0.40f;
+                    piece.Animator.AnimateMoveTo(targetPos, moveDuration, onComplete: () =>
+                    {
+                        try
                         {
-                            // Trigger defender disintegration & explosion on sword slash impact
-                            if (captured.Animator != null) captured.Animator.PlayCaptureDestruction();
-                            else captured.gameObject.SetActive(false);
-                        },
-                        onComplete: () =>
-                        {
-                            try
-                            {
-                                FinalizeCaptureAndMove(piece, startFile, startRank, targetFile, targetRank, captured, isEnPassant, isCastling, historyRecord, moveNotation, promoteTo, skipPieceMoveAnim: true);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.LogError($"[ChessBoard3D] Error in FinalizeCaptureAndMove: {ex}");
-                            }
-                            finally
-                            {
-                                _isBusyAnimating = false;
-                                _animatingPiece = null;
-                            }
+                            FinalizeCaptureAndMove(piece, startFile, startRank, targetFile, targetRank, captured, isEnPassant, isCastling, historyRecord, moveNotation, promoteTo, skipPieceMoveAnim: true);
                         }
-                    );
+                        catch (Exception ex)
+                        {
+                            Debug.LogError($"[ChessBoard3D] Error in FinalizeCaptureAndMove: {ex}");
+                        }
+                        finally
+                        {
+                            _isBusyAnimating = false;
+                            _animatingPiece = null;
+                        }
+                    });
                 }
                 else
                 {
-                    // Fallback if piece lacks animator
-                    if (captured.Animator != null) captured.Animator.PlayCaptureDestruction();
-                    else captured.gameObject.SetActive(false);
-
                     FinalizeCaptureAndMove(piece, startFile, startRank, targetFile, targetRank, captured, isEnPassant, isCastling, historyRecord, moveNotation, promoteTo, skipPieceMoveAnim: false);
                 }
             }

@@ -63,6 +63,7 @@ namespace MechChess
             controller.AddComponent<MechChess.Multiplayer.UserAccountManager>();
             controller.AddComponent<MechChess.Multiplayer.OnlineMultiplayerManager>();
             controller.AddComponent<MechChess.Multiplayer.LichessBridge>();
+            controller.AddComponent<InGameEmoteManager>();
 
             // 3. Configure Main Camera and attach Mobile Touch Orbit
             Camera mainCam = Camera.main;
