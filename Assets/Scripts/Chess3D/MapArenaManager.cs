@@ -60,12 +60,17 @@ namespace MechChess.Chess3D
 
         private static Shader GetLitShader()
         {
-            return Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Diffuse");
+            return Shader.Find("Universal Render Pipeline/Lit")
+                ?? Shader.Find("Standard")
+                ?? Shader.Find("Diffuse")
+                ?? Shader.Find("Sprites/Default");
         }
 
         private static Shader GetUnlitShader()
         {
-            return Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color") ?? Shader.Find("Standard");
+            return Shader.Find("Universal Render Pipeline/Unlit")
+                ?? Shader.Find("Unlit/Color")
+                ?? Shader.Find("Standard");
         }
 
         private static void StripCollider(GameObject go)

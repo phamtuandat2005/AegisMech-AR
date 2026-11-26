@@ -181,6 +181,55 @@ namespace MechChess.Chess3D
                 Debug.LogWarning("[ChessBoard3D] Animation watchdog timeout! Force-releasing animation lock.");
                 SkipActiveAnimation();
             }
+
+            // Android Touch Input: OnMouseDown does NOT fire on Android touch screens.
+            // We handle touch via Physics.Raycast here so pieces and tiles respond on mobile.
+            HandleTouchInput();
+        }
+
+        private void HandleTouchInput()
+        {
+            // Support both touch (Android/iOS) and mouse click (Editor/PC)
+            bool triggered = false;
+            Vector2 screenPos = Vector2.zero;
+
+#if UNITY_ANDROID || UNITY_IOS
+            if (Input.touchCount > 0)
+            {
+                Touch t = Input.GetTouch(0);
+                if (t.phase == TouchPhase.Began)
+                {
+                    triggered = true;
+                    screenPos = t.position;
+                }
+            }
+#else
+            if (Input.GetMouseButtonDown(0))
+            {
+                triggered = true;
+                screenPos = Input.mousePosition;
+            }
+#endif
+
+            if (!triggered || Camera.main == null) return;
+
+            Ray ray = Camera.main.ScreenPointToRay(screenPos);
+            if (Physics.Raycast(ray, out RaycastHit hit, 300f))
+            {
+                // Check if a piece was tapped
+                ChessPiece3D piece = hit.collider.GetComponentInParent<ChessPiece3D>();
+                if (piece != null)
+                {
+                    HandlePieceClicked(piece);
+                    return;
+                }
+                // Check if a tile was tapped
+                TileClickReceiver tile = hit.collider.GetComponent<TileClickReceiver>();
+                if (tile != null)
+                {
+                    HandleTileClicked(tile.file, tile.rank);
+                }
+            }
         }
 
         private void Awake()
@@ -237,7 +286,17 @@ namespace MechChess.Chess3D
 
         private void InitializeBoardMaterials()
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Diffuse");
+            // Shader fallback chain: URP Lit → Standard → Diffuse → Sprites/Default (Android safe)
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit")
+                         ?? Shader.Find("Standard")
+                         ?? Shader.Find("Diffuse")
+                         ?? Shader.Find("Sprites/Default");
+
+            if (shader == null)
+            {
+                Debug.LogError("[ChessBoard3D] No valid shader found! Board materials will be pink on Android. Add URP Lit or Standard shader to Always Included Shaders in Project Settings.");
+                shader = Shader.Find("Hidden/InternalErrorShader") ?? Shader.Find("UI/Default");
+            }
 
             // Light Tile: Classic Natural Amber Birch Wood with real PBR woodgrain (from user reference image 1)
             _lightTileMat = new Material(shader) { name = "Tile_LightAmberWood" };
