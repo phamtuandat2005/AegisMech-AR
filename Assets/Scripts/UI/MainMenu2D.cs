@@ -36,7 +36,7 @@ namespace MechChess.UI
         {
             float dist = Vector2.Distance(_downPos, eventData.position);
             float duration = Time.unscaledTime - _downTime;
-            if (dist < 18f && duration < 0.65f && !eventData.dragging)
+            if (dist < 28f && duration < 1.2f)
             {
                 onClick?.Invoke();
             }
@@ -171,6 +171,8 @@ namespace MechChess.UI
         private GameObject _settingsModal;
         private GameObject _tutorialModal;
         private GameObject _shopModal;
+        private GameObject _mailboxModal;
+        private GameObject _mailBadgeObj;
         private GameObject _pauseModal;
         private GameObject _resultScreenModal;
         private GameObject _profileModal;
@@ -212,6 +214,12 @@ namespace MechChess.UI
         private Text _collectionGoldTxt;
         private Text _collectionProgressTxt;
         private RectTransform _collectionProgressBarFill;
+        private ScrollRect _collectionSkinsScrollRect;
+        private ScrollRect _collectionBoardsScrollRect;
+        private ScrollRect _collectionEffectsScrollRect;
+        private GameObject _collectionChevronLeft;
+        private GameObject _collectionChevronRight;
+        private Coroutine _collectionScrollCoroutine;
 
         // Collection Inspector references
         private CollectionItemData _inspectedItem;
@@ -235,7 +243,7 @@ namespace MechChess.UI
         public const string PrefsEquippedBoard = "AegisMech_Equipped_Board";
         public const string PrefsEquippedEffect = "AegisMech_Equipped_Effect";
 
-        public static string EquippedSkin => PlayerPrefs.GetString(PrefsEquippedSkin, "Knight of Light");
+        public static string EquippedSkin => PlayerPrefs.GetString(PrefsEquippedSkin, "Quân Cờ Cổ Điển");
         public static string EquippedBoard => PlayerPrefs.GetString(PrefsEquippedBoard, "Spirit Blossom Arena");
         public static string EquippedEffect => PlayerPrefs.GetString(PrefsEquippedEffect, "Arcane Lightning");
 
@@ -273,8 +281,11 @@ namespace MechChess.UI
 
         // Splash elements
         private RectTransform _splashBarFillRt;
+        private RectTransform _splashFlareRt;
+        private RectTransform _splashGearRt;
         private Text _splashPercentTxt;
         private Text _splashLoadingTxt;
+        private Text _splashTipTxt;
         private bool _userTappedSplash = false;
 
         // Main Menu Header References
@@ -299,18 +310,19 @@ namespace MechChess.UI
         private Text _profileModalLossesComp;
         private Text _profileModalDrawsComp;
         private Transform _matchHistoryRowsParent;
+        private GameObject _profileSwitchAccountBtnObj;
 
-        // Dynamic Main Menu Navigation Selection (0: Chơi ngay, 1: Hướng dẫn, 2: Cài đặt, 3: Cửa hàng, 4: Thoát)
+        // Dynamic Main Menu Navigation Selection (0: Bắt đầu, 1: Chế độ chơi, 2: Cửa hàng, 3: Bộ sưu tập, 4: Cài đặt, 5: Thoát)
         private int _selectedMenuNavIndex = 0;
         private GameObject _navContainer;
-        private readonly GameObject[] _navItemObjs = new GameObject[5];
-        private readonly Image[] _navItemBgs = new Image[5];
-        private readonly RectTransform[] _navItemRts = new RectTransform[5];
-        private readonly RectTransform[] _navItemIcons = new RectTransform[5];
-        private readonly Image[] _navItemIconImgs = new Image[5];
-        private readonly Text[] _navItemTexts = new Text[5];
-        private readonly GameObject[] _navItemChevrons = new GameObject[5];
-        private readonly LayoutElement[] _navItemLayoutElements = new LayoutElement[5];
+        private readonly GameObject[] _navItemObjs = new GameObject[6];
+        private readonly Image[] _navItemBgs = new Image[6];
+        private readonly RectTransform[] _navItemRts = new RectTransform[6];
+        private readonly RectTransform[] _navItemIcons = new RectTransform[6];
+        private readonly Image[] _navItemIconImgs = new Image[6];
+        private readonly Text[] _navItemTexts = new Text[6];
+        private readonly GameObject[] _navItemChevrons = new GameObject[6];
+        private readonly LayoutElement[] _navItemLayoutElements = new LayoutElement[6];
 
         // Settings Modal State (5 tabs, user reference design)
         private int _selectedSettingsTab = 0;
@@ -330,12 +342,20 @@ namespace MechChess.UI
         private GameObject _modeChevronRight;
         private Coroutine _modeScrollCoroutine;
 
-        // Shop State (2 category tabs: Maps & Arenas, Avatars)
-        private int _selectedShopTab = 0; // 0: Bản đồ & Bàn cờ, 1: Avatar
-        private readonly Image[] _shopTabBgs = new Image[2];
-        private readonly Text[] _shopTabTexts = new Text[2];
-        private readonly GameObject[] _shopCategoryContainers = new GameObject[2];
+        // Shop State (3 category tabs, 4 feature items, user reference design)
+        private int _selectedShopTab = 0; // 0: Skin quân cờ, 1: Bàn cờ, 2: Hiệu ứng
+        private readonly Image[] _shopTabBgs = new Image[3];
+        private readonly Text[] _shopTabTexts = new Text[3];
+        private readonly GameObject[] _shopCategoryContainers = new GameObject[3];
+        private readonly ScrollRect[] _shopCategoryScrollRects = new ScrollRect[3];
+        private GameObject _shopChevronLeft;
+        private GameObject _shopChevronRight;
+        private Coroutine _shopScrollCoroutine;
         private Text _shopGoldTxt;
+        private Text _shopGemTxt;
+        private Text _headerGoldText;
+        private Text _headerGemText;
+        private GameObject _topRightToolbar;
         private int _currentGold = 1250;
         private Font _cachedShopFont;
 
@@ -344,6 +364,7 @@ namespace MechChess.UI
         private readonly Image[] _profileTabBgs = new Image[3];
         private readonly Text[] _profileTabTexts = new Text[3];
         private readonly GameObject[] _profileTabContainers = new GameObject[3];
+        private Transform _profileSkinsScrollContent;
 
         // Tutorial Modal State (4 tabs: Cơ bản, Luật chơi, Các quân cờ, AR; 20 pages total)
         private TutorialTabType _selectedTutorialTab = TutorialTabType.Basics;
@@ -387,8 +408,11 @@ namespace MechChess.UI
         private PieceColor _selectedAIPieceColor = PieceColor.White;
         private Image[] _aiDiffCardBgs;
         private Text[] _aiDiffCardTitles;
-        private Image _radioWhiteImg;
-        private Image _radioBlackImg;
+        private Text[] _aiDiffCardElos;
+        private Image _sideWhiteCardBg;
+        private Image _sideBlackCardBg;
+        private Text _sideWhiteCardTxt;
+        private Text _sideBlackCardTxt;
         private GameObject _aiTimeDropdownMenu;
         private GameObject _aiTimeDropdownBlocker;
         private Text _aiTimeDropdownBtnText;
@@ -403,6 +427,11 @@ namespace MechChess.UI
         private Text _resultDurationTxt;
         private Text _resultScoreTxt;
         private Text _resultEloTxt;
+        private readonly Image[] _resultStarImgs = new Image[3];
+        private Image _resultCrownImg;
+        private Image _resultLaurelLeftImg;
+        private Image _resultLaurelRightImg;
+        private Image _resultDividerImg;
 
         // Online Matchmaking & Auth references (Liên Quân / Arena of Valor Style)
         private GameObject _loginModal;
@@ -425,6 +454,10 @@ namespace MechChess.UI
         private Text _matchmakingStatusTxt;
         private RectTransform _radarIconRt;
         private Coroutine _matchmakingTimerCoroutine;
+
+        private GameObject _lichessConnectModal;
+        private InputField _lichessTokenInput;
+        private Text _lichessStatusStripTxt;
 
         private GameObject _friendModal;
         private Text _friendMyNameTxt;
@@ -475,7 +508,21 @@ namespace MechChess.UI
             else if (_instance != this) { Destroy(this); return; }
 
             _isInGameMatch = false;
+
+            // Xóa sạch toàn bộ các Canvas cũ / tồn đọng từ Edit Mode trước khi dựng mới
+            var existingCanvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var c in existingCanvases)
+            {
+                if (c != null && c.gameObject.name == "ArcaneMenuCanvas")
+                {
+                    DestroyImmediate(c.gameObject);
+                }
+            }
+            _menuCanvasObj = null;
+
+            MedievalUIAssetLoader.ClearCache();
             AegisAudioManager.EnsureInitialized();
+            AegisAudioManager.Prewarm();
             AegisMusicManager.EnsureInitialized();
             AegisLocalization.LoadSavedLanguage();
             AegisLocalization.OnLanguageChanged += OnLanguageChanged;
@@ -485,6 +532,8 @@ namespace MechChess.UI
                 UserAccountManager.Instance.OnProfileUpdated += HandleProfileUpdated;
                 UserAccountManager.Instance.OnAccountUpdated += HandleAccountUpdated;
             }
+            AegisMech.UI.AegisPrefs.CoinsChanged += UpdateUserProfileUI;
+            AegisMech.UI.AegisPrefs.GemsChanged += UpdateUserProfileUI;
 
             BuildAllScreens(false);
         }
@@ -502,6 +551,14 @@ namespace MechChess.UI
                     NavigateToHome();
                 }
             }
+            else if (!_isInGameMatch)
+            {
+                _menuCanvasObj.SetActive(true);
+                if (_screenSplash == null || !_screenSplash.activeSelf)
+                {
+                    if (_screenMainMenu != null) _screenMainMenu.SetActive(true);
+                }
+            }
         }
 
         private void OnDestroy()
@@ -512,6 +569,8 @@ namespace MechChess.UI
                 UserAccountManager.Instance.OnProfileUpdated -= HandleProfileUpdated;
                 UserAccountManager.Instance.OnAccountUpdated -= HandleAccountUpdated;
             }
+            AegisMech.UI.AegisPrefs.CoinsChanged -= UpdateUserProfileUI;
+            AegisMech.UI.AegisPrefs.GemsChanged -= UpdateUserProfileUI;
         }
 
         private void HandleProfileUpdated(MechChess.Multiplayer.UserAccountData profile)
@@ -736,6 +795,10 @@ namespace MechChess.UI
                 {
                     HandleLichessGameEnded(result, eloDelta, goldGain, endReason);
                 };
+                LichessBridge.Instance.OnAccountProfileUpdated += (ok, u, e) =>
+                {
+                    // UpdateLichessStatusStrip();
+                };
             }
 
             // Ensure app keeps running in background for smooth multiplayer testing
@@ -780,6 +843,16 @@ namespace MechChess.UI
                 }
             }
 
+            // Hide main menu toolbar when any modal is open to prevent duplicate overlapping bars
+            if (_topRightToolbar != null)
+            {
+                bool hideToolbar = IsAnyModalOpen() || _isInGameMatch || (_screenMainMenu != null && !_screenMainMenu.activeSelf);
+                if (_topRightToolbar.activeSelf == hideToolbar)
+                {
+                    _topRightToolbar.SetActive(!hideToolbar);
+                }
+            }
+
             // Radar pulse in matchmaking modal
             if (_radarIconRt != null && _matchmakingModal != null && _matchmakingModal.activeSelf)
             {
@@ -789,27 +862,78 @@ namespace MechChess.UI
             // Update Mode Select Carousel Scroll Indicators (Dots & Side Chevrons)
             if (_screenModeSelect != null && _screenModeSelect.activeSelf && _modeScrollRect != null)
             {
-                float hPos = Mathf.Clamp01(_modeScrollRect.horizontalNormalizedPosition);
-                bool isPage0 = hPos < 0.5f;
+                bool canScroll = _modeScrollContent != null && _modeScrollRect.viewport != null 
+                    && (_modeScrollContent.rect.width > _modeScrollRect.viewport.rect.width + 10f);
 
-                if (_modePageDot0 != null)
+                if (!canScroll)
                 {
-                    _modePageDot0.color = isPage0 ? ColCyanGlow : new Color(0.35f, 0.45f, 0.55f, 0.55f);
-                    _modePageDot0.rectTransform.sizeDelta = new Vector2(isPage0 ? 32f : 12f, 8f);
+                    if (_modeChevronLeft != null) _modeChevronLeft.SetActive(false);
+                    if (_modeChevronRight != null) _modeChevronRight.SetActive(false);
+                    if (_modePageDot0 != null && _modePageDot0.transform.parent != null)
+                        _modePageDot0.transform.parent.gameObject.SetActive(false);
                 }
-                if (_modePageDot1 != null)
+                else
                 {
-                    _modePageDot1.color = !isPage0 ? ColCyanGlow : new Color(0.35f, 0.45f, 0.55f, 0.55f);
-                    _modePageDot1.rectTransform.sizeDelta = new Vector2(!isPage0 ? 32f : 12f, 8f);
-                }
+                    float hPos = Mathf.Clamp01(_modeScrollRect.horizontalNormalizedPosition);
+                    bool isPage0 = hPos < 0.5f;
 
-                if (_modeChevronLeft != null)
-                {
-                    _modeChevronLeft.SetActive(hPos > 0.05f);
+                    if (_modePageDot0 != null)
+                    {
+                        if (_modePageDot0.transform.parent != null) _modePageDot0.transform.parent.gameObject.SetActive(true);
+                        _modePageDot0.color = isPage0 ? new Color(0.95f, 0.82f, 0.42f, 1f) : new Color(0.35f, 0.28f, 0.20f, 0.65f);
+                        _modePageDot0.rectTransform.sizeDelta = new Vector2(isPage0 ? 32f : 12f, 8f);
+                    }
+                    if (_modePageDot1 != null)
+                    {
+                        _modePageDot1.color = !isPage0 ? new Color(0.95f, 0.82f, 0.42f, 1f) : new Color(0.35f, 0.28f, 0.20f, 0.65f);
+                        _modePageDot1.rectTransform.sizeDelta = new Vector2(!isPage0 ? 32f : 12f, 8f);
+                    }
+
+                    if (_modeChevronLeft != null)
+                    {
+                        _modeChevronLeft.SetActive(true);
+                        var lBtn = _modeChevronLeft.GetComponent<Button>();
+                        var lImg = _modeChevronLeft.GetComponent<Image>();
+                        bool active = hPos > 0.05f;
+                        if (lBtn != null) lBtn.interactable = active;
+                        if (lImg != null) lImg.color = active ? Color.white : new Color(1f, 1f, 1f, 0.35f);
+                    }
+                    if (_modeChevronRight != null)
+                    {
+                        _modeChevronRight.SetActive(true);
+                        var rBtn = _modeChevronRight.GetComponent<Button>();
+                        var rImg = _modeChevronRight.GetComponent<Image>();
+                        bool active = hPos < 0.95f;
+                        if (rBtn != null) rBtn.interactable = active;
+                        if (rImg != null) rImg.color = active ? Color.white : new Color(1f, 1f, 1f, 0.35f);
+                    }
                 }
-                if (_modeChevronRight != null)
+            }
+
+            // Update Shop Scroll Indicators (Side Chevrons)
+            if (_shopModal != null && _shopModal.activeSelf)
+            {
+                int tab = _selectedShopTab;
+                ScrollRect curSr = (tab >= 0 && tab < _shopCategoryScrollRects.Length) ? _shopCategoryScrollRects[tab] : null;
+                if (curSr != null)
                 {
-                    _modeChevronRight.SetActive(hPos < 0.95f);
+                    float hPos = Mathf.Clamp01(curSr.horizontalNormalizedPosition);
+                    if (_shopChevronLeft != null)
+                    {
+                        var lBtn = _shopChevronLeft.GetComponent<Button>();
+                        var lImg = _shopChevronLeft.GetComponent<Image>();
+                        bool active = hPos > 0.05f;
+                        if (lBtn != null) lBtn.interactable = active;
+                        if (lImg != null) lImg.color = active ? Color.white : new Color(1f, 1f, 1f, 0.35f);
+                    }
+                    if (_shopChevronRight != null)
+                    {
+                        var rBtn = _shopChevronRight.GetComponent<Button>();
+                        var rImg = _shopChevronRight.GetComponent<Image>();
+                        bool active = hPos < 0.95f;
+                        if (rBtn != null) rBtn.interactable = active;
+                        if (rImg != null) rImg.color = active ? Color.white : new Color(1f, 1f, 1f, 0.35f);
+                    }
                 }
             }
         }
@@ -865,7 +989,11 @@ namespace MechChess.UI
             CloseAllModals();
             if (_screenSplash != null) _screenSplash.SetActive(false);
             if (_screenModeSelect != null) _screenModeSelect.SetActive(false);
-            if (_screenMainMenu != null) _screenMainMenu.SetActive(true);
+            if (_screenMainMenu != null)
+            {
+                _screenMainMenu.SetActive(true);
+                _screenMainMenu.transform.SetSiblingIndex(1);
+            }
             if (_menuCanvasObj != null) _menuCanvasObj.SetActive(true);
             _selectedMenuNavIndex = 0;
             UpdateNavSelection(0);
@@ -915,7 +1043,16 @@ namespace MechChess.UI
             if (_settingsModal != null) _settingsModal.SetActive(false);
             if (_tutorialModal != null) _tutorialModal.SetActive(false);
             if (_shopModal != null) _shopModal.SetActive(false);
-            if (_collectionModal != null) _collectionModal.SetActive(false);
+            if (_mailboxModal != null) _mailboxModal.SetActive(false);
+            if (_collectionModal != null)
+            {
+                if (_collectionScrollCoroutine != null)
+                {
+                    StopCoroutine(_collectionScrollCoroutine);
+                    _collectionScrollCoroutine = null;
+                }
+                _collectionModal.SetActive(false);
+            }
             if (_pauseModal != null) _pauseModal.SetActive(false);
             if (_resultScreenModal != null) _resultScreenModal.SetActive(false);
             if (_profileModal != null) _profileModal.SetActive(false);
@@ -928,6 +1065,7 @@ namespace MechChess.UI
             if (_challengeModal != null) _challengeModal.SetActive(false);
             if (_leaderboardModal != null) _leaderboardModal.SetActive(false);
             if (_gameReviewModal != null) _gameReviewModal.SetActive(false);
+            if (_lichessConnectModal != null) _lichessConnectModal.SetActive(false);
             if (anyOpen) AegisAudioManager.PlayModalClose();
         }
 
@@ -936,15 +1074,24 @@ namespace MechChess.UI
         // =========================================================================
         private void BuildAllScreens(bool isRefresh = false)
         {
-            if (EventSystem.current == null)
+            EventSystem es = FindObjectOfType<EventSystem>();
+            if (es == null)
             {
                 GameObject esObj = new GameObject("EventSystem");
-                esObj.AddComponent<EventSystem>();
-#if ENABLE_INPUT_SYSTEM
+                es = esObj.AddComponent<EventSystem>();
                 esObj.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
-#else
-                esObj.AddComponent<StandaloneInputModule>();
-#endif
+            }
+            else
+            {
+                var legacyInput = es.GetComponent<StandaloneInputModule>();
+                if (legacyInput != null)
+                {
+                    DestroyImmediate(legacyInput);
+                }
+                if (es.GetComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
+                {
+                    es.gameObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+                }
             }
 
             _menuCanvasObj = new GameObject("ArcaneMenuCanvas");
@@ -971,6 +1118,7 @@ namespace MechChess.UI
             BuildScreen4AIDifficulty(_menuCanvasObj.transform, font);
             BuildScreen5Settings(_menuCanvasObj.transform, font);
             BuildScreen6Tutorial(_menuCanvasObj.transform, font);
+            BuildMailboxModal(_menuCanvasObj.transform, font);
             BuildScreen7Shop(_menuCanvasObj.transform, font);
             BuildScreen8Collection(_menuCanvasObj.transform, font);
             BuildScreen10Pause(_menuCanvasObj.transform, font);
@@ -988,6 +1136,7 @@ namespace MechChess.UI
             BuildOnlineChoiceModal(_menuCanvasObj.transform, font);
             BuildIncomingChallengeModal(_menuCanvasObj.transform, font);
             BuildSeasonLeaderboardModal(_menuCanvasObj.transform, font);
+            // BuildLichessConnectModal(_menuCanvasObj.transform, font);
 
             // Initially show Splash only if not refresh; on refresh ensure Main Menu base is active
             CloseAllModals();
@@ -1006,7 +1155,8 @@ namespace MechChess.UI
         }
 
         // =========================================================================
-        // SCREEN 1: SPLASH SCREEN (Animated loading bar 0-100%)
+        // =========================================================================
+        // SCREEN 1: SPLASH SCREEN (Animated loading bar 0-100% with Medieval Royal Design)
         // =========================================================================
         private void BuildScreen1Splash(Transform parent, Font font)
         {
@@ -1021,9 +1171,11 @@ namespace MechChess.UI
                 _userTappedSplash = true;
             });
 
-            // Background
+            // 1. Fullscreen Citadel Background
             Image bgImg = _screenSplash.AddComponent<Image>();
-            Sprite splashBg = ArcaneAssetLoader.LoadArcaneSprite("splash_bg.png");
+            bgImg.raycastTarget = true;
+            splashBtn.targetGraphic = bgImg;
+            Sprite splashBg = MedievalUIAssetLoader.GetSprite("medieval_main_menu_bg") ?? ArcaneAssetLoader.LoadArcaneSprite("main_menu_bg.png");
             if (splashBg != null)
             {
                 bgImg.sprite = splashBg;
@@ -1035,140 +1187,332 @@ namespace MechChess.UI
                 bgImg.color = ColBg;
             }
 
-            // Note: Logo "CHESS 3D AR" and "STRATEGY BEYOND REALITY" are already in the high-res artwork,
-            // so we don't render duplicate title text on top.
+            // 2. Top-Left: Aegis Games Publisher Logo
+            GameObject logoObj = new GameObject("AegisGamesLogo");
+            logoObj.transform.SetParent(_screenSplash.transform, false);
+            RectTransform logoRt = logoObj.AddComponent<RectTransform>();
+            logoRt.anchorMin = new Vector2(0f, 1f);
+            logoRt.anchorMax = new Vector2(0f, 1f);
+            logoRt.pivot = new Vector2(0f, 1f);
+            logoRt.anchoredPosition = new Vector2(25f, -18f);
+            logoRt.sizeDelta = new Vector2(133f, 60f);
+            Image logoImg = logoObj.AddComponent<Image>();
+            Sprite logoSp = MedievalUIAssetLoader.GetSprite("aegis_games_logo");
+            if (logoSp != null)
+            {
+                logoImg.sprite = logoSp;
+                logoImg.preserveAspect = true;
+            }
+            else
+            {
+                logoImg.color = Color.clear;
+            }
+            logoImg.raycastTarget = false;
 
-            // Loading bar container - centered horizontally, below logo (matching Box 1 design)
-            float barWidth = 700f;
-            float barHeight = 12f;
+            // 3. Top-Right: Version & Server Info
+            GameObject verObj = new GameObject("VersionServerText");
+            verObj.transform.SetParent(_screenSplash.transform, false);
+            RectTransform verRt = verObj.AddComponent<RectTransform>();
+            verRt.anchorMin = new Vector2(1f, 1f);
+            verRt.anchorMax = new Vector2(1f, 1f);
+            verRt.pivot = new Vector2(1f, 1f);
+            verRt.anchoredPosition = new Vector2(-25f, -20f);
+            verRt.sizeDelta = new Vector2(260f, 24f);
+            Text verTxt = verObj.AddComponent<Text>();
+            verTxt.font = font;
+            verTxt.fontSize = 12;
+            verTxt.alignment = TextAnchor.MiddleRight;
+            verTxt.color = new Color(0.88f, 0.82f, 0.72f, 0.80f);
+            verTxt.text = $"Phiên bản: v{Application.version} | Server: Asia";
+            verTxt.raycastTarget = false;
+
+            // 4. Center-Top: Grand "AegisMech-AR" Title Logo with Crown and Ribbon
+            GameObject titleObj = new GameObject("TitleLogoAegisMech");
+            titleObj.transform.SetParent(_screenSplash.transform, false);
+            RectTransform titleRt = titleObj.AddComponent<RectTransform>();
+            titleRt.anchorMin = new Vector2(0.5f, 0.73f);
+            titleRt.anchorMax = new Vector2(0.5f, 0.73f);
+            titleRt.pivot = new Vector2(0.5f, 0.5f);
+            titleRt.anchoredPosition = Vector2.zero;
+            titleRt.sizeDelta = new Vector2(620f, 246f);
+            Image titleImg = titleObj.AddComponent<Image>();
+            titleImg.sprite = MedievalUIAssetLoader.GetSprite("logo_aegismech");
+            titleImg.preserveAspect = true;
+            titleImg.raycastTarget = false;
+
+            // Grand Subtitle Ribbon: [ CHESS · STRATEGY · AR ]
+            GameObject ribbonObj = new GameObject("TitleRibbon");
+            ribbonObj.transform.SetParent(titleObj.transform, false);
+            RectTransform rRt = ribbonObj.AddComponent<RectTransform>();
+            rRt.anchorMin = new Vector2(0.5f, 0f);
+            rRt.anchorMax = new Vector2(0.5f, 0f);
+            rRt.pivot = new Vector2(0.5f, 1f);
+            rRt.anchoredPosition = new Vector2(0f, 10f);
+            rRt.sizeDelta = new Vector2(340f, 46f);
+
+            Image rImg = ribbonObj.AddComponent<Image>();
+            rImg.sprite = MedievalUIAssetLoader.GetSprite("banner_gold_ribbon");
+            rImg.type = Image.Type.Sliced;
+            rImg.color = Color.white;
+            rImg.raycastTarget = false;
+
+            GameObject rTxtObj = new GameObject("Text");
+            rTxtObj.transform.SetParent(ribbonObj.transform, false);
+            Text rTxt = rTxtObj.AddComponent<Text>();
+            rTxt.text = "CHESS  ·  STRATEGY  ·  AR";
+            rTxt.font = font;
+            rTxt.fontSize = 15;
+            rTxt.fontStyle = FontStyle.Bold;
+            rTxt.alignment = TextAnchor.MiddleCenter;
+            rTxt.color = new Color(0.96f, 0.88f, 0.58f, 1f);
+            rTxt.raycastTarget = false;
+            MakeTextCrisp(rTxt);
+
+            RectTransform rtrt = rTxtObj.GetComponent<RectTransform>();
+            rtrt.anchorMin = Vector2.zero;
+            rtrt.anchorMax = Vector2.one;
+            rtrt.offsetMin = new Vector2(25f, 2f);
+            rtrt.offsetMax = new Vector2(-25f, -2f);
+
+            // 6. Loading Status: Gear Icon + "ĐANG TẢI... 74%" (To rõ, vàng rực rỡ)
+            GameObject statusObj = new GameObject("LoadingStatusContainer");
+            statusObj.transform.SetParent(_screenSplash.transform, false);
+            RectTransform statusRt = statusObj.AddComponent<RectTransform>();
+            statusRt.anchorMin = new Vector2(0.5f, 0.25f);
+            statusRt.anchorMax = new Vector2(0.5f, 0.25f);
+            statusRt.pivot = new Vector2(0.5f, 0.5f);
+            statusRt.anchoredPosition = Vector2.zero;
+            statusRt.sizeDelta = new Vector2(460f, 44f);
+
+            GameObject gearObj = new GameObject("LoadingGearIcon");
+            gearObj.transform.SetParent(statusObj.transform, false);
+            _splashGearRt = gearObj.AddComponent<RectTransform>();
+            _splashGearRt.anchorMin = new Vector2(0.5f, 0.5f);
+            _splashGearRt.anchorMax = new Vector2(0.5f, 0.5f);
+            _splashGearRt.pivot = new Vector2(0.5f, 0.5f);
+            _splashGearRt.anchoredPosition = new Vector2(-120f, 0f);
+            _splashGearRt.sizeDelta = new Vector2(36f, 36f);
+            Image gearImg = gearObj.AddComponent<Image>();
+            gearImg.sprite = MedievalUIAssetLoader.GetSprite("icon_round_gear");
+            gearImg.preserveAspect = true;
+            gearImg.raycastTarget = false;
+
+            GameObject pctObj = new GameObject("LoadingPercentText");
+            pctObj.transform.SetParent(statusObj.transform, false);
+            RectTransform pctRt = pctObj.AddComponent<RectTransform>();
+            pctRt.anchorMin = new Vector2(0.5f, 0.5f);
+            pctRt.anchorMax = new Vector2(0.5f, 0.5f);
+            pctRt.pivot = new Vector2(0f, 0.5f);
+            pctRt.anchoredPosition = new Vector2(-92f, 0f);
+            pctRt.sizeDelta = new Vector2(300f, 38f);
+            _splashPercentTxt = pctObj.AddComponent<Text>();
+            _splashPercentTxt.font = font;
+            _splashPercentTxt.fontSize = 25;
+            _splashPercentTxt.fontStyle = FontStyle.Bold;
+            _splashPercentTxt.alignment = TextAnchor.MiddleLeft;
+            _splashPercentTxt.color = new Color(1.0f, 0.90f, 0.60f, 1.0f);
+            _splashPercentTxt.text = AegisLocalization.T("ĐANG TẢI... 0%", "LOADING... 0%");
+            MakeTextCrisp(_splashPercentTxt, new Color(0.12f, 0.06f, 0.02f, 0.95f));
+            _splashPercentTxt.raycastTarget = false;
+
+            // 7. Ornate Loading Progress Bar (Phóng to 1040 x 44, cân đối hoàn mỹ)
+            float barWidth = 1040f;
+            float barHeight = 44f;
+            float trackInsetX = 56f;
 
             GameObject barContainer = new GameObject("LoadingBarContainer");
             barContainer.transform.SetParent(_screenSplash.transform, false);
-            Image barBg = barContainer.AddComponent<Image>();
-            barBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)barWidth, (int)barHeight, 6f, ColMidnight, ColAntiqueGold, 1f);
-            barBg.type = Image.Type.Sliced;
-            RectTransform bcRt = barContainer.GetComponent<RectTransform>();
-            bcRt.anchorMin = new Vector2(0.5f, 0.135f);
-            bcRt.anchorMax = new Vector2(0.5f, 0.135f);
+            RectTransform bcRt = barContainer.AddComponent<RectTransform>();
+            bcRt.anchorMin = new Vector2(0.5f, 0.18f);
+            bcRt.anchorMax = new Vector2(0.5f, 0.18f);
             bcRt.pivot = new Vector2(0.5f, 0.5f);
-            bcRt.anchoredPosition = new Vector2(-25f, 0f);
+            bcRt.anchoredPosition = Vector2.zero;
             bcRt.sizeDelta = new Vector2(barWidth, barHeight);
 
-            // Loading bar fill
+            Image barBg = barContainer.AddComponent<Image>();
+            barBg.sprite = MedievalUIAssetLoader.GetSprite("loading_bar_frame");
+            barBg.type = Image.Type.Sliced;
+            barBg.raycastTarget = false;
+
+            // Inner Fill Track Container with RectMask2D
+            GameObject fillTrack = new GameObject("FillTrack");
+            fillTrack.transform.SetParent(barContainer.transform, false);
+            RectTransform ftRt = fillTrack.AddComponent<RectTransform>();
+            ftRt.anchorMin = new Vector2(0f, 0f);
+            ftRt.anchorMax = new Vector2(1f, 1f);
+            ftRt.pivot = new Vector2(0.5f, 0.5f);
+            ftRt.anchoredPosition = Vector2.zero;
+            ftRt.sizeDelta = new Vector2(-trackInsetX * 2f, -12f);
+            fillTrack.AddComponent<RectMask2D>();
+
+            // Molten Gold Fill Beam
             GameObject barFill = new GameObject("LoadingBarFill");
-            barFill.transform.SetParent(barContainer.transform, false);
+            barFill.transform.SetParent(fillTrack.transform, false);
             Image fillImg = barFill.AddComponent<Image>();
-            fillImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)barWidth, (int)barHeight, 5f, ColAntiqueGold, Color.white, 0f);
+            fillImg.sprite = MedievalUIAssetLoader.GetSprite("loading_bar_fill");
             fillImg.type = Image.Type.Sliced;
+            fillImg.raycastTarget = false;
             _splashBarFillRt = barFill.GetComponent<RectTransform>();
             _splashBarFillRt.anchorMin = new Vector2(0f, 0f);
             _splashBarFillRt.anchorMax = new Vector2(0f, 1f);
             _splashBarFillRt.pivot = new Vector2(0f, 0.5f);
-            _splashBarFillRt.anchoredPosition = new Vector2(1f, 0f);
-            _splashBarFillRt.sizeDelta = new Vector2(0f, -2f);
+            _splashBarFillRt.anchoredPosition = Vector2.zero;
+            _splashBarFillRt.sizeDelta = new Vector2(0f, 0f);
+            _splashFlareRt = null;
 
-            // Percentage Text - right beside the loading bar (e.g. 88%)
-            GameObject pctObj = new GameObject("PercentText");
-            pctObj.transform.SetParent(_screenSplash.transform, false);
-            _splashPercentTxt = pctObj.AddComponent<Text>();
-            _splashPercentTxt.text = "0%";
-            _splashPercentTxt.font = font;
-            _splashPercentTxt.fontSize = 20;
-            _splashPercentTxt.fontStyle = FontStyle.Bold;
-            _splashPercentTxt.alignment = TextAnchor.MiddleLeft;
-            _splashPercentTxt.color = ColCyanGlow;
-            RectTransform pctRt = pctObj.GetComponent<RectTransform>();
-            pctRt.anchorMin = new Vector2(0.5f, 0.135f);
-            pctRt.anchorMax = new Vector2(0.5f, 0.135f);
-            pctRt.pivot = new Vector2(0f, 0.5f);
-            pctRt.anchoredPosition = new Vector2(-25f + barWidth * 0.5f + 14f, 0f);
-            pctRt.sizeDelta = new Vector2(90f, 28f);
-
-            // "Đang tải..." Text - centered directly below the loading bar
-            GameObject txtObj = new GameObject("LoadingText");
-            txtObj.transform.SetParent(_screenSplash.transform, false);
-            _splashLoadingTxt = txtObj.AddComponent<Text>();
-            _splashLoadingTxt.text = AegisLocalization.T("Đang tải...", "Loading...");
+            // 8. Subcaption underneath bar
+            GameObject subObj = new GameObject("LoadingSubcaptionText");
+            subObj.transform.SetParent(_screenSplash.transform, false);
+            RectTransform subRt = subObj.AddComponent<RectTransform>();
+            subRt.anchorMin = new Vector2(0.5f, 0.115f);
+            subRt.anchorMax = new Vector2(0.5f, 0.115f);
+            subRt.pivot = new Vector2(0.5f, 0.5f);
+            subRt.anchoredPosition = Vector2.zero;
+            subRt.sizeDelta = new Vector2(850f, 32f);
+            _splashLoadingTxt = subObj.AddComponent<Text>();
             _splashLoadingTxt.font = font;
-            _splashLoadingTxt.fontSize = 18;
+            _splashLoadingTxt.fontSize = 17;
             _splashLoadingTxt.fontStyle = FontStyle.Normal;
             _splashLoadingTxt.alignment = TextAnchor.MiddleCenter;
-            _splashLoadingTxt.color = ColParchment;
-            RectTransform txtRt = txtObj.GetComponent<RectTransform>();
-            txtRt.anchorMin = new Vector2(0.5f, 0.135f);
-            txtRt.anchorMax = new Vector2(0.5f, 0.135f);
-            txtRt.pivot = new Vector2(0.5f, 0.5f);
-            txtRt.anchoredPosition = new Vector2(-25f, -24f);
-            txtRt.sizeDelta = new Vector2(380f, 28f);
+            _splashLoadingTxt.color = new Color(0.90f, 0.86f, 0.78f, 0.95f);
+            _splashLoadingTxt.text = AegisLocalization.T(
+                "Đang tải tài nguyên trò chơi, vui lòng không tắt ứng dụng...",
+                "Loading game resources, please do not close the app..."
+            );
+            MakeTextCrisp(_splashLoadingTxt, new Color(0.10f, 0.05f, 0.02f, 0.90f));
+            _splashLoadingTxt.raycastTarget = false;
+
+            // 9. Copyright Footer
+            GameObject copyObj = new GameObject("CopyrightFooter");
+            copyObj.transform.SetParent(_screenSplash.transform, false);
+            RectTransform copyRt = copyObj.AddComponent<RectTransform>();
+            copyRt.anchorMin = new Vector2(0.5f, 0.045f);
+            copyRt.anchorMax = new Vector2(0.5f, 0.045f);
+            copyRt.pivot = new Vector2(0.5f, 0.5f);
+            copyRt.anchoredPosition = Vector2.zero;
+            copyRt.sizeDelta = new Vector2(500f, 24f);
+            Text copyTxt = copyObj.AddComponent<Text>();
+            copyTxt.font = font;
+            copyTxt.fontSize = 14;
+            copyTxt.alignment = TextAnchor.MiddleCenter;
+            copyTxt.color = new Color(0.70f, 0.65f, 0.58f, 0.75f);
+            copyTxt.text = "© 2026 Aegis Games. All Rights Reserved.";
+            copyTxt.raycastTarget = false;
+            copyTxt.fontSize = 11;
+            copyTxt.alignment = TextAnchor.MiddleCenter;
+            copyTxt.color = new Color(0.60f, 0.55f, 0.50f, 0.70f);
+            copyTxt.text = "© 2026 AegisMech Studios. All rights reserved.";
+            copyTxt.raycastTarget = false;
         }
 
         private IEnumerator RunSplashSequence()
         {
             _userTappedSplash = false;
-            if (_screenSplash != null) _screenSplash.transform.SetAsLastSibling();
-            AegisAudioManager.PlayStartupJingle();
+            if (_screenSplash != null)
+            {
+                _screenSplash.SetActive(true);
+                _screenSplash.transform.SetAsLastSibling();
+            }
 
             CanvasGroup cg = _screenSplash != null ? _screenSplash.GetComponent<CanvasGroup>() : null;
             if (cg != null) cg.alpha = 1f;
 
-            // Loading bar progression matching the 2.4s startup fanfare
-            float duration = 2.8f;
+            float barWidth = 1040f;
+            float trackInsetX = 56f;
+            float maxFillWidth = barWidth - (trackInsetX * 2f); // 928f
+
+            // 1. Reset loading bar and text to clean initial 0% state
+            if (_splashBarFillRt != null) _splashBarFillRt.sizeDelta = new Vector2(0f, 0f);
+            if (_splashFlareRt != null) _splashFlareRt.anchoredPosition = new Vector2(trackInsetX, 0f);
+            if (_splashPercentTxt != null) _splashPercentTxt.text = AegisLocalization.T("ĐANG TẢI... 0%", "LOADING... 0%");
+
+            // 2. CRUCIAL FIX FOR PLAY MODE AUDIO DESYNC:
+            // When entering Play mode in Unity Editor, the engine stalls for domain reload / shader warmup / GameView rendering.
+            // If audio plays immediately on frame 0, the player hears the sound while the GameView is still blank or frozen!
+            // We wait for initial frames so the splash screen is 100% visibly drawn on screen in the GameView:
+            yield return new WaitForEndOfFrame();
+            yield return null;
+            yield return new WaitForEndOfFrame();
+
+            // A tiny micro-pause (120ms) after GameView appears to allow player eye to register the splash screen
+            yield return new WaitForSecondsRealtime(0.12f);
+
+            // 3. NOW play the startup jingle at the EXACT moment the animation starts!
+            AegisAudioManager.PlayStartupJingle();
+
+            float duration = 2.6f;
             float elapsed = 0f;
-            float maxFillWidth = 698f;
+
             while (elapsed < duration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float progress = Mathf.Clamp01(elapsed / duration);
-                // Ease-out curve for smooth loading feel
                 float easedProgress = 1f - Mathf.Pow(1f - progress, 3f);
+
                 if (_splashBarFillRt != null)
                 {
-                    _splashBarFillRt.sizeDelta = new Vector2(easedProgress * maxFillWidth, -2f);
+                    _splashBarFillRt.sizeDelta = new Vector2(easedProgress * maxFillWidth, 0f);
+                }
+                if (_splashFlareRt != null)
+                {
+                    _splashFlareRt.anchoredPosition = new Vector2(trackInsetX + (easedProgress * maxFillWidth), 0f);
+                }
+                if (_splashGearRt != null)
+                {
+                    _splashGearRt.Rotate(0f, 0f, -120f * Time.unscaledDeltaTime);
                 }
                 if (_splashPercentTxt != null)
                 {
-                    _splashPercentTxt.text = $"{Mathf.RoundToInt(easedProgress * 100f)}%";
+                    _splashPercentTxt.text = AegisLocalization.T(
+                        $"ĐANG TẢI... {Mathf.RoundToInt(easedProgress * 100f)}%",
+                        $"LOADING... {Mathf.RoundToInt(easedProgress * 100f)}%"
+                    );
                 }
                 yield return null;
             }
 
-            if (_splashBarFillRt != null) _splashBarFillRt.sizeDelta = new Vector2(maxFillWidth, -2f);
-            if (_splashPercentTxt != null) _splashPercentTxt.text = "100%";
+            if (_splashBarFillRt != null) _splashBarFillRt.sizeDelta = new Vector2(maxFillWidth, 0f);
+            if (_splashFlareRt != null) _splashFlareRt.anchoredPosition = new Vector2(trackInsetX + maxFillWidth, 0f);
+            if (_splashPercentTxt != null) _splashPercentTxt.text = AegisLocalization.T("ĐANG TẢI... 100%", "LOADING... 100%");
 
-            // Prompt player: "✦ CHẠM ĐỂ BẮT ĐẦU ✦" with smooth glowing pulse
+            // Brief ready notification and auto-advance into Main Menu (no infinite stall waiting for click)
             if (_splashLoadingTxt != null)
             {
-                _splashLoadingTxt.text = AegisLocalization.T("✦ CHẠM ĐỂ BẮT ĐẦU ✦", "✦ TAP TO START ✦");
-                _splashLoadingTxt.fontSize = 20;
+                _splashLoadingTxt.text = AegisLocalization.T("✦ SẴN SÀNG ✦", "✦ READY ✦");
+                _splashLoadingTxt.fontSize = 16;
                 _splashLoadingTxt.fontStyle = FontStyle.Bold;
                 _splashLoadingTxt.color = ColCyanGlow;
             }
 
-            // Reset tap state so touches during loading don't accidentally skip this screen
             _userTappedSplash = false;
-
-            // Wait for player tap, pulsing the text to invite interaction
-            float pulseTimer = 0f;
-            while (!_userTappedSplash)
+            float autoAdvanceTimer = 0.35f;
+            while (!_userTappedSplash && autoAdvanceTimer > 0f)
             {
-                pulseTimer += Time.unscaledDeltaTime;
-                if (_splashLoadingTxt != null)
+                autoAdvanceTimer -= Time.unscaledDeltaTime;
+                var mouse = UnityEngine.InputSystem.Mouse.current;
+                var touch = UnityEngine.InputSystem.Touchscreen.current;
+                var kb = UnityEngine.InputSystem.Keyboard.current;
+                if ((mouse != null && mouse.leftButton.wasPressedThisFrame) ||
+                    (touch != null && touch.primaryTouch.press.wasPressedThisFrame) ||
+                    (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame || kb.anyKey.wasPressedThisFrame)))
                 {
-                    float pulse = 0.50f + 0.50f * Mathf.PingPong(pulseTimer * 2.5f, 1f);
-                    _splashLoadingTxt.color = new Color(ColCyanGlow.r, ColCyanGlow.g, ColCyanGlow.b, pulse);
+                    _userTappedSplash = true;
+                    break;
                 }
                 yield return null;
             }
 
             AegisAudioManager.PlayButtonClick();
 
-            // Pre-activate Main Menu behind the splash screen for smooth seamless dissolve (prevents black screen)
-            if (_screenMainMenu != null) _screenMainMenu.SetActive(true);
+            if (_screenMainMenu != null)
+            {
+                _screenMainMenu.SetActive(true);
+                _screenMainMenu.transform.SetSiblingIndex(1);
+            }
 
-            // Smooth cinematic fade-out transition into Main Menu
             if (cg != null)
             {
-                float fadeDuration = 0.45f;
+                float fadeDuration = 0.35f;
                 float fadeElapsed = 0f;
                 while (fadeElapsed < fadeDuration)
                 {
@@ -1184,13 +1528,15 @@ namespace MechChess.UI
         // =========================================================================
         // SCREEN 2: MAIN MENU (Floating Citadel + Champion Dialogue + Glassy Left Nav)
         // =========================================================================
+        // SCREEN 2: MAIN MENU (Medieval Fantasy Chess - Clean RPG Presentation)
+        // =========================================================================
         private void BuildScreen2MainMenu(Transform parent, Font font)
         {
             _screenMainMenu = CreateFullscreenPanel(parent, "Screen2_MainMenu");
 
-            // Citadel Background
+            // Citadel Background (High-res 1920x1080 Medieval Fantasy Castle + Mech scene)
             Image bgImg = _screenMainMenu.AddComponent<Image>();
-            Sprite mainBg = ArcaneAssetLoader.LoadArcaneSprite("main_menu_bg.png");
+            Sprite mainBg = MedievalUIAssetLoader.GetSprite("medieval_main_menu_bg") ?? ArcaneAssetLoader.LoadArcaneSprite("main_menu_bg.png");
             if (mainBg != null)
             {
                 bgImg.sprite = mainBg;
@@ -1202,12 +1548,33 @@ namespace MechChess.UI
                 bgImg.color = ColBg;
             }
 
+            // Top-Left Logo
+            BuildTopLeftLogo(_screenMainMenu.transform, font);
 
-            // Top-Left Logo Badge: CHESS 3D AR (Exact User Design 100%)
+            // Left Navigation Stack (6 Medieval Buttons matching user mockup)
+            BuildLeftMainMenuNav(_screenMainMenu.transform, font);
+
+            // Top-Right Quick Header Toolbar (Gold 12,560 +, Gems 320 +, Mail, Inbox)
+            BuildTopRightProfileHeader(_screenMainMenu.transform, font);
+
+            // Right Friends Drawer (MLBB/WildRift style collapsible social drawer)
+            BuildRightFriendsDrawer(_screenMainMenu.transform, font);
+        }
+
+        private void BuildTopLeftLogo(Transform parent, Font font)
+        {
             GameObject logoContainer = new GameObject("TopLeftLogo");
-            logoContainer.transform.SetParent(_screenMainMenu.transform, false);
+            logoContainer.transform.SetParent(parent, false);
+
+            RectTransform lcRt = logoContainer.AddComponent<RectTransform>();
+            lcRt.anchorMin = new Vector2(0f, 1f);
+            lcRt.anchorMax = new Vector2(0f, 1f);
+            lcRt.pivot = new Vector2(0f, 1f);
+            lcRt.anchoredPosition = new Vector2(50f, -20f);
+            lcRt.sizeDelta = new Vector2(640f, 254f); // Enlarged to occupy 1/3 of the 1920 interface width
+
             Image logoImg = logoContainer.AddComponent<Image>();
-            Sprite logoSprite = ArcaneAssetLoader.LoadArcaneSprite("hud_logo_chess_3dar.png");
+            Sprite logoSprite = MedievalUIAssetLoader.GetSprite("logo_aegismech") ?? ArcaneAssetLoader.LoadArcaneSprite("hud_logo_chess_3dar.png");
             if (logoSprite != null)
             {
                 logoImg.sprite = logoSprite;
@@ -1215,196 +1582,460 @@ namespace MechChess.UI
             }
             else
             {
-                // Fallback to procedural plate and text if sprite is not yet imported
-                Sprite logoPlate = ArcaneAssetLoader.LoadArcaneSprite("hud_logo_plate.png");
-                if (logoPlate != null) logoImg.sprite = logoPlate;
-                else logoImg.color = new Color(0.02f, 0.08f, 0.18f, 0.85f);
+                logoImg.color = Color.clear;
             }
 
-            RectTransform lcRt = logoContainer.GetComponent<RectTransform>();
-            lcRt.anchorMin = new Vector2(0f, 1f);
-            lcRt.anchorMax = new Vector2(0f, 1f);
-            lcRt.pivot = new Vector2(0f, 1f);
-            lcRt.anchoredPosition = new Vector2(60f, -36f);
-            lcRt.sizeDelta = new Vector2(400f, 157f);
-
-            // Add smooth hover/click interaction to the logo
             Button logoBtn = logoContainer.AddComponent<Button>();
             logoBtn.onClick.AddListener(() =>
             {
                 ShowToast("AegisMech AR — Phiên bản Chess 3D AR", ToastType.Info);
             });
             logoContainer.AddComponent<MenuButtonEffect>();
+        }
 
-            // Top-Right User Profile Status Pill
-            BuildTopRightProfileHeader(_screenMainMenu.transform, font);
+        private void BuildBottomMottoRibbon(Transform parent, Font font)
+        {
+            GameObject ribbonObj = new GameObject("BottomMottoRibbon");
+            ribbonObj.transform.SetParent(parent, false);
 
-            // MLBB Style Horizontal Bottom Navigation Dock (Image 2)
-            BuildMLBBBottomBar(_screenMainMenu.transform, font);
+            RectTransform rRt = ribbonObj.AddComponent<RectTransform>();
+            rRt.anchorMin = new Vector2(0f, 0f);
+            rRt.anchorMax = new Vector2(0f, 0f);
+            rRt.pivot = new Vector2(0.5f, 0f);
+            rRt.anchoredPosition = new Vector2(370f, 20f); // Centered with Logo & Navigation Stack at X=370
+            rRt.sizeDelta = new Vector2(520f, 104f);
 
-            // MLBB Style Right Collapsible Friends Drawer (Image 3)
-            BuildRightFriendsDrawer(_screenMainMenu.transform, font);
+            Image rImg = ribbonObj.AddComponent<Image>();
+            Sprite rSp = MedievalUIAssetLoader.GetSprite("ribbon_parchment") ?? MedievalUIAssetLoader.GetSprite("banner_tip_full") ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.ParchmentRibbon);
+            if (rSp != null)
+            {
+                rImg.sprite = rSp;
+                rImg.type = Image.Type.Simple;
+                rImg.preserveAspect = true;
+            }
+            else
+            {
+                rImg.color = new Color(0.12f, 0.08f, 0.04f, 0.85f);
+            }
+
+            GameObject txtObj = new GameObject("MottoText");
+            txtObj.transform.SetParent(ribbonObj.transform, false);
+            Text t = txtObj.AddComponent<Text>();
+            t.text = AegisLocalization.T("“Trí tuệ dẫn lối, Mecha chinh phục.”", "“Wisdom guides, Mecha conquers.”");
+            t.font = font;
+            t.fontSize = 18;
+            t.fontStyle = FontStyle.BoldAndItalic;
+            t.alignment = TextAnchor.MiddleCenter;
+            t.color = new Color(0.24f, 0.15f, 0.08f, 1f); // Deep antique scribe ink on aged parchment
+            MakeTextCrisp(t);
+
+            RectTransform trt = txtObj.GetComponent<RectTransform>();
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = new Vector2(68f, 18f);
+            trt.offsetMax = new Vector2(-68f, -14f);
+        }
+
+        private GameObject CreateHeaderProfileButton(Transform parent, Font font)
+        {
+            float btnW = 92f;
+            float btnH = 92f;
+
+            GameObject btnObj = new GameObject("BtnProfile");
+            btnObj.transform.SetParent(parent, false);
+
+            LayoutElement le = btnObj.AddComponent<LayoutElement>();
+            le.preferredWidth = btnW;
+            le.preferredHeight = btnH;
+
+            // 1. Circular Avatar inside
+            GameObject avObj = new GameObject("AvatarImg");
+            avObj.transform.SetParent(btnObj.transform, false);
+            Image avImg = avObj.AddComponent<Image>();
+            Sprite avSp = MedievalUIAssetLoader.GetSprite("profile_avatar_round")
+                         ?? ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png")
+                         ?? ArcaneAssetLoader.LoadArcaneSprite("user_avatar.png");
+            if (avSp != null) avImg.sprite = avSp;
+            avImg.preserveAspect = true;
+            avImg.raycastTarget = false;
+            RectTransform avRt = avObj.GetComponent<RectTransform>();
+            avRt.anchorMin = new Vector2(0.5f, 0.5f);
+            avRt.anchorMax = new Vector2(0.5f, 0.5f);
+            avRt.pivot = new Vector2(0.5f, 0.5f);
+            avRt.anchoredPosition = Vector2.zero;
+            avRt.sizeDelta = new Vector2(72f, 72f);
+
+            // 2. Royal Golden Medallion Frame Overlay
+            Image bg = btnObj.AddComponent<Image>();
+            Sprite s = MedievalUIAssetLoader.GetSprite("avatar_frame_gold")
+                      ?? MedievalUIAssetLoader.GetSprite("avatar_medallion_gold");
+            if (s != null)
+            {
+                bg.sprite = s;
+                bg.type = Image.Type.Simple;
+                bg.preserveAspect = true;
+            }
+            else
+            {
+                bg.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodSmall);
+                bg.type = Image.Type.Sliced;
+            }
+            bg.color = Color.white;
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                ShowProfileDetailsModal();
+            });
+            btnObj.AddComponent<MenuButtonEffect>();
+
+            RectTransform rt = btnObj.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(btnW, btnH);
+
+            // 3. Level Badge Tag (Bottom right corner)
+            GameObject badgeObj = new GameObject("LevelBadge");
+            badgeObj.transform.SetParent(btnObj.transform, false);
+            Image bImg = badgeObj.AddComponent<Image>();
+            bImg.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.GoldChampion)
+                         ?? ArcaneAssetLoader.GetGlassBoxSprite(44, 20, 6f, ColGoldCta, ColGoldBorder, 1.2f);
+            bImg.type = Image.Type.Sliced;
+            bImg.raycastTarget = false;
+            RectTransform brt = badgeObj.GetComponent<RectTransform>();
+            brt.anchorMin = new Vector2(1f, 0f);
+            brt.anchorMax = new Vector2(1f, 0f);
+            brt.pivot = new Vector2(1f, 0f);
+            brt.anchoredPosition = new Vector2(4f, -4f);
+            brt.sizeDelta = new Vector2(48f, 22f);
+
+            GameObject lvlTxtObj = new GameObject("LvlTxt");
+            lvlTxtObj.transform.SetParent(badgeObj.transform, false);
+            _profileLevelTxt = lvlTxtObj.AddComponent<Text>();
+            int curLvl = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentLevel : 1;
+            _profileLevelTxt.text = $"Lv.{curLvl}";
+            _profileLevelTxt.font = font;
+            _profileLevelTxt.fontSize = 12;
+            _profileLevelTxt.fontStyle = FontStyle.Bold;
+            _profileLevelTxt.alignment = TextAnchor.MiddleCenter;
+            _profileLevelTxt.color = new Color(0.18f, 0.11f, 0.04f, 1f); // Crisp dark gold/carved text
+            _profileLevelTxt.raycastTarget = false;
+            MakeTextCrisp(_profileLevelTxt);
+            RectTransform ltrt = lvlTxtObj.GetComponent<RectTransform>();
+            ltrt.anchorMin = Vector2.zero;
+            ltrt.anchorMax = Vector2.one;
+            ltrt.offsetMin = Vector2.zero;
+            ltrt.offsetMax = Vector2.zero;
+            return btnObj;
         }
 
         private void BuildTopRightProfileHeader(Transform parent, Font font)
         {
-            // Compact Top-Right Quick Action Toolbar (Mail, Rewards, Settings)
-            // (Avatar, Name, and Level removed as requested to avoid duplication with Bottom Bar)
             GameObject toolbarObj = new GameObject("TopRightToolbar");
+            _topRightToolbar = toolbarObj;
             toolbarObj.transform.SetParent(parent, false);
 
             RectTransform tbRt = toolbarObj.AddComponent<RectTransform>();
             tbRt.anchorMin = new Vector2(1f, 1f);
             tbRt.anchorMax = new Vector2(1f, 1f);
             tbRt.pivot = new Vector2(1f, 1f);
-            tbRt.anchoredPosition = new Vector2(-60f, -36f);
-            tbRt.sizeDelta = new Vector2(180f, 52f);
+            tbRt.anchoredPosition = new Vector2(-45f, -16f);
+            tbRt.sizeDelta = new Vector2(1200f, 115f);
 
             HorizontalLayoutGroup hlg = toolbarObj.AddComponent<HorizontalLayoutGroup>();
             hlg.childAlignment = TextAnchor.MiddleRight;
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
-            hlg.spacing = 12f;
+            hlg.spacing = 16f;
 
-            CreateHeaderIconButton(toolbarObj.transform, "BtnMail", "icon_nav_mail.png", "✉", false, Vector2.zero, () => ShowToast(AegisLocalization.T("Không có thư mới.", "No new mail."), ToastType.Info), font);
-            CreateHeaderIconButton(toolbarObj.transform, "BtnInbox", "icon_nav_reward.png", "★", true, Vector2.zero, () => ShowToast(AegisLocalization.T("1 phần thưởng chưa nhận!", "1 unclaimed reward!"), ToastType.Success), font);
-            CreateHeaderIconButton(toolbarObj.transform, "BtnQuickMusic", "icon_set_audio.png", "🎵", false, Vector2.zero, () => InGameMusicSelectorUI.ToggleSelector(transform), font);
-            CreateHeaderIconButton(toolbarObj.transform, "BtnQuickSettings", "icon_nav_settings.png", "⚙", false, Vector2.zero, OpenSettingsModal, font);
+            // 0. Player Profile Button (Royal Golden Medallion Avatar with Lv badge) -> opens Profile Modal
+            CreateHeaderProfileButton(toolbarObj.transform, font);
+
+            // 1. Gold Currency Display: [🪙 12,560] (Enlarged 300x104 HUD display, not a button)
+            CreateCurrencyCapsule(toolbarObj.transform, "GoldCapsule", "🪙", "12,560", MedievalUIAssetLoader.GetSprite("counter_gold_capsule"), font);
+
+            // 2. Gem Currency Display: [💎 320] (Enlarged 300x104 HUD display, not a button)
+            CreateCurrencyCapsule(toolbarObj.transform, "GemCapsule", "💎", "320", MedievalUIAssetLoader.GetSprite("counter_gem_capsule"), font);
+
+            // 3. Help Button (?) -> opens Tutorial / How-to-play (Enlarged 90x90)
+            CreateHeaderIconButton(toolbarObj.transform, "BtnHelp", "icon_round_help", "?", false, new Vector2(90f, 90f), () =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                OpenTutorialModal();
+            }, font);
+
+            // 4. Settings Button (⚙ Gear) -> opens Settings Modal (Enlarged 90x90)
+            CreateHeaderIconButton(toolbarObj.transform, "BtnSettings", "icon_round_gear", "⚙", false, new Vector2(90f, 90f), () =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                OpenSettingsModal();
+            }, font);
+
+
+            // 6. Mail Button (✉) -> Royal Mailbox / Inbox Modal (Enlarged 112x90)
+            CreateHeaderIconButton(toolbarObj.transform, "BtnMail", "icon_mail_envelope", "✉", true, new Vector2(112f, 90f), () =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                OpenMailboxModal();
+            }, font);
+
+            // Quick Music Selector Button
+            CreateHeaderIconButton(toolbarObj.transform, "BtnQuickMusic", "icon_set_audio.png", "🎵", false, new Vector2(90f, 90f), () => InGameMusicSelectorUI.ToggleSelector(transform), font);
         }
 
-        private void CreateHeaderIconButton(Transform parent, string name, string spriteName, string fallbackGlyph, bool showRedBadge, Vector2 pos, Action onClick, Font font)
+        private void CreateCurrencyCapsule(Transform parent, string name, string iconGlyph, string defaultAmount, Sprite capsuleSprite, Font font)
         {
+            GameObject pillObj = new GameObject(name);
+            pillObj.transform.SetParent(parent, false);
+
+            bool isGem = name.Contains("Gem");
+            bool isGold = name.Contains("Gold");
+
+            // Substantially enlarged HUD counter dimensions: 300px width x 104px height (matches ~2.88:1 ratio of the HD art)
+            float width = 300f;
+            float height = 104f;
+
+            LayoutElement le = pillObj.AddComponent<LayoutElement>();
+            le.preferredWidth = width;
+            le.preferredHeight = height;
+
+            Image bg = pillObj.AddComponent<Image>();
+            if (capsuleSprite != null)
+            {
+                bg.sprite = capsuleSprite;
+                bg.type = (isGem || isGold) ? Image.Type.Simple : Image.Type.Sliced;
+                bg.preserveAspect = true;
+            }
+            else
+            {
+                bg.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.DarkGold);
+                bg.type = Image.Type.Sliced;
+            }
+            bg.color = Color.white;
+            bg.raycastTarget = false; // Pure display HUD, not clickable
+
+            RectTransform rt = pillObj.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(width, height);
+
+            // If neither Gem nor Gold bar sprite is used, render a fallback left icon
+            if (!isGem && !isGold)
+            {
+                string iconName = "icon_gold_coins";
+                Sprite iconSprite = MedievalUIAssetLoader.GetSprite(iconName);
+                GameObject iconObj = new GameObject("Icon", typeof(RectTransform));
+                iconObj.transform.SetParent(pillObj.transform, false);
+                RectTransform irt = iconObj.GetComponent<RectTransform>();
+                irt.anchorMin = new Vector2(0f, 0.5f);
+                irt.anchorMax = new Vector2(0f, 0.5f);
+                irt.pivot = new Vector2(0f, 0.5f);
+                irt.anchoredPosition = new Vector2(10f, 0f);
+                irt.sizeDelta = new Vector2(56f, 56f);
+
+                if (iconSprite != null)
+                {
+                    Image iconImg = iconObj.AddComponent<Image>();
+                    iconImg.sprite = iconSprite;
+                    iconImg.preserveAspect = true;
+                    iconImg.raycastTarget = false;
+                }
+                else
+                {
+                    Text itxt = iconObj.AddComponent<Text>();
+                    itxt.text = iconGlyph;
+                    itxt.font = font;
+                    itxt.fontSize = 32;
+                    itxt.alignment = TextAnchor.MiddleCenter;
+                    itxt.raycastTarget = false;
+                }
+            }
+
+            // Amount Text (Centered in the carved plate, enlarged and bold)
+            GameObject txtObj = new GameObject("Amount", typeof(RectTransform));
+            txtObj.transform.SetParent(pillObj.transform, false);
+            Text t = txtObj.AddComponent<Text>();
+            int realAmount = isGem ? AegisMech.UI.AegisPrefs.Gems : (isGold ? AegisMech.UI.AegisPrefs.Coins : 0);
+            t.text = realAmount > 0 ? realAmount.ToString("N0") : defaultAmount;
+            t.font = font;
+            t.fontSize = 34;
+            t.fontStyle = FontStyle.Bold;
+            t.alignment = TextAnchor.MiddleCenter;
+            t.color = isGem ? new Color(0.92f, 0.98f, 1.0f, 1f) : new Color(1.0f, 0.96f, 0.78f, 1f);
+            t.raycastTarget = false;
+            MakeTextCrisp(t);
+
+            if (isGem) _headerGemText = t;
+            else if (isGold) _headerGoldText = t;
+
+            RectTransform trt = txtObj.GetComponent<RectTransform>();
+            if (isGem || isGold)
+            {
+                trt.anchorMin = new Vector2(0.5f, 0.5f);
+                trt.anchorMax = new Vector2(0.5f, 0.5f);
+                trt.pivot = new Vector2(0.5f, 0.5f);
+                trt.anchoredPosition = isGold ? new Vector2(19f, -1f) : new Vector2(2.5f, 0f);
+                trt.sizeDelta = new Vector2(144f, 60f);
+            }
+            else
+            {
+                trt.anchorMin = Vector2.zero;
+                trt.anchorMax = Vector2.one;
+                trt.offsetMin = new Vector2(65f, 0f);
+                trt.offsetMax = new Vector2(-20f, 0f);
+            }
+            // Pure display HUD counter: No Button component, no clicks, no hover effects.
+        }
+
+        private void CreateHeaderIconButton(Transform parent, string name, string spriteName, string fallbackGlyph, bool showRedBadge, Vector2 customSize, Action onClick, Font font)
+        {
+            float btnW = customSize.x > 0 ? customSize.x : 90f;
+            float btnH = customSize.y > 0 ? customSize.y : 90f;
+
             GameObject btnObj = new GameObject(name);
             btnObj.transform.SetParent(parent, false);
 
             LayoutElement le = btnObj.AddComponent<LayoutElement>();
-            le.preferredWidth = 48f;
-            le.preferredHeight = 48f;
+            le.preferredWidth = btnW;
+            le.preferredHeight = btnH;
 
             Image bg = btnObj.AddComponent<Image>();
-            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(48, 48, 12f, new Color(0.06f, 0.14f, 0.26f, 0.88f), ColCyanBorder, 1.5f);
-            bg.type = Image.Type.Sliced;
+            Sprite s = MedievalUIAssetLoader.GetSprite(spriteName);
+            if (s != null)
+            {
+                bg.sprite = s;
+                bg.type = Image.Type.Simple;
+                bg.preserveAspect = true;
+            }
+            else
+            {
+                bg.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodSmall);
+                bg.type = Image.Type.Sliced;
+
+                GameObject txtObj = new GameObject("Glyph", typeof(RectTransform));
+                txtObj.transform.SetParent(btnObj.transform, false);
+                Text gt = txtObj.AddComponent<Text>();
+                gt.text = fallbackGlyph;
+                gt.font = font;
+                gt.fontSize = 32;
+                gt.fontStyle = FontStyle.Bold;
+                gt.alignment = TextAnchor.MiddleCenter;
+                gt.color = new Color(0.95f, 0.85f, 0.45f);
+                RectTransform grt = txtObj.GetComponent<RectTransform>();
+                grt.anchorMin = Vector2.zero;
+                grt.anchorMax = Vector2.one;
+                grt.offsetMin = Vector2.zero;
+                grt.offsetMax = Vector2.zero;
+            }
+            bg.color = Color.white;
 
             Button btn = btnObj.AddComponent<Button>();
             btn.onClick.AddListener(() => onClick?.Invoke());
             btnObj.AddComponent<MenuButtonEffect>();
 
             RectTransform rt = btnObj.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(48f, 48f);
-
-            Sprite iconSpr = null;
-            if (!string.IsNullOrEmpty(spriteName))
-            {
-                iconSpr = ArcaneAssetLoader.LoadArcaneSprite(spriteName);
-            }
-
-            if (iconSpr != null)
-            {
-                GameObject imgObj = new GameObject("Icon");
-                imgObj.transform.SetParent(btnObj.transform, false);
-                Image icImg = imgObj.AddComponent<Image>();
-                icImg.sprite = iconSpr;
-                icImg.color = ColTextWhite;
-                icImg.preserveAspect = true;
-                icImg.raycastTarget = false;
-                RectTransform irt = imgObj.GetComponent<RectTransform>();
-                irt.anchorMin = new Vector2(0.5f, 0.5f);
-                irt.anchorMax = new Vector2(0.5f, 0.5f);
-                irt.pivot = new Vector2(0.5f, 0.5f);
-                irt.anchoredPosition = Vector2.zero;
-                irt.sizeDelta = new Vector2(26f, 26f);
-            }
-            else
-            {
-                GameObject txtObj = new GameObject("Icon");
-                txtObj.transform.SetParent(btnObj.transform, false);
-                Text t = txtObj.AddComponent<Text>();
-                t.text = fallbackGlyph;
-                t.font = font;
-                t.fontSize = 22;
-                t.alignment = TextAnchor.MiddleCenter;
-                t.color = ColTextWhite;
-                RectTransform trt = txtObj.GetComponent<RectTransform>();
-                trt.anchorMin = Vector2.zero;
-                trt.anchorMax = Vector2.one;
-                trt.offsetMin = Vector2.zero;
-                trt.offsetMax = Vector2.zero;
-            }
+            rt.sizeDelta = new Vector2(btnW, btnH);
 
             if (showRedBadge)
             {
                 GameObject badge = new GameObject("RedBadge");
                 badge.transform.SetParent(btnObj.transform, false);
+                _mailBadgeObj = badge;
                 Image bImg = badge.AddComponent<Image>();
-                bImg.sprite = ArcaneAssetLoader.GetCircleSprite(14, new Color(1f, 0.25f, 0.25f, 1f), Color.white, 1f);
+                bImg.sprite = ArcaneAssetLoader.GetCircleSprite(32, new Color(0.88f, 0.12f, 0.12f, 1f), Color.white, 2f);
+                bImg.raycastTarget = false;
                 RectTransform brt = badge.GetComponent<RectTransform>();
                 brt.anchorMin = new Vector2(1f, 1f);
                 brt.anchorMax = new Vector2(1f, 1f);
                 brt.pivot = new Vector2(0.5f, 0.5f);
-                brt.anchoredPosition = new Vector2(-3f, -3f);
-                brt.sizeDelta = new Vector2(14f, 14f);
+                brt.anchoredPosition = new Vector2(-2f, -2f);
+                brt.sizeDelta = new Vector2(32f, 32f);
+
+                GameObject badgeTxt = new GameObject("1");
+                badgeTxt.transform.SetParent(badge.transform, false);
+                Text bt = badgeTxt.AddComponent<Text>();
+                bt.text = "1";
+                bt.font = font;
+                bt.fontSize = 18;
+                bt.fontStyle = FontStyle.Bold;
+                bt.alignment = TextAnchor.MiddleCenter;
+                bt.color = Color.white;
+                bt.raycastTarget = false;
+                MakeTextCrisp(bt);
+                RectTransform btrt = badgeTxt.GetComponent<RectTransform>();
+                btrt.anchorMin = Vector2.zero;
+                btrt.anchorMax = Vector2.one;
+                btrt.offsetMin = Vector2.zero;
+                btrt.offsetMax = Vector2.zero;
             }
         }
 
         private void BuildLeftMainMenuNav(Transform parent, Font font)
         {
-            // Dark Frosted Glass Dock Backing for Left Navigation (ensures high contrast over bright cloud backgrounds)
-            GameObject dockBacking = new GameObject("NavDockBacking");
-            dockBacking.transform.SetParent(parent, false);
-            RectTransform dbRt = dockBacking.AddComponent<RectTransform>();
-            dbRt.anchorMin = new Vector2(0f, 1f);
-            dbRt.anchorMax = new Vector2(0f, 1f);
-            dbRt.pivot = new Vector2(0f, 1f);
-            dbRt.anchoredPosition = new Vector2(40f, -205f);
-            dbRt.sizeDelta = new Vector2(420f, 495f);
-
-            Image dbImg = dockBacking.AddComponent<Image>();
-            dbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(420, 495, 24f, ColMidnight, new Color(0.725f, 0.604f, 0.380f, 0.35f), 1.5f);
-            dbImg.type = Image.Type.Sliced;
-            dbImg.raycastTarget = false;
-
             _navContainer = new GameObject("LeftNavigationStack");
             _navContainer.transform.SetParent(parent, false);
             RectTransform ncRt = _navContainer.AddComponent<RectTransform>();
             ncRt.anchorMin = new Vector2(0f, 1f);
             ncRt.anchorMax = new Vector2(0f, 1f);
             ncRt.pivot = new Vector2(0f, 1f);
-            ncRt.anchoredPosition = new Vector2(60f, -220f);
-            ncRt.sizeDelta = new Vector2(480f, 480f);
+            ncRt.anchoredPosition = new Vector2(-26f, -315f);
+            ncRt.sizeDelta = new Vector2(640f, 640f);
+            ncRt.localScale = new Vector3(1.24f, 1f, 1f); // Exactly matches the 640px logo width for perfect center alignment
 
             VerticalLayoutGroup vlg = _navContainer.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 18f;
-            vlg.childAlignment = TextAnchor.UpperLeft;
+            vlg.spacing = 8f;
+            vlg.childAlignment = TextAnchor.UpperCenter; // Centered directly under the 640px logo axis (X = 370px)
             vlg.childControlWidth = false;
             vlg.childControlHeight = false;
             vlg.childForceExpandWidth = false;
             vlg.childForceExpandHeight = false;
 
             string[] navLabels = {
-                AegisLocalization.T("Chơi ngay", "Play"),
-                AegisLocalization.T("Hướng dẫn", "Tutorial"),
-                AegisLocalization.T("Cài đặt", "Settings"),
+                AegisLocalization.T("Bắt đầu", "Start Game"),
+                AegisLocalization.T("Chế độ chơi", "Game Modes"),
                 AegisLocalization.T("Cửa hàng", "Shop"),
+                AegisLocalization.T("Bộ sưu tập", "Collection"),
                 AegisLocalization.T("Thoát", "Exit")
             };
-            string[] navIcons = { "icon_nav_home.png", "icon_nav_guide.png", "icon_nav_settings.png", "icon_nav_shop.png", "icon_nav_exit.png" };
+            string[] navSpriteNames = {
+                "btn_gold_start",
+                "btn_wood_mode",
+                "btn_wood_shop",
+                "btn_wood_collection",
+                "btn_wood_quit"
+            };
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < navLabels.Length; i++)
             {
                 int index = i;
+                bool isPrimary = (i == 0);
                 GameObject itemObj = new GameObject("NavItem_" + i);
                 itemObj.transform.SetParent(_navContainer.transform, false);
 
                 RectTransform rt = itemObj.AddComponent<RectTransform>();
-                rt.pivot = new Vector2(0f, 0.5f);
-                rt.sizeDelta = new Vector2(380f, 68f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                float itemW = 430f;
+                float itemH = isPrimary ? 116f : 104f;
+                rt.sizeDelta = new Vector2(itemW, itemH);
 
                 LayoutElement le = itemObj.AddComponent<LayoutElement>();
-                le.preferredWidth = 380f;
-                le.preferredHeight = 68f;
+                le.preferredWidth = itemW;
+                le.preferredHeight = itemH;
 
                 Image bg = itemObj.AddComponent<Image>();
-                bg.type = Image.Type.Sliced;
+                Sprite s = (AegisLocalization.CurrentLanguage == AppLanguage.Vietnamese)
+                    ? MedievalUIAssetLoader.GetSprite(navSpriteNames[i])
+                    : (isPrimary ? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.GoldChampion) : MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodCarved));
+
+                if (s != null)
+                {
+                    bg.sprite = s;
+                    bool isBaked = (AegisLocalization.CurrentLanguage == AppLanguage.Vietnamese);
+                    bg.type = isBaked ? Image.Type.Simple : Image.Type.Sliced;
+                    bg.preserveAspect = isBaked;
+                }
+                else
+                {
+                    bg.sprite = isPrimary ? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.GoldChampion) : MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodCarved);
+                    bg.type = Image.Type.Sliced;
+                }
                 bg.color = Color.white;
 
                 Button btn = itemObj.AddComponent<Button>();
@@ -1413,152 +2044,65 @@ namespace MechChess.UI
                 btn.onClick.AddListener(() => OnNavMenuItemClicked(index));
                 itemObj.AddComponent<MenuButtonEffect>();
 
-                // Left Icon (Crisp white asset tinted dynamically to white if active, or warm ivory / gold if inactive)
-                GameObject iconObj = new GameObject("Icon");
-                iconObj.transform.SetParent(itemObj.transform, false);
-                Image icImg = iconObj.AddComponent<Image>();
-                Sprite s = ArcaneAssetLoader.LoadArcaneSprite(navIcons[i]);
-                if (s != null) icImg.sprite = s;
-                icImg.preserveAspect = true;
-                icImg.raycastTarget = false;
-                icImg.color = (i == 0) ? Color.white : ColParchment;
-                RectTransform icRt = iconObj.GetComponent<RectTransform>();
-                icRt.anchorMin = new Vector2(0f, 0.5f);
-                icRt.anchorMax = new Vector2(0f, 0.5f);
-                icRt.pivot = new Vector2(0f, 0.5f);
-                icRt.anchoredPosition = new Vector2(20f, 0f);
-                icRt.sizeDelta = new Vector2(50f, 50f);
-
-                // Label Text
+                // Text overlay (only shown when localized text is different or fallback is needed)
                 GameObject txtObj = new GameObject("Label");
                 txtObj.transform.SetParent(itemObj.transform, false);
                 Text t = txtObj.AddComponent<Text>();
                 t.text = navLabels[i];
                 t.font = font;
-                t.fontSize = 28;
+                t.fontSize = isPrimary ? 28 : 22;
                 t.fontStyle = FontStyle.Bold;
-                t.alignment = TextAnchor.MiddleLeft;
-                t.color = (i == 0) ? Color.white : ColTextWhite;
+                t.alignment = TextAnchor.MiddleCenter;
                 t.raycastTarget = false;
+                MakeTextCrisp(t);
 
-                Outline outline = txtObj.AddComponent<Outline>();
-                outline.effectColor = new Color(0.01f, 0.03f, 0.08f, 0.95f);
-                outline.effectDistance = new Vector2(1.5f, -1.5f);
-
-                Shadow shadow = txtObj.AddComponent<Shadow>();
-                shadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
-                shadow.effectDistance = new Vector2(2f, -2f);
+                // Hide text overlay if sprite already has the exact baked Vietnamese artwork (except blank plate for Hồ sơ)
+                if (s != null && AegisLocalization.CurrentLanguage == AppLanguage.Vietnamese)
+                {
+                    t.color = new Color(0f, 0f, 0f, 0f);
+                }
+                else
+                {
+                    t.color = new Color(0.96f, 0.92f, 0.84f, 1f); // Harmonious ivory-gold on dark wood
+                }
 
                 RectTransform trt = txtObj.GetComponent<RectTransform>();
-                trt.anchorMin = new Vector2(0f, 0.5f);
-                trt.anchorMax = new Vector2(0f, 0.5f);
-                trt.pivot = new Vector2(0f, 0.5f);
-                trt.anchoredPosition = new Vector2(86f, 0f);
-                trt.sizeDelta = new Vector2(280f, 50f);
-
-                // Right Chevron Arrow Tip
-                GameObject chevObj = new GameObject("RightChevron");
-                chevObj.transform.SetParent(itemObj.transform, false);
-                Text cText = chevObj.AddComponent<Text>();
-                cText.text = ">";
-                cText.font = font;
-                cText.fontSize = 32;
-                cText.fontStyle = FontStyle.Bold;
-                cText.alignment = TextAnchor.MiddleCenter;
-                cText.color = ColCyanGlow;
-                cText.raycastTarget = false;
-                RectTransform crt = chevObj.GetComponent<RectTransform>();
-                crt.anchorMin = new Vector2(1f, 0.5f);
-                crt.anchorMax = new Vector2(1f, 0.5f);
-                crt.pivot = new Vector2(1f, 0.5f);
-                crt.anchoredPosition = new Vector2(-28f, 0f);
-                crt.sizeDelta = new Vector2(30f, 30f);
-                chevObj.SetActive(false);
+                trt.anchorMin = Vector2.zero;
+                trt.anchorMax = Vector2.one;
+                trt.offsetMin = new Vector2(isPrimary ? 50f : 40f, 0f);
+                trt.offsetMax = new Vector2(-20f, 0f);
 
                 _navItemObjs[i] = itemObj;
                 _navItemBgs[i] = bg;
                 _navItemRts[i] = rt;
-                _navItemIcons[i] = icRt;
-                _navItemIconImgs[i] = icImg;
                 _navItemTexts[i] = t;
-                _navItemChevrons[i] = chevObj;
                 _navItemLayoutElements[i] = le;
             }
 
-            // Initially highlight item 0 ("Chơi ngay")
-            UpdateNavSelection(0);
+            for (int k = navLabels.Length; k < _navItemObjs.Length; k++)
+            {
+                _navItemObjs[k] = null;
+                _navItemBgs[k] = null;
+                _navItemRts[k] = null;
+                _navItemTexts[k] = null;
+                _navItemLayoutElements[k] = null;
+            }
         }
 
         public void UpdateNavSelection(int selectedIndex)
         {
             _selectedMenuNavIndex = selectedIndex;
-            Sprite chevronSprite = ArcaneAssetLoader.LoadArcaneSprite("btn_play_chevron.png");
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < _navItemBgs.Length; i++)
             {
+                if (i >= _navItemBgs.Length || _navItemBgs[i] == null) continue;
                 bool isActive = (i == selectedIndex);
-                if (_navItemBgs[i] != null)
+                if (_navItemTexts[i] != null && _navItemTexts[i].color.a > 0.01f)
                 {
-                    if (isActive)
-                    {
-                        if (chevronSprite != null)
-                        {
-                            _navItemBgs[i].sprite = chevronSprite;
-                            _navItemBgs[i].type = Image.Type.Simple;
-                        }
-                        else
-                        {
-                            _navItemBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(440, 105, 18f, ColGlassActive, ColCyanBorder, 2f);
-                            _navItemBgs[i].type = Image.Type.Sliced;
-                        }
-                        _navItemBgs[i].color = Color.white;
-                    }
-                    else
-                    {
-                        _navItemBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 68, 14f, ColMidnight, ColMutedBorder, 1.2f);
-                        _navItemBgs[i].type = Image.Type.Sliced;
-                        _navItemBgs[i].color = Color.white;
-                    }
+                    Color normalColor = new Color(0.96f, 0.92f, 0.84f, 1f);
+                    Color activeColor = Color.white;
+                    _navItemTexts[i].color = (i == 0) ? new Color(0.18f, 0.11f, 0.04f, 1f) : (isActive ? activeColor : normalColor);
                 }
-
-                if (_navItemIconImgs[i] != null)
-                {
-                    _navItemIconImgs[i].color = isActive ? Color.white : ColParchment;
-                }
-
-                if (_navItemRts[i] != null)
-                {
-                    _navItemRts[i].sizeDelta = isActive ? new Vector2(440f, 105f) : new Vector2(380f, 68f);
-                }
-
-                if (_navItemLayoutElements[i] != null)
-                {
-                    _navItemLayoutElements[i].preferredWidth = isActive ? 440f : 380f;
-                    _navItemLayoutElements[i].preferredHeight = isActive ? 105f : 68f;
-                }
-
-                if (_navItemIcons[i] != null)
-                {
-                    _navItemIcons[i].sizeDelta = isActive ? new Vector2(58f, 58f) : new Vector2(48f, 48f);
-                    _navItemIcons[i].anchoredPosition = isActive ? new Vector2(22f, 0f) : new Vector2(20f, 0f);
-                }
-
-                if (_navItemTexts[i] != null)
-                {
-                    _navItemTexts[i].fontSize = isActive ? 32 : 28;
-                    _navItemTexts[i].color = isActive ? Color.white : new Color(0.95f, 0.98f, 1.0f, 0.95f);
-                    _navItemTexts[i].rectTransform.anchoredPosition = isActive ? new Vector2(98f, 0f) : new Vector2(86f, 0f);
-                }
-
-                if (_navItemChevrons[i] != null)
-                {
-                    _navItemChevrons[i].SetActive(isActive);
-                }
-            }
-
-            if (_navContainer != null)
-            {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(_navContainer.GetComponent<RectTransform>());
             }
         }
 
@@ -1569,20 +2113,25 @@ namespace MechChess.UI
             switch (index)
             {
                 case 0:
-                    NavigateToChooseMode();
+                    AegisAudioManager.PlayButtonClick();
+                    OpenAIDifficultyModal();
                     break;
                 case 1:
-                    OpenTutorialModal();
+                    AegisAudioManager.PlayButtonClick();
+                    NavigateToChooseMode();
                     break;
                 case 2:
-                    OpenSettingsModal();
-                    break;
-                case 3:
+                    AegisAudioManager.PlayButtonClick();
                     OpenShopModal();
                     break;
+                case 3:
+                    AegisAudioManager.PlayButtonClick();
+                    OpenCollectionModal();
+                    break;
                 case 4:
+                    AegisAudioManager.PlayButtonClick();
                     ShowConfirmDialog(
-                        AegisLocalization.T("Thoát trò chơi", "Exit Game"),
+                        AegisLocalization.T("THOÁT TRÒ CHƠI", "EXIT GAME"),
                         AegisLocalization.T("Bạn có muốn thoát khỏi trò chơi?", "Are you sure you want to exit the game?"),
                         () =>
                     {
@@ -1647,13 +2196,14 @@ namespace MechChess.UI
             barRt.anchoredPosition = Vector2.zero;
             barRt.sizeDelta = new Vector2(0f, 96f);
 
-            // Full Continuous Sapphire Blue Dock Background with Neon Cyan Top Glow
+            // Full Continuous Dark Wood & Bronze Dock Background with Antique Gold Inlay
             Image barBg = _mlbbBottomBar.AddComponent<Image>();
-            Sprite dockBgSp = ArcaneAssetLoader.LoadArcaneSprite("hud_mlbb_dock_bg.png");
+            Sprite dockBgSp = MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold") ?? ArcaneAssetLoader.LoadArcaneSprite("hud_mlbb_dock_bg.png");
             if (dockBgSp != null)
             {
                 barBg.sprite = dockBgSp;
-                barBg.preserveAspect = false;
+                barBg.type = Image.Type.Sliced;
+                barBg.color = Color.white;
             }
             else
             {
@@ -1686,7 +2236,7 @@ namespace MechChess.UI
             });
             profilePanel.AddComponent<MenuButtonEffect>();
 
-            // Circular Avatar Ring
+            // Circular Avatar Ring with Antique Gold Medallion
             GameObject avObj = new GameObject("AvatarRing");
             avObj.transform.SetParent(profilePanel.transform, false);
             RectTransform avRt = avObj.AddComponent<RectTransform>();
@@ -1698,7 +2248,8 @@ namespace MechChess.UI
 
             Image avRing = avObj.AddComponent<Image>();
             _profileAvatarImg = avRing;
-            avRing.sprite = AvatarCatalog.GetEquippedSprite();
+            avRing.sprite = AvatarCatalog.GetEquippedSprite() ?? MedievalUIAssetLoader.GetSprite("avatar_frame_gold") ?? MedievalUIAssetLoader.GetSprite("avatar_medallion_gold") ?? ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png");
+            if (avRing.sprite == null) avRing.color = new Color(0.85f, 0.70f, 0.35f);
             AvatarCatalog.Bind(avRing);
             avRing.preserveAspect = true;
             avRing.raycastTarget = false;
@@ -1801,11 +2352,12 @@ namespace MechChess.UI
             pRt.sizeDelta = new Vector2(430f, 142f);
 
             Image pBg = playObj.AddComponent<Image>();
-            Sprite pSp = ArcaneAssetLoader.LoadArcaneSprite("hud_mlbb_gold_btn.png");
+            Sprite pSp = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.GoldChampion) ?? ArcaneAssetLoader.LoadArcaneSprite("hud_mlbb_gold_btn.png");
             if (pSp != null)
             {
                 pBg.sprite = pSp;
-                pBg.preserveAspect = true;
+                pBg.type = Image.Type.Sliced;
+                pBg.color = Color.white;
             }
             else
             {
@@ -1850,7 +2402,7 @@ namespace MechChess.UI
             _btnPlayNowText.fontSize = 38;
             _btnPlayNowText.fontStyle = FontStyle.Bold;
             _btnPlayNowText.alignment = TextAnchor.MiddleCenter;
-            _btnPlayNowText.color = new Color(0.99f, 0.98f, 1.0f, 1f);
+            _btnPlayNowText.color = new Color(0.18f, 0.12f, 0.06f, 1f); // Dark Scribe Ink on Gold
             _btnPlayNowText.horizontalOverflow = HorizontalWrapMode.Overflow;
             _btnPlayNowText.verticalOverflow = VerticalWrapMode.Overflow;
             _btnPlayNowText.raycastTarget = false;
@@ -1974,6 +2526,7 @@ namespace MechChess.UI
             if (!_isInGameMatch) EnsureBaseScreenActive();
             if (_collectionModal != null)
             {
+                _collectionModal.transform.SetAsLastSibling();
                 _collectionModal.SetActive(true);
                 AegisAudioManager.PlayModalOpen();
                 RefreshCollectionUI();
@@ -2118,7 +2671,7 @@ namespace MechChess.UI
             hRt.anchorMin = new Vector2(0.5f, 1f);
             hRt.anchorMax = new Vector2(0.5f, 1f);
             hRt.pivot = new Vector2(0.5f, 1f);
-            hRt.anchoredPosition = new Vector2(0f, -12f);
+            hRt.anchoredPosition = new Vector2(0f, -115f);
             hRt.sizeDelta = new Vector2(256f, 38f);
 
             GameObject titleObj = new GameObject("TitleText");
@@ -2279,6 +2832,18 @@ namespace MechChess.UI
                 bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(256, (int)cardHeight, 14f, new Color(0.06f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.2f);
                 bg.type = Image.Type.Sliced;
 
+                // Click friend card / avatar to view their player profile
+                Button cardBtn = cardObj.AddComponent<Button>();
+                string capFriendName = friendName;
+                int capFriendElo = friendElo;
+                Sprite capFriendAv = friendAvatar;
+                cardBtn.onClick.AddListener(() =>
+                {
+                    AegisAudioManager.PlayButtonClick();
+                    ShowOtherPlayerProfile(capFriendName, capFriendElo, capFriendAv);
+                });
+                cardObj.AddComponent<MenuButtonEffect>();
+
                 // 1. Avatar with round frame + Corner Flag (Image 3 Style)
                 GameObject avObj = new GameObject("Avatar");
                 avObj.transform.SetParent(cardObj.transform, false);
@@ -2417,48 +2982,46 @@ namespace MechChess.UI
         {
             _screenModeSelect = CreateFullscreenPanel(parent, "Screen3_ModeSelect");
 
-            // Dark Obsidian Backing
+            // Atmospheric Royal Citadel Backdrop (fullscreen, rich fantasy medieval ambience)
             Image bgImg = _screenModeSelect.AddComponent<Image>();
-            bgImg.color = new Color(0.02f, 0.05f, 0.10f, 0.94f);
-
-            // Centered Main Window Card (1520 x 820)
-            GameObject windowObj = new GameObject("ModeSelectWindow");
-            windowObj.transform.SetParent(_screenModeSelect.transform, false);
-            RectTransform winRt = windowObj.AddComponent<RectTransform>();
-            winRt.anchorMin = new Vector2(0.5f, 0.5f);
-            winRt.anchorMax = new Vector2(0.5f, 0.5f);
-            winRt.pivot = new Vector2(0.5f, 0.5f);
-            winRt.anchoredPosition = Vector2.zero;
-            winRt.sizeDelta = new Vector2(1520f, 820f);
-
-            Image winBg = windowObj.AddComponent<Image>();
-            Sprite winBgSprite = ArcaneAssetLoader.LoadArcaneSprite("mode_select_window_bg.png");
-            if (winBgSprite != null)
+            Sprite mainBg = MedievalUIAssetLoader.GetSprite("medieval_main_menu_bg") ?? ArcaneAssetLoader.LoadArcaneSprite("main_menu_bg.png");
+            if (mainBg != null)
             {
-                winBg.sprite = winBgSprite;
-                winBg.type = Image.Type.Simple;
+                bgImg.sprite = mainBg;
+                bgImg.color = new Color(0.24f, 0.20f, 0.18f, 0.95f);
             }
             else
             {
-                winBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1520, 820, 24f, new Color(0.03f, 0.08f, 0.16f, 0.94f), ColCyanBorder, 2f);
-                winBg.type = Image.Type.Sliced;
+                bgImg.color = new Color(0.08f, 0.05f, 0.03f, 1.0f);
             }
 
-            // Window Header Bar (Height 70px, anchored top)
+            // Screen Header Bar (Spanning width, prominent AAA royal proportions)
             GameObject headerObj = new GameObject("ModeHeader");
-            headerObj.transform.SetParent(windowObj.transform, false);
+            headerObj.transform.SetParent(_screenModeSelect.transform, false);
             RectTransform hRt = headerObj.AddComponent<RectTransform>();
-            hRt.anchorMin = new Vector2(0.5f, 1f);
-            hRt.anchorMax = new Vector2(0.5f, 1f);
+            hRt.anchorMin = new Vector2(0f, 1f);
+            hRt.anchorMax = new Vector2(1f, 1f);
             hRt.pivot = new Vector2(0.5f, 1f);
-            hRt.anchoredPosition = new Vector2(0f, -16f);
-            hRt.sizeDelta = new Vector2(1440f, 64f);
+            hRt.anchoredPosition = new Vector2(0f, -115f);
+            hRt.sizeDelta = new Vector2(-160f, 130f);
 
-            // Back Button [ ❮ ] (Left)
+            // Back Button [ ‹ ] (Left, 72x72, Royal Round Chevron)
             GameObject backBtnObj = new GameObject("BtnBack");
             backBtnObj.transform.SetParent(headerObj.transform, false);
             Image bbImg = backBtnObj.AddComponent<Image>();
-            bbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(48, 48, 10f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
+            Sprite backSp = MedievalUIAssetLoader.GetSprite("btn_round_chevron_left")
+                          ?? MedievalUIAssetLoader.GetSprite("btn_wood_blank_baroque");
+            if (backSp != null)
+            {
+                bbImg.sprite = backSp;
+                bbImg.type = Image.Type.Simple;
+                bbImg.preserveAspect = true;
+                bbImg.color = Color.white;
+            }
+            else
+            {
+                bbImg.color = Color.clear;
+            }
             Button bbBtn = backBtnObj.AddComponent<Button>();
             bbBtn.onClick.AddListener(NavigateToHome);
             backBtnObj.AddComponent<MenuButtonEffect>();
@@ -2466,39 +3029,26 @@ namespace MechChess.UI
             bbRt.anchorMin = new Vector2(0f, 0.5f);
             bbRt.anchorMax = new Vector2(0f, 0.5f);
             bbRt.pivot = new Vector2(0f, 0.5f);
-            bbRt.anchoredPosition = new Vector2(10f, 0f);
-            bbRt.sizeDelta = new Vector2(48f, 48f);
+            bbRt.anchoredPosition = new Vector2(20f, 0f);
+            bbRt.sizeDelta = new Vector2(72f, 72f);
 
-            GameObject backIconObj = new GameObject("BackIcon");
-            backIconObj.transform.SetParent(backBtnObj.transform, false);
-            Sprite backSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_back.png");
-            if (backSprite != null)
-            {
-                Image backIconImg = backIconObj.AddComponent<Image>();
-                backIconImg.sprite = backSprite;
-                backIconImg.color = ColCyanGlow;
-            }
-            else
-            {
-                Text bkt = backIconObj.AddComponent<Text>();
-                bkt.text = "<";
-                bkt.font = font;
-                bkt.fontSize = 24;
-                bkt.fontStyle = FontStyle.Bold;
-                bkt.alignment = TextAnchor.MiddleCenter;
-                bkt.color = ColCyanGlow;
-            }
-            RectTransform backIconRt = backIconObj.GetComponent<RectTransform>();
-            backIconRt.anchorMin = Vector2.zero;
-            backIconRt.anchorMax = Vector2.one;
-            backIconRt.offsetMin = new Vector2(10f, 10f);
-            backIconRt.offsetMax = new Vector2(-10f, -10f);
-
-            // Settings Cog Button [ ⚙ ] (Right)
+            // Settings Cog Button [ ⚙ ] (Right, 72x72, Royal Round Gear)
             GameObject cogBtnObj = new GameObject("BtnSettings");
             cogBtnObj.transform.SetParent(headerObj.transform, false);
             Image cogImg = cogBtnObj.AddComponent<Image>();
-            cogImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(48, 48, 10f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
+            Sprite setSprite = MedievalUIAssetLoader.GetSprite("icon_round_gear")
+                            ?? MedievalUIAssetLoader.GetSprite("btn_wood_blank_baroque");
+            if (setSprite != null)
+            {
+                cogImg.sprite = setSprite;
+                cogImg.type = Image.Type.Simple;
+                cogImg.preserveAspect = true;
+                cogImg.color = Color.white;
+            }
+            else
+            {
+                cogImg.color = Color.clear;
+            }
             Button cogBtn = cogBtnObj.AddComponent<Button>();
             cogBtn.onClick.AddListener(OpenSettingsModal);
             cogBtnObj.AddComponent<MenuButtonEffect>();
@@ -2506,98 +3056,93 @@ namespace MechChess.UI
             cogRt.anchorMin = new Vector2(1f, 0.5f);
             cogRt.anchorMax = new Vector2(1f, 0.5f);
             cogRt.pivot = new Vector2(1f, 0.5f);
-            cogRt.anchoredPosition = new Vector2(-10f, 0f);
-            cogRt.sizeDelta = new Vector2(48f, 48f);
+            cogRt.anchoredPosition = new Vector2(-20f, 0f);
+            cogRt.sizeDelta = new Vector2(72f, 72f);
 
-            GameObject cogIconObj = new GameObject("CogIcon");
-            cogIconObj.transform.SetParent(cogBtnObj.transform, false);
-            Sprite setSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_settings.png");
-            if (setSprite != null)
+            // Crown Crest above Title (Enlarged to 130x56)
+            GameObject crownObj = new GameObject("CrownCrest");
+            crownObj.transform.SetParent(headerObj.transform, false);
+            Image crownImg = crownObj.AddComponent<Image>();
+            Sprite crownSp = MedievalUIAssetLoader.GetSprite("crown_victory_gold");
+            if (crownSp != null)
             {
-                Image cogIconImg = cogIconObj.AddComponent<Image>();
-                cogIconImg.sprite = setSprite;
-                cogIconImg.color = ColCyanGlow;
+                crownImg.sprite = crownSp;
+                crownImg.preserveAspect = true;
+                crownImg.color = Color.white;
+                crownImg.raycastTarget = false;
             }
-            else
-            {
-                Text cogTxt = cogIconObj.AddComponent<Text>();
-                cogTxt.text = "⚙";
-                cogTxt.font = font;
-                cogTxt.fontSize = 22;
-                cogTxt.alignment = TextAnchor.MiddleCenter;
-                cogTxt.color = ColCyanGlow;
-            }
-            RectTransform cogIconRt = cogIconObj.GetComponent<RectTransform>();
-            cogIconRt.anchorMin = Vector2.zero;
-            cogIconRt.anchorMax = Vector2.one;
-            cogIconRt.offsetMin = new Vector2(8f, 8f);
-            cogIconRt.offsetMax = new Vector2(-8f, -8f);
+            RectTransform crRt = crownObj.GetComponent<RectTransform>();
+            crRt.anchorMin = new Vector2(0.5f, 0.5f);
+            crRt.anchorMax = new Vector2(0.5f, 0.5f);
+            crRt.pivot = new Vector2(0.5f, 0.5f);
+            crRt.anchoredPosition = new Vector2(0f, 79f);
+            crRt.sizeDelta = new Vector2(130f, 56f);
+            crRt.localScale = new Vector3(1.98f, 2.8f, 1f);
 
-            // Title: "CHỌN CHẾ ĐỘ CHƠI" with left and right horizontal accent lines
+            // Title: "CHỌN CHẾ ĐỘ CHƠI" (Enlarged to fontSize 42)
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(headerObj.transform, false);
             Text titleTxt = titleObj.AddComponent<Text>();
             titleTxt.text = AegisLocalization.T("CHỌN CHẾ ĐỘ CHƠI", "CHOOSE GAME MODE");
             titleTxt.font = font;
-            titleTxt.fontSize = 32;
+            titleTxt.fontSize = 42;
             titleTxt.fontStyle = FontStyle.Bold;
             titleTxt.alignment = TextAnchor.MiddleCenter;
-            titleTxt.color = ColTextWhite;
+            titleTxt.color = new Color(1f, 0.90f, 0.62f, 1f); // Radiant Antique Gold
             titleTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             titleTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            titleTxt.raycastTarget = false;
+            MakeTextCrisp(titleTxt, new Color(0.18f, 0.10f, 0.04f, 0.95f));
+            Shadow tShadow = titleObj.AddComponent<Shadow>();
+            tShadow.effectColor = new Color(0.10f, 0.05f, 0.02f, 0.90f);
+            tShadow.effectDistance = new Vector2(2f, -2f);
             RectTransform tRt = titleObj.GetComponent<RectTransform>();
             tRt.anchorMin = new Vector2(0.5f, 0.5f);
             tRt.anchorMax = new Vector2(0.5f, 0.5f);
             tRt.pivot = new Vector2(0.5f, 0.5f);
-            tRt.anchoredPosition = Vector2.zero;
-            tRt.sizeDelta = new Vector2(460f, 44f);
+            tRt.anchoredPosition = new Vector2(0f, -6f);
+            tRt.sizeDelta = new Vector2(650f, 52f);
 
-            // Decorative Accent Lines beside Title
-            GameObject leftLineObj = new GameObject("AccentLineLeft");
-            leftLineObj.transform.SetParent(headerObj.transform, false);
-            Image llImg = leftLineObj.AddComponent<Image>();
-            llImg.color = ColAntiqueGold;
-            RectTransform llRt = leftLineObj.GetComponent<RectTransform>();
-            llRt.anchorMin = new Vector2(0.5f, 0.5f);
-            llRt.anchorMax = new Vector2(0.5f, 0.5f);
-            llRt.pivot = new Vector2(1f, 0.5f);
-            llRt.anchoredPosition = new Vector2(-190f, 0f);
-            llRt.sizeDelta = new Vector2(110f, 2f);
-
-            GameObject rightLineObj = new GameObject("AccentLineRight");
-            rightLineObj.transform.SetParent(headerObj.transform, false);
-            Image rlImg = rightLineObj.AddComponent<Image>();
-            rlImg.color = ColAntiqueGold;
-            RectTransform rlRt = rightLineObj.GetComponent<RectTransform>();
-            rlRt.anchorMin = new Vector2(0.5f, 0.5f);
-            rlRt.anchorMax = new Vector2(0.5f, 0.5f);
-            rlRt.pivot = new Vector2(0f, 0.5f);
-            rlRt.anchoredPosition = new Vector2(190f, 0f);
-            rlRt.sizeDelta = new Vector2(110f, 2f);
+            // Ornate Divider Wings under Title (Enlarged to 520x24)
+            GameObject divObj = new GameObject("Divider");
+            divObj.transform.SetParent(headerObj.transform, false);
+            Image divImg = divObj.AddComponent<Image>();
+            Sprite divSp = MedievalUIAssetLoader.GetSprite("divider_ornate_gold");
+            if (divSp != null)
+            {
+                divImg.sprite = divSp;
+                divImg.preserveAspect = true;
+                divImg.color = Color.white;
+                divImg.raycastTarget = false;
+            }
+            RectTransform divRt = divObj.GetComponent<RectTransform>();
+            divRt.anchorMin = new Vector2(0.5f, 0.5f);
+            divRt.anchorMax = new Vector2(0.5f, 0.5f);
+            divRt.pivot = new Vector2(0.5f, 0.5f);
+            divRt.anchoredPosition = new Vector2(0f, -40f);
+            divRt.sizeDelta = new Vector2(520f, 24f);
 
             // Horizontal Separator Line below Header
             GameObject sepObj = new GameObject("HeaderSeparator");
-            sepObj.transform.SetParent(windowObj.transform, false);
+            sepObj.transform.SetParent(_screenModeSelect.transform, false);
             Image sepImg = sepObj.AddComponent<Image>();
-            sepImg.color = ColMutedBorder;
+            sepImg.color = new Color(0.72f, 0.55f, 0.28f, 0.35f);
             RectTransform sepRt = sepObj.GetComponent<RectTransform>();
-            sepRt.anchorMin = new Vector2(0.5f, 1f);
-            sepRt.anchorMax = new Vector2(0.5f, 1f);
+            sepRt.anchorMin = new Vector2(0f, 1f);
+            sepRt.anchorMax = new Vector2(1f, 1f);
             sepRt.pivot = new Vector2(0.5f, 1f);
-            sepRt.anchoredPosition = new Vector2(0f, -80f);
-            sepRt.sizeDelta = new Vector2(1440f, 1.5f);
+            sepRt.anchoredPosition = new Vector2(0f, -267f);
+            sepRt.sizeDelta = new Vector2(-160f, 2f);
 
-            // Mode Select Horizontal Scrollable Carousel Container
-            // Width: 1400px (Displays exactly 4 cards initially at 320px width + 24px gap + 24px side padding)
-            // Dragging/scrolling smoothly reveals the 5th card ("Học cờ & Puzzle")
+            // Mode Select Horizontal Scrollable Carousel Container (1700 x 720)
             GameObject scrollObj = new GameObject("ModeScrollView");
-            scrollObj.transform.SetParent(windowObj.transform, false);
+            scrollObj.transform.SetParent(_screenModeSelect.transform, false);
             RectTransform svRt = scrollObj.AddComponent<RectTransform>();
             svRt.anchorMin = new Vector2(0.5f, 0.5f);
             svRt.anchorMax = new Vector2(0.5f, 0.5f);
             svRt.pivot = new Vector2(0.5f, 0.5f);
-            svRt.anchoredPosition = new Vector2(0f, -25f);
-            svRt.sizeDelta = new Vector2(1400f, 640f);
+            svRt.anchoredPosition = new Vector2(0f, -108f);
+            svRt.sizeDelta = new Vector2(1540f, 720f);
 
             // Transparent RaycastTarget Image for dragging anywhere across the carousel
             Image svImg = scrollObj.AddComponent<Image>();
@@ -2609,13 +3154,13 @@ namespace MechChess.UI
             _modeScrollRect = scrollObj.AddComponent<ScrollRect>();
             _modeScrollRect.horizontal = true;
             _modeScrollRect.vertical = false;
-            _modeScrollRect.movementType = ScrollRect.MovementType.Elastic;
+            _modeScrollRect.movementType = ScrollRect.MovementType.Clamped;
             _modeScrollRect.elasticity = 0.12f;
             _modeScrollRect.inertia = true;
             _modeScrollRect.decelerationRate = 0.135f;
             _modeScrollRect.scrollSensitivity = 35f;
 
-            // Content Container (5 cards: 5 * 320 + 4 * 24 + 48 = 1744px)
+            // Content Container (5 cards: 5 * 312 + 4 * 24 = 1656px, centered with 22px padding on each side)
             GameObject contentObj = new GameObject("ScrollContent");
             contentObj.transform.SetParent(scrollObj.transform, false);
             _modeScrollContent = contentObj.AddComponent<RectTransform>();
@@ -2623,14 +3168,15 @@ namespace MechChess.UI
             _modeScrollContent.anchorMax = new Vector2(0f, 0.5f);
             _modeScrollContent.pivot = new Vector2(0f, 0.5f);
             _modeScrollContent.anchoredPosition = Vector2.zero;
-            _modeScrollContent.sizeDelta = new Vector2(1744f, 630f);
+
+            float cardW = 480f;
+            float cardGap = 36f;
+            float totalCardsW = 5 * cardW + 4 * cardGap; // 2544px (Exactly 3 cards fit in 1540px viewport)
+            float padLeft = 14f;
+            _modeScrollContent.sizeDelta = new Vector2(totalCardsW + padLeft * 2f, 720f);
 
             _modeScrollRect.content = _modeScrollContent;
             _modeScrollRect.viewport = svRt;
-
-            float cardW = 320f;
-            float cardGap = 24f;
-            float padLeft = 24f;
 
             // Card 1: Đấu với máy (Index 0)
             CreateModeFeatureCard(0, contentObj.transform, "CardAI",
@@ -2652,65 +3198,67 @@ namespace MechChess.UI
 
             // Card 4: AR (Index 3)
             CreateModeFeatureCard(3, contentObj.transform, "CardAR",
-                AegisLocalization.T("AR", "AR Mode"),
-                AegisLocalization.T("Đặt bàn cờ lên mặt bàn thật\nqua camera", "Place board on tabletop\nvia camera tracking"),
+                AegisLocalization.T("Thực tế ảo AR", "AR Mode"),
+                AegisLocalization.T("Đặt bàn cờ lên mặt bàn thật\nqua camera không gian", "Place board on tabletop\nvia spatial camera tracking"),
                 "mode_card_ar.png", new Vector2(padLeft + 3 * (cardW + cardGap), 0f), () => LaunchGame(GameLaunchMode.AugmentedReality), font);
 
-            // Card 5: Học cờ & Puzzle (Index 4) - Kéo qua bên trái sẽ thấy!
+            // Card 5: Học cờ & Puzzle (Index 4)
             CreateModeFeatureCard(4, contentObj.transform, "CardLearn",
                 AegisLocalization.T("Học cờ & Puzzle", "Learn & Puzzles"),
-                AegisLocalization.T("Nâng cao kỹ năng\nvà tư duy chiến thuật", "Enhance chess tactics\nand strategic thinking"),
+                AegisLocalization.T("Giải thế cờ kinh điển\nvà nâng cao chiến thuật", "Solve classic chess puzzles\nand master tactics"),
                 "mode_card_learn.png", new Vector2(padLeft + 4 * (cardW + cardGap), 0f), OpenLearnScreen, font);
 
-            // Navigation Left Chevron [ ‹ ]
+            // Navigation Left Chevron [ ◀ ] - Large Ornate Bronze/Gold Disc
             _modeChevronLeft = new GameObject("ModeChevronLeft");
-            _modeChevronLeft.transform.SetParent(windowObj.transform, false);
+            _modeChevronLeft.transform.SetParent(_screenModeSelect.transform, false);
             Image lChvImg = _modeChevronLeft.AddComponent<Image>();
-            lChvImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(44, 44, 12f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
+            lChvImg.sprite = MedievalUIAssetLoader.GetSprite("btn_round_chevron_left");
+            lChvImg.type = Image.Type.Simple;
+            lChvImg.preserveAspect = true;
             Button lChvBtn = _modeChevronLeft.AddComponent<Button>();
-            lChvBtn.onClick.AddListener(() => SmoothScrollModeSelect(0f));
+            lChvBtn.onClick.AddListener(() => SmoothScrollModeSelectDelta(-0.50f));
             _modeChevronLeft.AddComponent<MenuButtonEffect>();
             RectTransform lChvRt = _modeChevronLeft.GetComponent<RectTransform>();
             lChvRt.anchorMin = new Vector2(0.5f, 0.5f);
             lChvRt.anchorMax = new Vector2(0.5f, 0.5f);
             lChvRt.pivot = new Vector2(0.5f, 0.5f);
-            lChvRt.anchoredPosition = new Vector2(-716f, -25f);
-            lChvRt.sizeDelta = new Vector2(44f, 44f);
-            CreateTextComp(_modeChevronLeft.transform, "‹", 28, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 2f), new Vector2(44f, 44f));
-            _modeChevronLeft.SetActive(false);
+            lChvRt.anchoredPosition = new Vector2(-825f, -22f);
+            lChvRt.sizeDelta = new Vector2(76f, 76f);
+            _modeChevronLeft.transform.SetAsLastSibling();
 
-            // Navigation Right Chevron [ › ]
+            // Navigation Right Chevron [ ▶ ] - Large Ornate Bronze/Gold Disc
             _modeChevronRight = new GameObject("ModeChevronRight");
-            _modeChevronRight.transform.SetParent(windowObj.transform, false);
+            _modeChevronRight.transform.SetParent(_screenModeSelect.transform, false);
             Image rChvImg = _modeChevronRight.AddComponent<Image>();
-            rChvImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(44, 44, 12f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
+            rChvImg.sprite = MedievalUIAssetLoader.GetSprite("btn_round_chevron_right");
+            rChvImg.type = Image.Type.Simple;
+            rChvImg.preserveAspect = true;
             Button rChvBtn = _modeChevronRight.AddComponent<Button>();
-            rChvBtn.onClick.AddListener(() => SmoothScrollModeSelect(1f));
+            rChvBtn.onClick.AddListener(() => SmoothScrollModeSelectDelta(0.50f));
             _modeChevronRight.AddComponent<MenuButtonEffect>();
             RectTransform rChvRt = _modeChevronRight.GetComponent<RectTransform>();
             rChvRt.anchorMin = new Vector2(0.5f, 0.5f);
             rChvRt.anchorMax = new Vector2(0.5f, 0.5f);
             rChvRt.pivot = new Vector2(0.5f, 0.5f);
-            rChvRt.anchoredPosition = new Vector2(716f, -25f);
-            rChvRt.sizeDelta = new Vector2(44f, 44f);
-            CreateTextComp(_modeChevronRight.transform, "›", 28, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 2f), new Vector2(44f, 44f));
+            rChvRt.anchoredPosition = new Vector2(825f, -22f);
+            rChvRt.sizeDelta = new Vector2(76f, 76f);
+            _modeChevronRight.transform.SetAsLastSibling();
 
-            // Bottom Pagination Indicator (Dots Container)
+            // Bottom Pagination Indicator (Dots Container - hidden when 5 cards fit)
             GameObject dotsObj = new GameObject("PaginationDots");
-            dotsObj.transform.SetParent(windowObj.transform, false);
+            dotsObj.transform.SetParent(_screenModeSelect.transform, false);
             RectTransform dotsRt = dotsObj.AddComponent<RectTransform>();
             dotsRt.anchorMin = new Vector2(0.5f, 0f);
             dotsRt.anchorMax = new Vector2(0.5f, 0f);
             dotsRt.pivot = new Vector2(0.5f, 0f);
-            dotsRt.anchoredPosition = new Vector2(0f, 18f);
+            dotsRt.anchoredPosition = new Vector2(0f, 62f);
             dotsRt.sizeDelta = new Vector2(100f, 20f);
 
-            // Dot 0 (Page 1: Cards 1-4)
+            // Dot 0
             GameObject dot0Obj = new GameObject("Dot0");
             dot0Obj.transform.SetParent(dotsObj.transform, false);
             _modePageDot0 = dot0Obj.AddComponent<Image>();
-            _modePageDot0.sprite = ArcaneAssetLoader.GetGlassBoxSprite(32, 8, 4f, ColCyanGlow, ColCyanGlow, 1f);
-            _modePageDot0.color = ColCyanGlow;
+            _modePageDot0.color = new Color(0.92f, 0.80f, 0.45f, 1f);
             Button d0Btn = dot0Obj.AddComponent<Button>();
             d0Btn.onClick.AddListener(() => SmoothScrollModeSelect(0f));
             RectTransform d0Rt = dot0Obj.GetComponent<RectTransform>();
@@ -2720,12 +3268,11 @@ namespace MechChess.UI
             d0Rt.anchoredPosition = new Vector2(-18f, 0f);
             d0Rt.sizeDelta = new Vector2(32f, 8f);
 
-            // Dot 1 (Page 2: Card 5)
+            // Dot 1
             GameObject dot1Obj = new GameObject("Dot1");
             dot1Obj.transform.SetParent(dotsObj.transform, false);
             _modePageDot1 = dot1Obj.AddComponent<Image>();
-            _modePageDot1.sprite = ArcaneAssetLoader.GetGlassBoxSprite(32, 8, 4f, Color.white, Color.white, 1f);
-            _modePageDot1.color = new Color(0.35f, 0.45f, 0.55f, 0.55f);
+            _modePageDot1.color = new Color(0.35f, 0.28f, 0.20f, 0.65f);
             Button d1Btn = dot1Obj.AddComponent<Button>();
             d1Btn.onClick.AddListener(() => SmoothScrollModeSelect(1f));
             RectTransform d1Rt = dot1Obj.GetComponent<RectTransform>();
@@ -2734,12 +3281,39 @@ namespace MechChess.UI
             d1Rt.pivot = new Vector2(0.5f, 0.5f);
             d1Rt.anchoredPosition = new Vector2(18f, 0f);
             d1Rt.sizeDelta = new Vector2(12f, 8f);
+
+            dotsObj.SetActive(false);
+
+            // Bottom Royal Quote Banner
+            GameObject quoteObj = new GameObject("ModeQuoteBanner");
+            quoteObj.transform.SetParent(_screenModeSelect.transform, false);
+            Text qTxt = quoteObj.AddComponent<Text>();
+            qTxt.text = AegisLocalization.T("“Trí tuệ dẫn lối, Mecha chinh phục. Hãy chọn đấu trường của bạn!”", "\"Wisdom guides, Mecha conquers. Choose your arena!\"");
+            qTxt.font = font;
+            qTxt.fontSize = 17;
+            qTxt.fontStyle = FontStyle.Italic;
+            qTxt.alignment = TextAnchor.MiddleCenter;
+            qTxt.color = new Color(0.85f, 0.72f, 0.52f, 0.85f);
+            MakeTextCrisp(qTxt);
+            RectTransform qRt = quoteObj.GetComponent<RectTransform>();
+            qRt.anchorMin = new Vector2(0.5f, 0f);
+            qRt.anchorMax = new Vector2(0.5f, 0f);
+            qRt.pivot = new Vector2(0.5f, 0f);
+            qRt.anchoredPosition = new Vector2(0f, 24f);
+            qRt.sizeDelta = new Vector2(800f, 32f);
         }
 
         public void SmoothScrollModeSelect(float targetPos)
         {
             if (_modeScrollCoroutine != null) StopCoroutine(_modeScrollCoroutine);
             _modeScrollCoroutine = StartCoroutine(DoSmoothScrollModeSelect(targetPos));
+        }
+
+        public void SmoothScrollModeSelectDelta(float delta)
+        {
+            if (_modeScrollRect == null) return;
+            float current = _modeScrollRect.horizontalNormalizedPosition;
+            SmoothScrollModeSelect(Mathf.Clamp01(current + delta));
         }
 
         private IEnumerator DoSmoothScrollModeSelect(float targetPos)
@@ -2769,15 +3343,18 @@ namespace MechChess.UI
 
             Image cardBg = cardObj.AddComponent<Image>();
             bool isSelected = (index == _selectedModeCardIndex);
-            Sprite frameSprite = ArcaneAssetLoader.LoadArcaneSprite(isSelected ? "mode_card_frame_active.png" : "mode_card_frame_inactive.png");
+            Sprite frameSprite = isSelected
+                ? MedievalUIAssetLoader.GetSprite("frame_mode_card_royal_active")
+                : MedievalUIAssetLoader.GetSprite("frame_mode_card_royal");
             if (frameSprite != null)
             {
                 cardBg.sprite = frameSprite;
                 cardBg.type = Image.Type.Simple;
+                cardBg.color = Color.white;
             }
             else
             {
-                cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(320, 600, 20f, ColGlassFill, isSelected ? ColCyanGlow : ColCyanBorder, isSelected ? 2.5f : 1.5f);
+                cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(400, 660, 20f, new Color(0.12f, 0.08f, 0.05f, 0.95f), isSelected ? new Color(1f, 0.85f, 0.40f) : ColGoldBorder, isSelected ? 3f : 1.5f);
                 cardBg.type = Image.Type.Sliced;
             }
             if (index >= 0 && index < _modeCardFrameBgs.Length)
@@ -2787,19 +3364,29 @@ namespace MechChess.UI
 
             Button btn = cardObj.AddComponent<Button>();
             btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = cardBg;
+            btn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                SelectModeCard(index, onClick);
+            });
             cardObj.AddComponent<MenuButtonEffect>();
 
             var clickFilter = cardObj.AddComponent<ModeCardClickFilter>();
-            clickFilter.onClick = () => SelectModeCard(index, onClick);
+            clickFilter.onClick = () =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                SelectModeCard(index, onClick);
+            };
 
             RectTransform rt = cardObj.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0f, 0.5f);
             rt.anchorMax = new Vector2(0f, 0.5f);
             rt.pivot = new Vector2(0f, 0.5f);
             rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(320f, 600f);
+            rt.sizeDelta = new Vector2(480f, 680f);
 
-            // Card Artwork Image - fills upper portion of card (294 x 405)
+            // Card Artwork Image - fills upper portion of card (430 x 424)
             GameObject artObj = new GameObject("Artwork");
             artObj.transform.SetParent(cardObj.transform, false);
             Image artImg = artObj.AddComponent<Image>();
@@ -2811,59 +3398,84 @@ namespace MechChess.UI
             }
             else
             {
-                artImg.color = new Color(0.1f, 0.2f, 0.35f, 0.8f);
+                artImg.color = new Color(0.1f, 0.15f, 0.25f, 0.9f);
             }
+            artImg.raycastTarget = false;
             RectTransform artRt = artObj.GetComponent<RectTransform>();
             artRt.anchorMin = new Vector2(0.5f, 1f);
             artRt.anchorMax = new Vector2(0.5f, 1f);
             artRt.pivot = new Vector2(0.5f, 1f);
-            artRt.anchoredPosition = new Vector2(0f, -14f);
-            artRt.sizeDelta = new Vector2(294f, 405f);
+            artRt.anchoredPosition = new Vector2(0f, -24f);
+            artRt.sizeDelta = new Vector2(430f, 424f);
 
-            // Title
+            // Plaque Separator Line
+            GameObject sepLine = new GameObject("PlaqueSep");
+            sepLine.transform.SetParent(cardObj.transform, false);
+            Image slImg = sepLine.AddComponent<Image>();
+            slImg.color = new Color(0.78f, 0.62f, 0.32f, 0.65f);
+            slImg.raycastTarget = false;
+            RectTransform slRt = sepLine.GetComponent<RectTransform>();
+            slRt.anchorMin = new Vector2(0.5f, 1f);
+            slRt.anchorMax = new Vector2(0.5f, 1f);
+            slRt.pivot = new Vector2(0.5f, 1f);
+            slRt.anchoredPosition = new Vector2(0f, -458f);
+            slRt.sizeDelta = new Vector2(420f, 2f);
+
+            // Title (Large, Bold & Crisp, Royal Antique Dark Ink on Parchment)
             GameObject titleObj = new GameObject("CardTitle");
             titleObj.transform.SetParent(cardObj.transform, false);
             Text titleTxt = titleObj.AddComponent<Text>();
             titleTxt.text = title;
             titleTxt.font = font;
-            titleTxt.fontSize = 26;
+            titleTxt.fontSize = 34; // Enlarged from 26 to 34 for prominent readability
             titleTxt.fontStyle = FontStyle.Bold;
             titleTxt.alignment = TextAnchor.MiddleCenter;
-            titleTxt.color = ColTextWhite;
+            titleTxt.color = new Color(0.20f, 0.10f, 0.04f, 1f); // Deep Royal Dark Walnut Ink
             titleTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             titleTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            titleTxt.raycastTarget = false;
+            MakeTextCrisp(titleTxt, new Color(1f, 0.88f, 0.55f, 0.70f));
+            Shadow tShadow = titleObj.AddComponent<Shadow>();
+            tShadow.effectColor = new Color(0.12f, 0.08f, 0.04f, 0.35f);
+            tShadow.effectDistance = new Vector2(1f, -1f);
             RectTransform tRt = titleObj.GetComponent<RectTransform>();
             tRt.anchorMin = new Vector2(0.5f, 0f);
             tRt.anchorMax = new Vector2(0.5f, 0f);
             tRt.pivot = new Vector2(0.5f, 0f);
-            tRt.anchoredPosition = new Vector2(0f, 106f);
-            tRt.sizeDelta = new Vector2(300f, 36f);
+            tRt.anchoredPosition = new Vector2(0f, 150f);
+            tRt.sizeDelta = new Vector2(440f, 48f);
 
-            // Description (centered 2 lines)
+            // Description (Balanced in center of parchment plaque, clear from bottom corner filigree)
             GameObject descObj = new GameObject("CardDesc");
             descObj.transform.SetParent(cardObj.transform, false);
             Text descTxt = descObj.AddComponent<Text>();
             descTxt.text = desc;
             descTxt.font = font;
-            descTxt.fontSize = 16;
-            descTxt.lineSpacing = 1.25f;
+            descTxt.fontSize = 21; // Enlarged from 17 to 21 for crystal clear reading
+            descTxt.fontStyle = FontStyle.Bold;
+            descTxt.lineSpacing = 1.20f;
             descTxt.alignment = TextAnchor.MiddleCenter;
-            descTxt.color = new Color(0.75f, 0.85f, 0.96f, 0.95f);
+            descTxt.color = new Color(0.35f, 0.22f, 0.10f, 1f); // Deep Medieval Walnut
             descTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             descTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            descTxt.raycastTarget = false;
+            MakeTextCrisp(descTxt, new Color(1f, 0.92f, 0.70f, 0.50f));
+            Shadow dShadow = descObj.AddComponent<Shadow>();
+            dShadow.effectColor = new Color(0.12f, 0.08f, 0.04f, 0.25f);
+            dShadow.effectDistance = new Vector2(1f, -1f);
             RectTransform dRt = descObj.GetComponent<RectTransform>();
             dRt.anchorMin = new Vector2(0.5f, 0f);
             dRt.anchorMax = new Vector2(0.5f, 0f);
             dRt.pivot = new Vector2(0.5f, 0f);
-            dRt.anchoredPosition = new Vector2(0f, 26f);
-            dRt.sizeDelta = new Vector2(300f, 64f);
+            dRt.anchoredPosition = new Vector2(0f, 68f);
+            dRt.sizeDelta = new Vector2(440f, 72f);
         }
 
         private void SelectModeCard(int index, Action onAction)
         {
             _selectedModeCardIndex = index;
-            Sprite activeSprite = ArcaneAssetLoader.LoadArcaneSprite("mode_card_frame_active.png");
-            Sprite inactiveSprite = ArcaneAssetLoader.LoadArcaneSprite("mode_card_frame_inactive.png");
+            Sprite activeSprite = MedievalUIAssetLoader.GetSprite("frame_mode_card_royal_active");
+            Sprite inactiveSprite = MedievalUIAssetLoader.GetSprite("frame_mode_card_royal");
 
             for (int i = 0; i < _modeCardFrameBgs.Length; i++)
             {
@@ -2872,10 +3484,7 @@ namespace MechChess.UI
                     if (activeSprite != null && inactiveSprite != null)
                     {
                         _modeCardFrameBgs[i].sprite = (i == index) ? activeSprite : inactiveSprite;
-                    }
-                    else
-                    {
-                        _modeCardFrameBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(320, 600, 20f, ColGlassFill, (i == index) ? ColCyanGlow : ColCyanBorder, (i == index) ? 2.5f : 1.5f);
+                        _modeCardFrameBgs[i].type = Image.Type.Simple;
                     }
                 }
             }
@@ -2885,7 +3494,7 @@ namespace MechChess.UI
 
 
         // =========================================================================
-        // SCREEN 4: CHỌN ĐỘ KHÓ AI (AI Select Modal with Paladin portrait & golden CTA)
+        // SCREEN 4: CHỌN ĐỘ KHÓ AI (Royal Medieval AI Difficulty & Config Modal)
         // =========================================================================
         private void BuildScreen4AIDifficulty(Transform parent, Font font)
         {
@@ -2895,61 +3504,121 @@ namespace MechChess.UI
             cardObj.transform.SetParent(_aiDifficultyModal.transform, false);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1280, 720, 28f, ColGlassFill, ColCyanBorder, 2f);
+            cardBg.sprite = MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ModalCrowned)
+                          ?? MedievalUIAssetLoader.GetSprite("frame_shop_collection_1520")
+                          ?? ArcaneAssetLoader.GetGlassBoxSprite(1260, 700, 28f, ColGlassFill, ColGoldBorder, 2f);
             cardBg.type = Image.Type.Sliced;
+            cardBg.color = Color.white;
 
             RectTransform cRt = cardObj.GetComponent<RectTransform>();
             cRt.anchoredPosition = Vector2.zero;
-            cRt.sizeDelta = new Vector2(1280f, 720f);
+            cRt.sizeDelta = new Vector2(1260f, 700f);
 
-            // Modal Header
-            CreateModalHeader(cardObj.transform, AegisLocalization.T("<  ĐẤU VỚI MÁY", "<  VS COMPUTER"), () => { SetAITimeDropdownOpen(false); _aiDifficultyModal.SetActive(false); }, font);
+            // ---------------------------------------------------------------------
+            // 1. Centered Royal Title Banner & Prominent Close Button
+            // (Safely centered below the Royal Crown arch, with large crisp [X] button)
+            // ---------------------------------------------------------------------
+            // Prominent Royal Close Button [ Crossed Swords Gold ] (Positioned as designed in Scene)
+            CreateRoyalCloseButton(cardObj.transform, new Vector2(-41f, -115f), () =>
+            {
+                SetAITimeDropdownOpen(false);
+                _aiDifficultyModal.SetActive(false);
+            }, 74f, "BtnAIDiffClose");
 
-            // Left Column: Paladin Knight Portrait
-            GameObject portraitObj = new GameObject("PaladinPortrait");
-            portraitObj.transform.SetParent(cardObj.transform, false);
-            Image portImg = portraitObj.AddComponent<Image>();
+            // ---------------------------------------------------------------------
+            // 2. Left Column: Paladin Portrait in Golden Royal Frame
+            // ---------------------------------------------------------------------
+            GameObject portCard = new GameObject("PaladinPortraitCard");
+            portCard.transform.SetParent(cardObj.transform, false);
+            RectTransform pCardRt = portCard.AddComponent<RectTransform>();
+            pCardRt.anchorMin = new Vector2(0f, 0.5f);
+            pCardRt.anchorMax = new Vector2(0f, 0.5f);
+            pCardRt.pivot = new Vector2(0f, 0.5f);
+            pCardRt.anchoredPosition = new Vector2(65f, -38f);
+            pCardRt.sizeDelta = new Vector2(280f, 480f);
+
+            // Royal Frame around Portrait
+            GameObject portFrameObj = new GameObject("PortraitFrame");
+            portFrameObj.transform.SetParent(portCard.transform, false);
+            Image pfImg = portFrameObj.AddComponent<Image>();
+            pfImg.sprite = MedievalUIAssetLoader.GetSprite("frame_mode_card_royal");
+            pfImg.type = Image.Type.Sliced;
+            pfImg.color = Color.white;
+            RectTransform pfRt = portFrameObj.GetComponent<RectTransform>();
+            pfRt.anchorMin = new Vector2(0.5f, 1f);
+            pfRt.anchorMax = new Vector2(0.5f, 1f);
+            pfRt.pivot = new Vector2(0.5f, 1f);
+            pfRt.anchoredPosition = Vector2.zero;
+            pfRt.sizeDelta = new Vector2(276f, 396f);
+
+            // Paladin Portrait Artwork
+            GameObject artObj = new GameObject("Artwork");
+            artObj.transform.SetParent(portFrameObj.transform, false);
+            Image artImg = artObj.AddComponent<Image>();
             Sprite portSprite = ArcaneAssetLoader.LoadArcaneSprite("ai_portrait_full.png");
-            if (portSprite != null) portImg.sprite = portSprite;
-            else portImg.color = new Color(0.1f, 0.2f, 0.35f);
-            portImg.preserveAspect = true;
-            RectTransform pRt = portraitObj.GetComponent<RectTransform>();
-            pRt.anchorMin = new Vector2(0f, 0.5f);
-            pRt.anchorMax = new Vector2(0f, 0.5f);
-            pRt.pivot = new Vector2(0f, 0.5f);
-            pRt.anchoredPosition = new Vector2(60f, -20f);
-            pRt.sizeDelta = new Vector2(280f, 480f);
+            if (portSprite != null) artImg.sprite = portSprite;
+            else artImg.color = new Color(0.1f, 0.2f, 0.35f);
+            artImg.preserveAspect = true;
+            artImg.raycastTarget = false;
+            RectTransform artRt = artObj.GetComponent<RectTransform>();
+            artRt.anchorMin = new Vector2(0.5f, 0.5f);
+            artRt.anchorMax = new Vector2(0.5f, 0.5f);
+            artRt.pivot = new Vector2(0.5f, 0.5f);
+            artRt.anchoredPosition = Vector2.zero;
+            artRt.sizeDelta = new Vector2(252f, 372f);
 
-            GameObject tipObj = new GameObject("PortTip");
-            tipObj.transform.SetParent(portraitObj.transform, false);
-            Text tipTxt = tipObj.AddComponent<Text>();
-            tipTxt.text = AegisLocalization.T("Chọn cấp độ của AI\nvà thiết lập thời gian.", "Select AI difficulty\nand match timer.");
-            tipTxt.font = font;
-            tipTxt.fontSize = 17;
-            tipTxt.fontStyle = FontStyle.Italic;
-            tipTxt.alignment = TextAnchor.MiddleCenter;
-            tipTxt.color = ColTextMuted;
-            tipTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
-            tipTxt.verticalOverflow = VerticalWrapMode.Overflow;
-            RectTransform tpRt = tipObj.GetComponent<RectTransform>();
-            tpRt.anchorMin = new Vector2(0.5f, 0f);
-            tpRt.anchorMax = new Vector2(0.5f, 0f);
-            tpRt.pivot = new Vector2(0.5f, 0f);
-            tpRt.anchoredPosition = new Vector2(0f, -40f);
-            tpRt.sizeDelta = new Vector2(260f, 40f);
+            // Paladin Name & Description below Frame
+            GameObject pNameObj = new GameObject("PaladinTitle");
+            pNameObj.transform.SetParent(portCard.transform, false);
+            Text pNameTxt = pNameObj.AddComponent<Text>();
+            pNameTxt.text = AegisLocalization.T("HIỆP SĨ PALADIN", "ROYAL PALADIN");
+            pNameTxt.font = font;
+            pNameTxt.fontSize = 20;
+            pNameTxt.fontStyle = FontStyle.Bold;
+            pNameTxt.alignment = TextAnchor.MiddleCenter;
+            pNameTxt.color = new Color(0.22f, 0.12f, 0.04f, 1f);
+            pNameTxt.raycastTarget = false;
+            MakeTextCrisp(pNameTxt, new Color(1f, 0.88f, 0.55f, 0.6f));
+            RectTransform pnRt = pNameObj.GetComponent<RectTransform>();
+            pnRt.anchorMin = new Vector2(0.5f, 0f);
+            pnRt.anchorMax = new Vector2(0.5f, 0f);
+            pnRt.pivot = new Vector2(0.5f, 0f);
+            pnRt.anchoredPosition = new Vector2(0f, 44f);
+            pnRt.sizeDelta = new Vector2(280f, 28f);
 
-            // Center Column: 4 Difficulty Selection Cards
+            GameObject pSubObj = new GameObject("PaladinSub");
+            pSubObj.transform.SetParent(portCard.transform, false);
+            Text pSubTxt = pSubObj.AddComponent<Text>();
+            pSubTxt.text = AegisLocalization.T("Trí tuệ nhân tạo Aegis", "Aegis Chess AI Engine");
+            pSubTxt.font = font;
+            pSubTxt.fontSize = 14;
+            pSubTxt.fontStyle = FontStyle.Italic;
+            pSubTxt.alignment = TextAnchor.MiddleCenter;
+            pSubTxt.color = new Color(0.48f, 0.35f, 0.20f, 1f);
+            pSubTxt.raycastTarget = false;
+            MakeTextCrisp(pSubTxt);
+            RectTransform psRt = pSubObj.GetComponent<RectTransform>();
+            psRt.anchorMin = new Vector2(0.5f, 0f);
+            psRt.anchorMax = new Vector2(0.5f, 0f);
+            psRt.pivot = new Vector2(0.5f, 0f);
+            psRt.anchoredPosition = new Vector2(0f, 18f);
+            psRt.sizeDelta = new Vector2(280f, 22f);
+
+            // ---------------------------------------------------------------------
+            // 3. Center Column: 4 Centered Difficulty Buttons
+            // ---------------------------------------------------------------------
             GameObject diffCol = new GameObject("DifficultyColumn");
             diffCol.transform.SetParent(cardObj.transform, false);
             RectTransform dcRt = diffCol.AddComponent<RectTransform>();
             dcRt.anchorMin = new Vector2(0.5f, 0.5f);
             dcRt.anchorMax = new Vector2(0.5f, 0.5f);
             dcRt.pivot = new Vector2(0.5f, 0.5f);
-            dcRt.anchoredPosition = new Vector2(-40f, -20f);
+            dcRt.anchoredPosition = new Vector2(-15f, -38f);
             dcRt.sizeDelta = new Vector2(380f, 480f);
 
             _aiDiffCardBgs = new Image[4];
             _aiDiffCardTitles = new Text[4];
+            _aiDiffCardElos = new Text[4];
 
             string[] diffTitles = {
                 AegisLocalization.T("DỄ", "EASY"),
@@ -2957,9 +3626,9 @@ namespace MechChess.UI
                 AegisLocalization.T("KHÓ", "HARD"),
                 AegisLocalization.T("RẤT KHÓ", "EXPERT")
             };
-            string[] diffElos = { "Elo ~ 900", "Elo ~ 1200", "Elo ~ 1600", "Elo ~ 2000" };
-            float diffStartY = 160f;
-            float diffStepY = 105f;
+            string[] diffElos = { "Elo ~ 800", "Elo ~ 1200", "Elo ~ 1600", "Elo ~ 2000" };
+            float diffStartY = 145f;
+            float diffStepY = 100f;
 
             for (int i = 0; i < 4; i++)
             {
@@ -2971,133 +3640,259 @@ namespace MechChess.UI
                 Image bg = btnObj.AddComponent<Image>();
                 _aiDiffCardBgs[idx] = bg;
                 bg.type = Image.Type.Sliced;
+                bg.color = Color.white;
 
                 Button btn = btnObj.AddComponent<Button>();
-                btn.onClick.AddListener(() => SelectAIDifficultyLevel(levelIndex));
+                btn.onClick.AddListener(() =>
+                {
+                    AegisAudioManager.PlayButtonClick();
+                    SelectAIDifficultyLevel(levelIndex);
+                });
                 btnObj.AddComponent<MenuButtonEffect>();
 
-                RectTransform bRt = btnObj.GetComponent<RectTransform>();
-                bRt.anchorMin = new Vector2(0.5f, 0.5f);
-                bRt.anchorMax = new Vector2(0.5f, 0.5f);
-                bRt.pivot = new Vector2(0.5f, 0.5f);
-                bRt.anchoredPosition = new Vector2(0f, diffStartY - i * diffStepY);
-                bRt.sizeDelta = new Vector2(360f, 85f);
+                RectTransform bRtCard = btnObj.GetComponent<RectTransform>();
+                bRtCard.anchorMin = new Vector2(0.5f, 0.5f);
+                bRtCard.anchorMax = new Vector2(0.5f, 0.5f);
+                bRtCard.pivot = new Vector2(0.5f, 0.5f);
+                bRtCard.anchoredPosition = new Vector2(0f, diffStartY - i * diffStepY);
+                bRtCard.sizeDelta = new Vector2(366f, 88f);
 
+                // Title centered horizontally in upper half of button
                 GameObject tObj = new GameObject("Title");
                 tObj.transform.SetParent(btnObj.transform, false);
                 Text t = tObj.AddComponent<Text>();
                 t.text = diffTitles[i];
                 t.font = font;
-                t.fontSize = 22;
+                t.fontSize = 21;
                 t.fontStyle = FontStyle.Bold;
-                t.alignment = TextAnchor.MiddleLeft;
+                t.alignment = TextAnchor.MiddleCenter;
                 t.horizontalOverflow = HorizontalWrapMode.Overflow;
                 t.verticalOverflow = VerticalWrapMode.Overflow;
+                t.raycastTarget = false;
+                MakeTextCrisp(t);
                 _aiDiffCardTitles[idx] = t;
                 RectTransform trt = tObj.GetComponent<RectTransform>();
-                trt.anchorMin = Vector2.zero;
-                trt.anchorMax = Vector2.one;
-                trt.offsetMin = new Vector2(30f, 15f);
-                trt.offsetMax = new Vector2(-20f, 0f);
+                trt.anchorMin = new Vector2(0.5f, 0.5f);
+                trt.anchorMax = new Vector2(0.5f, 0.5f);
+                trt.pivot = new Vector2(0.5f, 0.5f);
+                trt.anchoredPosition = new Vector2(0f, 13f);
+                trt.sizeDelta = new Vector2(340f, 28f);
 
+                // Elo centered horizontally in lower half of button
                 GameObject eloObj = new GameObject("Elo");
                 eloObj.transform.SetParent(btnObj.transform, false);
                 Text eloTxt = eloObj.AddComponent<Text>();
                 eloTxt.text = diffElos[i];
                 eloTxt.font = font;
-                eloTxt.fontSize = 17;
-                eloTxt.alignment = TextAnchor.MiddleLeft;
-                eloTxt.color = ColTextMuted;
+                eloTxt.fontSize = 15;
+                eloTxt.fontStyle = FontStyle.Bold;
+                eloTxt.alignment = TextAnchor.MiddleCenter;
                 eloTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
                 eloTxt.verticalOverflow = VerticalWrapMode.Overflow;
+                eloTxt.raycastTarget = false;
+                MakeTextCrisp(eloTxt);
+                _aiDiffCardElos[idx] = eloTxt;
                 RectTransform elort = eloObj.GetComponent<RectTransform>();
-                elort.anchorMin = Vector2.zero;
-                elort.anchorMax = Vector2.one;
-                elort.offsetMin = new Vector2(30f, 0f);
-                elort.offsetMax = new Vector2(-20f, -25f);
+                elort.anchorMin = new Vector2(0.5f, 0.5f);
+                elort.anchorMax = new Vector2(0.5f, 0.5f);
+                elort.pivot = new Vector2(0.5f, 0.5f);
+                elort.anchoredPosition = new Vector2(0f, -14f);
+                elort.sizeDelta = new Vector2(340f, 22f);
             }
             RefreshAIDifficultyVisuals();
 
-            // Right Column: Time Dropdown + Side Selector + Golden CTA Button [BẮT ĐẦU]
+            // ---------------------------------------------------------------------
+            // 4. Right Column: Time Dropdown + Side Selector Cards + Royal Start CTA
+            // ---------------------------------------------------------------------
             GameObject rightCol = new GameObject("RightConfigColumn");
             rightCol.transform.SetParent(cardObj.transform, false);
             RectTransform rcRt = rightCol.AddComponent<RectTransform>();
             rcRt.anchorMin = new Vector2(1f, 0.5f);
             rcRt.anchorMax = new Vector2(1f, 0.5f);
             rcRt.pivot = new Vector2(1f, 0.5f);
-            rcRt.anchoredPosition = new Vector2(-70f, -20f);
-            rcRt.sizeDelta = new Vector2(380f, 480f);
+            rcRt.anchoredPosition = new Vector2(-65f, -38f);
+            rcRt.sizeDelta = new Vector2(350f, 480f);
 
-            // Time Section
-            CreateConfigLabel(rightCol.transform, AegisLocalization.T("Thời gian", "Time Control"), new Vector2(0f, 180f), font);
-            GameObject timeDropdownObj = CreateGlassPill(rightCol.transform, "TimePill", $"{GetAITimeDisplay(_selectedAITimeIndex)}  ▼", new Vector2(0f, 135f), new Vector2(360f, 50f), font, () =>
+            // --- Section 1: Time Control ---
+            CreateSectionHeaderLabel(rightCol.transform, AegisLocalization.T("THỜI GIAN VÁN ĐẤU", "MATCH TIME CONTROL"), new Vector2(0f, 175f), font);
+
+            GameObject timeBtnObj = new GameObject("TimeDropdownBtn");
+            timeBtnObj.transform.SetParent(rightCol.transform, false);
+            Image timeBtnBg = timeBtnObj.AddComponent<Image>();
+            timeBtnBg.sprite = MedievalUIAssetLoader.GetSprite("dropdown_parchment_box")
+                           ?? MedievalUIAssetLoader.GetSprite("parchment_box_clean");
+            timeBtnBg.type = Image.Type.Sliced;
+            timeBtnBg.color = Color.white;
+            Button timeBtn = timeBtnObj.AddComponent<Button>();
+            timeBtn.onClick.AddListener(() =>
             {
+                AegisAudioManager.PlayButtonClick();
                 ToggleAITimeDropdown();
             });
-            _aiTimeDropdownBtnText = timeDropdownObj.GetComponentInChildren<Text>();
+            timeBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform tbRt = timeBtnObj.GetComponent<RectTransform>();
+            tbRt.anchorMin = new Vector2(0.5f, 0.5f);
+            tbRt.anchorMax = new Vector2(0.5f, 0.5f);
+            tbRt.pivot = new Vector2(0.5f, 0.5f);
+            tbRt.anchoredPosition = new Vector2(0f, 130f);
+            tbRt.sizeDelta = new Vector2(340f, 50f);
 
-            // Side Color Section
-            CreateConfigLabel(rightCol.transform, AegisLocalization.T("Màu quân", "Your Side"), new Vector2(0f, 65f), font);
+            GameObject timeTxtObj = new GameObject("Label");
+            timeTxtObj.transform.SetParent(timeBtnObj.transform, false);
+            _aiTimeDropdownBtnText = timeTxtObj.AddComponent<Text>();
+            _aiTimeDropdownBtnText.text = $"⏱  {GetAITimeDisplay(_selectedAITimeIndex)}";
+            _aiTimeDropdownBtnText.font = font;
+            _aiTimeDropdownBtnText.fontSize = 16;
+            _aiTimeDropdownBtnText.fontStyle = FontStyle.Bold;
+            _aiTimeDropdownBtnText.alignment = TextAnchor.MiddleLeft;
+            _aiTimeDropdownBtnText.color = new Color(0.22f, 0.12f, 0.04f, 1f);
+            _aiTimeDropdownBtnText.raycastTarget = false;
+            MakeTextCrisp(_aiTimeDropdownBtnText, new Color(1.0f, 0.94f, 0.75f, 0.85f));
+            RectTransform ttRt = timeTxtObj.GetComponent<RectTransform>();
+            ttRt.anchorMin = Vector2.zero;
+            ttRt.anchorMax = Vector2.one;
+            ttRt.offsetMin = new Vector2(26f, 0f);
+            ttRt.offsetMax = new Vector2(-48f, 0f);
 
-            // Radio White
-            GameObject radioW = new GameObject("RadioWhite");
-            radioW.transform.SetParent(rightCol.transform, false);
-            Button rwb = radioW.AddComponent<Button>();
-            rwb.onClick.AddListener(() => SelectAIPieceColor(PieceColor.White));
-            radioW.AddComponent<MenuButtonEffect>();
-            RectTransform rwRt = radioW.AddComponent<RectTransform>();
-            rwRt.anchoredPosition = new Vector2(-80f, 15f);
-            rwRt.sizeDelta = new Vector2(140f, 40f);
+            GameObject arrowObj = new GameObject("Arrow");
+            arrowObj.transform.SetParent(timeBtnObj.transform, false);
+            Text arrowTxt = arrowObj.AddComponent<Text>();
+            arrowTxt.text = "▼";
+            arrowTxt.font = font;
+            arrowTxt.fontSize = 13;
+            arrowTxt.fontStyle = FontStyle.Bold;
+            arrowTxt.alignment = TextAnchor.MiddleCenter;
+            arrowTxt.color = new Color(0.35f, 0.20f, 0.08f);
+            arrowTxt.raycastTarget = false;
+            RectTransform arRt = arrowObj.GetComponent<RectTransform>();
+            arRt.anchorMin = new Vector2(1f, 0.5f);
+            arRt.anchorMax = new Vector2(1f, 0.5f);
+            arRt.pivot = new Vector2(1f, 0.5f);
+            arRt.anchoredPosition = new Vector2(-18f, 0f);
+            arRt.sizeDelta = new Vector2(24f, 24f);
 
-            _radioWhiteImg = CreateRadioIndicator(radioW.transform, new Vector2(-45f, 0f));
-            CreateTextComp(radioW.transform, AegisLocalization.T("Trắng", "White"), 18, FontStyle.Bold, ColTextWhite, font, new Vector2(15f, 0f), new Vector2(90f, 30f));
+            // --- Section 2: Side Selection Cards ---
+            CreateSectionHeaderLabel(rightCol.transform, AegisLocalization.T("CHỌN PHE CHIẾN ĐẤU", "CHOOSE YOUR SIDE"), new Vector2(0f, 65f), font);
 
-            // Radio Black
-            GameObject radioB = new GameObject("RadioBlack");
-            radioB.transform.SetParent(rightCol.transform, false);
-            Button rbb = radioB.AddComponent<Button>();
-            rbb.onClick.AddListener(() => SelectAIPieceColor(PieceColor.Black));
-            radioB.AddComponent<MenuButtonEffect>();
-            RectTransform rbRt = radioB.AddComponent<RectTransform>();
-            rbRt.anchoredPosition = new Vector2(80f, 15f);
-            rbRt.sizeDelta = new Vector2(140f, 40f);
+            // Side White Card Button
+            GameObject sideWhiteObj = new GameObject("BtnSideWhite");
+            sideWhiteObj.transform.SetParent(rightCol.transform, false);
+            _sideWhiteCardBg = sideWhiteObj.AddComponent<Image>();
+            _sideWhiteCardBg.type = Image.Type.Sliced;
+            _sideWhiteCardBg.color = Color.white;
+            Button swBtn = sideWhiteObj.AddComponent<Button>();
+            swBtn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                SelectAIPieceColor(PieceColor.White);
+            });
+            sideWhiteObj.AddComponent<MenuButtonEffect>();
+            RectTransform swRt = sideWhiteObj.GetComponent<RectTransform>();
+            swRt.anchorMin = new Vector2(0.5f, 0.5f);
+            swRt.anchorMax = new Vector2(0.5f, 0.5f);
+            swRt.pivot = new Vector2(0.5f, 0.5f);
+            swRt.anchoredPosition = new Vector2(-88f, 15f);
+            swRt.sizeDelta = new Vector2(160f, 50f);
 
-            _radioBlackImg = CreateRadioIndicator(radioB.transform, new Vector2(-45f, 0f));
-            CreateTextComp(radioB.transform, AegisLocalization.T("Đen", "Black"), 18, FontStyle.Bold, ColTextWhite, font, new Vector2(15f, 0f), new Vector2(90f, 30f));
+            GameObject swTxtObj = new GameObject("Label");
+            swTxtObj.transform.SetParent(sideWhiteObj.transform, false);
+            _sideWhiteCardTxt = swTxtObj.AddComponent<Text>();
+            _sideWhiteCardTxt.text = AegisLocalization.T("♔  Quân Trắng", "♔  White");
+            _sideWhiteCardTxt.font = font;
+            _sideWhiteCardTxt.fontSize = 16;
+            _sideWhiteCardTxt.fontStyle = FontStyle.Bold;
+            _sideWhiteCardTxt.alignment = TextAnchor.MiddleCenter;
+            _sideWhiteCardTxt.raycastTarget = false;
+            MakeTextCrisp(_sideWhiteCardTxt);
+            RectTransform swtRt = swTxtObj.GetComponent<RectTransform>();
+            swtRt.anchorMin = Vector2.zero;
+            swtRt.anchorMax = Vector2.one;
+            swtRt.offsetMin = Vector2.zero;
+            swtRt.offsetMax = Vector2.zero;
+
+            // Side Black Card Button
+            GameObject sideBlackObj = new GameObject("BtnSideBlack");
+            sideBlackObj.transform.SetParent(rightCol.transform, false);
+            _sideBlackCardBg = sideBlackObj.AddComponent<Image>();
+            _sideBlackCardBg.type = Image.Type.Sliced;
+            _sideBlackCardBg.color = Color.white;
+            Button sbBtn = sideBlackObj.AddComponent<Button>();
+            sbBtn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                SelectAIPieceColor(PieceColor.Black);
+            });
+            sideBlackObj.AddComponent<MenuButtonEffect>();
+            RectTransform sbRt = sideBlackObj.GetComponent<RectTransform>();
+            sbRt.anchorMin = new Vector2(0.5f, 0.5f);
+            sbRt.anchorMax = new Vector2(0.5f, 0.5f);
+            sbRt.pivot = new Vector2(0.5f, 0.5f);
+            sbRt.anchoredPosition = new Vector2(88f, 15f);
+            sbRt.sizeDelta = new Vector2(160f, 50f);
+
+            GameObject sbTxtObj = new GameObject("Label");
+            sbTxtObj.transform.SetParent(sideBlackObj.transform, false);
+            _sideBlackCardTxt = sbTxtObj.AddComponent<Text>();
+            _sideBlackCardTxt.text = AegisLocalization.T("♚  Quân Đen", "♚  Black");
+            _sideBlackCardTxt.font = font;
+            _sideBlackCardTxt.fontSize = 16;
+            _sideBlackCardTxt.fontStyle = FontStyle.Bold;
+            _sideBlackCardTxt.alignment = TextAnchor.MiddleCenter;
+            _sideBlackCardTxt.raycastTarget = false;
+            MakeTextCrisp(_sideBlackCardTxt);
+            RectTransform sbtRt = sbTxtObj.GetComponent<RectTransform>();
+            sbtRt.anchorMin = Vector2.zero;
+            sbtRt.anchorMax = Vector2.one;
+            sbtRt.offsetMin = Vector2.zero;
+            sbtRt.offsetMax = Vector2.zero;
 
             RefreshRadioVisuals();
 
-            // Golden CTA [BẮT ĐẦU]
+            // --- Section 3: Golden Royal CTA Button [⚔ VÀO TRẬN] ---
             GameObject ctaObj = new GameObject("BtnStartAIMatch");
             ctaObj.transform.SetParent(rightCol.transform, false);
             Image ctaBg = ctaObj.AddComponent<Image>();
-            ctaBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(360, 64, 32f, ColGoldCta, ColGoldBorder, 2f);
+            ctaBg.sprite = MedievalUIAssetLoader.GetSprite("btn_hex_gold_radiant")
+                         ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold");
             ctaBg.type = Image.Type.Sliced;
+            ctaBg.color = Color.white;
             Button ctaBtn = ctaObj.AddComponent<Button>();
-            ctaBtn.onClick.AddListener(ExecuteStartAIMatch);
+            ctaBtn.targetGraphic = ctaBg;
+            ctaBtn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                ExecuteStartAIMatch();
+            });
             ctaObj.AddComponent<MenuButtonEffect>();
             RectTransform ctaRt = ctaObj.GetComponent<RectTransform>();
-            ctaRt.anchoredPosition = new Vector2(0f, -120f);
-            ctaRt.sizeDelta = new Vector2(360f, 64f);
+            ctaRt.anchorMin = new Vector2(0.5f, 0.5f);
+            ctaRt.anchorMax = new Vector2(0.5f, 0.5f);
+            ctaRt.pivot = new Vector2(0.5f, 0.5f);
+            ctaRt.anchoredPosition = new Vector2(0f, -115f);
+            ctaRt.sizeDelta = new Vector2(340f, 66f);
 
             GameObject ctaTxtObj = new GameObject("Txt");
             ctaTxtObj.transform.SetParent(ctaObj.transform, false);
             Text ctaTxt = ctaTxtObj.AddComponent<Text>();
-            ctaTxt.text = AegisLocalization.T("BẮT ĐẦU", "START MATCH");
+            ctaTxt.text = AegisLocalization.T("⚔   VÀO TRẬN", "⚔   START MATCH");
             ctaTxt.font = font;
-            ctaTxt.fontSize = 26;
+            ctaTxt.fontSize = 25;
             ctaTxt.fontStyle = FontStyle.Bold;
             ctaTxt.alignment = TextAnchor.MiddleCenter;
-            ctaTxt.color = ColDarkBtnText;
+            ctaTxt.color = new Color(0.18f, 0.08f, 0.02f, 1f); // Deep Royal Dark Ink
             ctaTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             ctaTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            ctaTxt.raycastTarget = false;
+            MakeTextCrisp(ctaTxt, new Color(1f, 0.92f, 0.60f, 0.8f));
             RectTransform ctrt = ctaTxtObj.GetComponent<RectTransform>();
             ctrt.anchorMin = Vector2.zero;
             ctrt.anchorMax = Vector2.one;
             ctrt.offsetMin = Vector2.zero;
             ctrt.offsetMax = Vector2.zero;
 
-            // Time Dropdown Blocker (Transparent click-outside catcher)
+            // ---------------------------------------------------------------------
+            // 5. Time Dropdown Menu (Overlaid above Right Column)
+            // ---------------------------------------------------------------------
             _aiTimeDropdownBlocker = new GameObject("TimeDropdownBlocker");
             _aiTimeDropdownBlocker.transform.SetParent(cardObj.transform, false);
             RectTransform blkRt = _aiTimeDropdownBlocker.AddComponent<RectTransform>();
@@ -3111,18 +3906,20 @@ namespace MechChess.UI
             blkBtn.onClick.AddListener(() => SetAITimeDropdownOpen(false));
             _aiTimeDropdownBlocker.SetActive(false);
 
-            // Time Dropdown List Menu (360 x 230, directly underneath TimePill)
             _aiTimeDropdownMenu = new GameObject("TimeDropdownMenu");
             _aiTimeDropdownMenu.transform.SetParent(cardObj.transform, false);
             Image ddBg = _aiTimeDropdownMenu.AddComponent<Image>();
-            ddBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(360, 230, 16f, new Color(0.02f, 0.06f, 0.14f, 0.98f), ColCyanGlow, 2f);
+            // Rich Dark Mahogany Frame with Radiant Gold Border (High contrast, elegant popup)
+            ddBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(356, 268, 14f, new Color(0.12f, 0.08f, 0.04f, 0.98f), new Color(0.85f, 0.70f, 0.35f, 1.0f), 2.5f);
             ddBg.type = Image.Type.Sliced;
+            ddBg.color = Color.white;
             RectTransform ddRt = _aiTimeDropdownMenu.GetComponent<RectTransform>();
-            ddRt.anchorMin = new Vector2(0.5f, 0.5f);
-            ddRt.anchorMax = new Vector2(0.5f, 0.5f);
-            ddRt.pivot = new Vector2(0.5f, 0.5f);
-            ddRt.anchoredPosition = new Vector2(380f, -29f);
-            ddRt.sizeDelta = new Vector2(360f, 230f);
+            ddRt.anchorMin = new Vector2(1f, 0.5f);
+            ddRt.anchorMax = new Vector2(1f, 0.5f);
+            ddRt.pivot = new Vector2(1f, 1f);
+            // Position directly below TimeDropdownBtn (bottom is at +65px)
+            ddRt.anchoredPosition = new Vector2(-62f, 62f);
+            ddRt.sizeDelta = new Vector2(356f, 268f);
 
             _aiTimeOptionBgs = new Image[5];
             _aiTimeOptionTexts = new Text[5];
@@ -3134,14 +3931,15 @@ namespace MechChess.UI
                 GameObject itemObj = new GameObject($"TimeOption_{optIdx}");
                 itemObj.transform.SetParent(_aiTimeDropdownMenu.transform, false);
                 RectTransform iRt = itemObj.AddComponent<RectTransform>();
-                iRt.anchorMin = new Vector2(0.5f, 0.5f);
-                iRt.anchorMax = new Vector2(0.5f, 0.5f);
-                iRt.pivot = new Vector2(0.5f, 0.5f);
-                iRt.anchoredPosition = new Vector2(0f, 88f - optIdx * 44f);
-                iRt.sizeDelta = new Vector2(346f, 40f);
+                iRt.anchorMin = new Vector2(0.5f, 1f);
+                iRt.anchorMax = new Vector2(0.5f, 1f);
+                iRt.pivot = new Vector2(0.5f, 1f);
+                iRt.anchoredPosition = new Vector2(0f, -12f - optIdx * 50f);
+                iRt.sizeDelta = new Vector2(334f, 44f);
 
                 Image itemBg = itemObj.AddComponent<Image>();
                 itemBg.type = Image.Type.Sliced;
+                itemBg.color = Color.white;
                 _aiTimeOptionBgs[optIdx] = itemBg;
 
                 Button itemBtn = itemObj.AddComponent<Button>();
@@ -3152,30 +3950,32 @@ namespace MechChess.UI
                 txtObj.transform.SetParent(itemObj.transform, false);
                 Text txt = txtObj.AddComponent<Text>();
                 txt.font = font;
-                txt.fontSize = 17;
+                txt.fontSize = 16;
+                txt.fontStyle = FontStyle.Bold;
                 txt.alignment = TextAnchor.MiddleLeft;
                 txt.raycastTarget = false;
-                RectTransform tRt = txtObj.GetComponent<RectTransform>();
-                tRt.anchorMin = Vector2.zero;
-                tRt.anchorMax = Vector2.one;
-                tRt.offsetMin = new Vector2(16f, 0f);
-                tRt.offsetMax = new Vector2(-40f, 0f);
+                RectTransform itRt = txtObj.GetComponent<RectTransform>();
+                itRt.anchorMin = Vector2.zero;
+                itRt.anchorMax = Vector2.one;
+                // Generous left padding (34px) ensures numbers "3 ", "5 ", "10 ", "15 " are NEVER cut off!
+                itRt.offsetMin = new Vector2(34f, 0f);
+                itRt.offsetMax = new Vector2(-46f, 0f);
                 _aiTimeOptionTexts[optIdx] = txt;
 
                 GameObject chkObj = new GameObject("Check");
                 chkObj.transform.SetParent(itemObj.transform, false);
                 Text chk = chkObj.AddComponent<Text>();
                 chk.font = font;
-                chk.fontSize = 20;
+                chk.fontSize = 19;
                 chk.fontStyle = FontStyle.Bold;
                 chk.alignment = TextAnchor.MiddleCenter;
-                chk.color = ColCyanGlow;
+                chk.color = new Color(1.0f, 0.88f, 0.35f, 1f);
                 chk.raycastTarget = false;
                 RectTransform chkRt = chkObj.GetComponent<RectTransform>();
                 chkRt.anchorMin = new Vector2(1f, 0.5f);
                 chkRt.anchorMax = new Vector2(1f, 0.5f);
                 chkRt.pivot = new Vector2(1f, 0.5f);
-                chkRt.anchoredPosition = new Vector2(-12f, 0f);
+                chkRt.anchoredPosition = new Vector2(-14f, 0f);
                 chkRt.sizeDelta = new Vector2(28f, 28f);
                 _aiTimeOptionChecks[optIdx] = chk;
             }
@@ -3184,6 +3984,27 @@ namespace MechChess.UI
             RefreshAITimeDropdownItems();
 
             _aiDifficultyModal.SetActive(false);
+        }
+
+        private void CreateSectionHeaderLabel(Transform parent, string title, Vector2 pos, Font font)
+        {
+            GameObject lblObj = new GameObject("SectionHeader");
+            lblObj.transform.SetParent(parent, false);
+            Text txt = lblObj.AddComponent<Text>();
+            txt.text = title;
+            txt.font = font;
+            txt.fontSize = 15;
+            txt.fontStyle = FontStyle.Bold;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = new Color(0.35f, 0.22f, 0.10f, 1f); // Deep Medieval Walnut Ink
+            txt.raycastTarget = false;
+            MakeTextCrisp(txt);
+            RectTransform rt = lblObj.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(340f, 24f);
         }
 
         private void SelectAIDifficultyLevel(int level)
@@ -3195,21 +4016,25 @@ namespace MechChess.UI
         private void RefreshAIDifficultyVisuals()
         {
             if (_aiDiffCardBgs == null) return;
+            Sprite activeSprite = MedievalUIAssetLoader.GetSprite("btn_hex_gold_radiant")
+                                ?? MedievalUIAssetLoader.GetSprite("btn_blank_parchment_gold");
+            Sprite inactiveSprite = MedievalUIAssetLoader.GetSprite("parchment_box_clean")
+                                  ?? MedievalUIAssetLoader.GetSprite("btn_wood_blank_baroque");
+
             for (int i = 0; i < 4; i++)
             {
                 bool active = (i + 1 == _selectedAIDifficulty);
                 if (_aiDiffCardBgs[i] != null)
                 {
-                    _aiDiffCardBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(
-                        360, 85, 18f,
-                        active ? ColGlassActive : ColGlassFill,
-                        active ? ColCyanBorder : ColMutedBorder,
-                        active ? 2.2f : 1.2f
-                    );
+                    _aiDiffCardBgs[i].sprite = active ? activeSprite : inactiveSprite;
                 }
-                if (_aiDiffCardTitles[i] != null)
+                if (_aiDiffCardTitles != null && i < _aiDiffCardTitles.Length && _aiDiffCardTitles[i] != null)
                 {
-                    _aiDiffCardTitles[i].color = active ? new Color(0.0f, 0.95f, 1.0f) : ColTextWhite;
+                    _aiDiffCardTitles[i].color = active ? new Color(0.18f, 0.08f, 0.02f, 1f) : new Color(0.32f, 0.20f, 0.10f, 1f);
+                }
+                if (_aiDiffCardElos != null && i < _aiDiffCardElos.Length && _aiDiffCardElos[i] != null)
+                {
+                    _aiDiffCardElos[i].color = active ? new Color(0.45f, 0.22f, 0.05f, 1f) : new Color(0.48f, 0.35f, 0.20f, 1f);
                 }
             }
         }
@@ -3222,15 +4047,29 @@ namespace MechChess.UI
 
         private void RefreshRadioVisuals()
         {
-            if (_radioWhiteImg != null)
+            Sprite activeSprite = MedievalUIAssetLoader.GetSprite("btn_hex_gold_radiant")
+                                ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold");
+            Sprite inactiveSprite = MedievalUIAssetLoader.GetSprite("parchment_box_clean")
+                                  ?? MedievalUIAssetLoader.GetSprite("btn_wood_blank_baroque");
+
+            bool isWhite = (_selectedAIPieceColor == PieceColor.White);
+
+            if (_sideWhiteCardBg != null)
             {
-                bool isWhite = (_selectedAIPieceColor == PieceColor.White);
-                _radioWhiteImg.sprite = ArcaneAssetLoader.GetCircleSprite(20, isWhite ? ColCyanBorder : Color.clear, ColCyanBorder, 2f);
+                _sideWhiteCardBg.sprite = isWhite ? activeSprite : inactiveSprite;
             }
-            if (_radioBlackImg != null)
+            if (_sideWhiteCardTxt != null)
             {
-                bool isBlack = (_selectedAIPieceColor == PieceColor.Black);
-                _radioBlackImg.sprite = ArcaneAssetLoader.GetCircleSprite(20, isBlack ? ColCyanBorder : Color.clear, ColCyanBorder, 2f);
+                _sideWhiteCardTxt.color = isWhite ? new Color(0.18f, 0.10f, 0.02f, 1f) : new Color(0.42f, 0.30f, 0.18f, 1f);
+            }
+
+            if (_sideBlackCardBg != null)
+            {
+                _sideBlackCardBg.sprite = (!isWhite) ? activeSprite : inactiveSprite;
+            }
+            if (_sideBlackCardTxt != null)
+            {
+                _sideBlackCardTxt.color = (!isWhite) ? new Color(0.18f, 0.10f, 0.02f, 1f) : new Color(0.42f, 0.30f, 0.18f, 1f);
             }
         }
 
@@ -3266,7 +4105,7 @@ namespace MechChess.UI
             if (_aiTimeDropdownBlocker != null) _aiTimeDropdownBlocker.SetActive(isOpen);
             if (_aiTimeDropdownBtnText != null)
             {
-                _aiTimeDropdownBtnText.text = $"{GetAITimeDisplay(_selectedAITimeIndex)}  {(isOpen ? "▲" : "▼")}";
+                _aiTimeDropdownBtnText.text = $"⏱   {GetAITimeDisplay(_selectedAITimeIndex)}";
             }
             if (isOpen)
             {
@@ -3281,7 +4120,7 @@ namespace MechChess.UI
             _selectedAITimeIndex = index;
             if (_aiTimeDropdownBtnText != null)
             {
-                _aiTimeDropdownBtnText.text = $"{GetAITimeDisplay(_selectedAITimeIndex)}  ▼";
+                _aiTimeDropdownBtnText.text = $"⏱   {GetAITimeDisplay(_selectedAITimeIndex)}";
             }
             SetAITimeDropdownOpen(false);
             AegisAudioManager.PlayButtonClick();
@@ -3290,33 +4129,37 @@ namespace MechChess.UI
         private void RefreshAITimeDropdownItems()
         {
             if (_aiTimeOptionBgs == null) return;
+
+            // Selected: Radiant Gilded Plate with Vivid Gold Border (Rich warm gold)
+            Sprite selSprite = ArcaneAssetLoader.GetGlassBoxSprite(334, 44, 8f, new Color(0.48f, 0.30f, 0.10f, 0.98f), new Color(1.0f, 0.88f, 0.45f, 1.0f), 2f);
+            // Unselected: Polished Dark Walnut Plate with Subtle Bronze Border (Crystal clear contrast)
+            Sprite unselSprite = ArcaneAssetLoader.GetGlassBoxSprite(334, 44, 8f, new Color(0.18f, 0.12f, 0.07f, 0.92f), new Color(0.45f, 0.32f, 0.18f, 0.75f), 1.2f);
+
             for (int i = 0; i < 5; i++)
             {
                 bool isSelected = (i == _selectedAITimeIndex);
                 if (_aiTimeOptionBgs[i] != null)
                 {
-                    if (isSelected)
-                    {
-                        _aiTimeOptionBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(346, 40, 8f, new Color(0.04f, 0.28f, 0.48f, 0.95f), ColCyanBorder, 1.5f);
-                    }
-                    else
-                    {
-                        _aiTimeOptionBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(346, 40, 8f, new Color(0.02f, 0.05f, 0.10f, 0.50f), new Color(0.12f, 0.25f, 0.40f, 0.4f), 1f);
-                    }
+                    _aiTimeOptionBgs[i].sprite = isSelected ? selSprite : unselSprite;
                 }
                 if (_aiTimeOptionTexts[i] != null)
                 {
-                    _aiTimeOptionTexts[i].color = isSelected ? Color.white : new Color(0.80f, 0.88f, 0.95f, 0.85f);
-                    _aiTimeOptionTexts[i].fontStyle = isSelected ? FontStyle.Bold : FontStyle.Normal;
+                    // 100% High-Contrast Colors:
+                    // Selected: Sunlit Brilliant Ivory Gold on Gilded Plate
+                    // Unselected: Crisp Radiant Antique Ivory on Dark Walnut
+                    _aiTimeOptionTexts[i].color = isSelected ? new Color(1.0f, 0.96f, 0.82f, 1f) : new Color(0.92f, 0.88f, 0.80f, 1f);
+                    _aiTimeOptionTexts[i].fontStyle = FontStyle.Bold;
                     _aiTimeOptionTexts[i].text = GetAITimeOptionLabel(i);
+                    MakeTextCrisp(_aiTimeOptionTexts[i], new Color(0.08f, 0.03f, 0.01f, 0.95f));
                 }
                 if (_aiTimeOptionChecks[i] != null)
                 {
                     _aiTimeOptionChecks[i].text = isSelected ? "✓" : "";
-                    _aiTimeOptionChecks[i].color = ColCyanGlow;
+                    _aiTimeOptionChecks[i].color = isSelected ? new Color(1.0f, 0.88f, 0.35f, 1f) : Color.clear;
                 }
             }
         }
+
 
         public void StartGameVsAI(int level)
         {
@@ -3360,88 +4203,45 @@ namespace MechChess.UI
             cardObj.transform.SetParent(_settingsModal.transform, false);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            Sprite cardSprite = ArcaneAssetLoader.LoadArcaneSprite("settings_card_bg.png");
+            Sprite cardSprite = MedievalUIAssetLoader.GetSprite("frame_shop_collection_1520")
+                              ?? MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ModalCrowned)
+                              ?? ArcaneAssetLoader.LoadArcaneSprite("settings_card_bg.png");
             if (cardSprite != null)
             {
                 cardBg.sprite = cardSprite;
-                cardBg.type = Image.Type.Sliced;
+                cardBg.type = Image.Type.Simple;
+                cardBg.preserveAspect = false;
+                cardBg.color = Color.white;
             }
             else
             {
-                cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(980, 620, 24f, new Color(0.03f, 0.08f, 0.16f, 0.95f), ColCyanBorder, 2f);
+                cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1240, 740, 24f, new Color(0.03f, 0.08f, 0.16f, 0.95f), ColCyanBorder, 2f);
                 cardBg.type = Image.Type.Sliced;
             }
 
             RectTransform cRt = cardObj.GetComponent<RectTransform>();
+            cRt.anchorMin = new Vector2(0.5f, 0.5f);
+            cRt.anchorMax = new Vector2(0.5f, 0.5f);
+            cRt.pivot = new Vector2(0.5f, 0.5f);
             cRt.anchoredPosition = Vector2.zero;
-            cRt.sizeDelta = new Vector2(980f, 620f);
+            cRt.sizeDelta = new Vector2(1260f, 750f);
 
-            // 1. Header Bar
-            // Left Title: "<  CÀI ĐẶT"
-            GameObject headerLeftObj = new GameObject("HeaderLeftTitle");
-            headerLeftObj.transform.SetParent(cardObj.transform, false);
-            RectTransform hlRt = headerLeftObj.AddComponent<RectTransform>();
-            hlRt.anchorMin = new Vector2(0f, 1f);
-            hlRt.anchorMax = new Vector2(0f, 1f);
-            hlRt.pivot = new Vector2(0f, 1f);
-            hlRt.anchoredPosition = new Vector2(28f, -16f);
-            hlRt.sizeDelta = new Vector2(300f, 44f);
-            Text hlText = headerLeftObj.AddComponent<Text>();
-            hlText.text = AegisLocalization.T("<b><color=#B99A61>‹</color>  CÀI ĐẶT</b>", "<b><color=#B99A61>‹</color>  SETTINGS</b>");
-            hlText.font = font;
-            hlText.fontSize = 24;
-            hlText.alignment = TextAnchor.MiddleLeft;
-            hlText.color = Color.white;
+            // Close Button [ Crossed Swords Gold ] (Positioned as designed in Scene)
+            GameObject setCloseBtn = CreateRoyalCloseButton(cardObj.transform, new Vector2(-51f, -130f), () => CloseModal(_settingsModal), 66f, "HeaderCloseBtn");
+            if (setCloseBtn != null) setCloseBtn.transform.localScale = new Vector3(1.35f, 1.35f, 1f);
 
-            // Right Close: "✕"
-            GameObject closeBtnObj = new GameObject("HeaderCloseBtn");
-            closeBtnObj.transform.SetParent(cardObj.transform, false);
-            RectTransform cbRt = closeBtnObj.AddComponent<RectTransform>();
-            cbRt.anchorMin = new Vector2(1f, 1f);
-            cbRt.anchorMax = new Vector2(1f, 1f);
-            cbRt.pivot = new Vector2(1f, 1f);
-            cbRt.anchoredPosition = new Vector2(-22f, -16f);
-            cbRt.sizeDelta = new Vector2(44f, 44f);
-
-            Button closeBtn = closeBtnObj.AddComponent<Button>();
-            closeBtn.onClick.AddListener(() =>
-            {
-                CloseModal(_settingsModal);
-            });
-            closeBtnObj.AddComponent<MenuButtonEffect>();
-
-            Text cbText = closeBtnObj.AddComponent<Text>();
-            cbText.text = "✕";
-            cbText.font = font;
-            cbText.fontSize = 22;
-            cbText.fontStyle = FontStyle.Bold;
-            cbText.alignment = TextAnchor.MiddleCenter;
-            cbText.color = new Color(0.75f, 0.85f, 0.95f, 0.85f);
-
-            // Header horizontal separator line
-            GameObject sepLine = new GameObject("HeaderSeparatorLine");
-            sepLine.transform.SetParent(cardObj.transform, false);
-            Image sepImg = sepLine.AddComponent<Image>();
-            sepImg.color = new Color(0.08f, 0.22f, 0.38f, 0.6f);
-            RectTransform slRt = sepLine.GetComponent<RectTransform>();
-            slRt.anchorMin = new Vector2(0f, 1f);
-            slRt.anchorMax = new Vector2(1f, 1f);
-            slRt.pivot = new Vector2(0.5f, 1f);
-            slRt.anchoredPosition = new Vector2(0f, -66f);
-            slRt.sizeDelta = new Vector2(-40f, 1.5f);
-
-            // 2. Left Tabs Column
+            // 2. Left Tabs Column (Offset safely inside parchment, avoiding left filigree border & top-left corner ornament)
             GameObject tabCol = new GameObject("TabsColumn");
             tabCol.transform.SetParent(cardObj.transform, false);
             RectTransform tcRt = tabCol.AddComponent<RectTransform>();
-            tcRt.anchorMin = new Vector2(0f, 0f);
+            tcRt.anchorMin = new Vector2(0f, 1f);
             tcRt.anchorMax = new Vector2(0f, 1f);
-            tcRt.pivot = new Vector2(0f, 0.5f);
-            tcRt.anchoredPosition = new Vector2(24f, -40f);
-            tcRt.sizeDelta = new Vector2(236f, -110f);
+            tcRt.pivot = new Vector2(0f, 1f);
+            tcRt.anchoredPosition = new Vector2(52f, -172f);
+            tcRt.sizeDelta = new Vector2(265f, 460f);
 
             VerticalLayoutGroup tvlg = tabCol.AddComponent<VerticalLayoutGroup>();
-            tvlg.spacing = 10f;
+            tvlg.spacing = 16f;
             tvlg.childAlignment = TextAnchor.UpperLeft;
             tvlg.childControlWidth = true;
             tvlg.childControlHeight = false;
@@ -3449,99 +4249,86 @@ namespace MechChess.UI
             tvlg.childForceExpandHeight = false;
 
             string[] tabLabels = {
-                AegisLocalization.T("Game", "Gameplay"),
+                AegisLocalization.T("Trò chơi", "Gameplay"),
                 AegisLocalization.T("Đồ họa", "Graphics"),
                 AegisLocalization.T("Âm thanh", "Audio"),
                 AegisLocalization.T("Điều khiển", "Controls"),
                 AegisLocalization.T("Ngôn ngữ", "Language")
             };
-            string[] tabIconNames = { "icon_set_game.png", "icon_set_graphics.png", "icon_set_audio.png", "icon_set_controls.png", "icon_set_language.png" };
 
-            Sprite activeTabSprite = ArcaneAssetLoader.LoadArcaneSprite("settings_tab_active.png");
+            Sprite activeTabSprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.DarkGold)
+                                    ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold")
+                                    ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodCarved);
+            Sprite inactiveTabSprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodSmall)
+                                      ?? MedievalUIAssetLoader.GetSprite("dropdown_parchment_box");
 
             for (int i = 0; i < 5; i++)
             {
                 int tabIdx = i;
-                GameObject tObj = new GameObject("Tab_" + tabLabels[i]);
+                GameObject tObj = new GameObject("Tab_" + i);
                 tObj.transform.SetParent(tabCol.transform, false);
 
                 RectTransform trt = tObj.AddComponent<RectTransform>();
-                trt.sizeDelta = new Vector2(236f, 54f);
+                trt.sizeDelta = new Vector2(265f, 60f);
 
                 LayoutElement le = tObj.AddComponent<LayoutElement>();
-                le.preferredWidth = 236f;
-                le.preferredHeight = 54f;
+                le.preferredWidth = 265f;
+                le.preferredHeight = 60f;
 
                 Image bg = tObj.AddComponent<Image>();
                 bg.type = Image.Type.Sliced;
-                bg.color = (i == 0) ? Color.white : Color.clear;
-                if (i == 0 && activeTabSprite != null) bg.sprite = activeTabSprite;
+                bg.sprite = (i == 0) ? activeTabSprite : inactiveTabSprite;
+                bg.color = (i == 0) ? Color.white : new Color(0.85f, 0.78f, 0.68f, 0.55f);
 
                 Button btn = tObj.AddComponent<Button>();
                 btn.targetGraphic = bg;
                 btn.onClick.AddListener(() => SwitchSettingsTab(tabIdx));
                 tObj.AddComponent<MenuButtonEffect>();
 
-                // Icon
-                GameObject icObj = new GameObject("Icon");
-                icObj.transform.SetParent(tObj.transform, false);
-                Image ic = icObj.AddComponent<Image>();
-                Sprite icS = ArcaneAssetLoader.LoadArcaneSprite(tabIconNames[i]);
-                if (icS != null) ic.sprite = icS;
-                ic.preserveAspect = true;
-                ic.raycastTarget = false;
-                ic.color = (i == 0) ? Color.white : new Color(0.72f, 0.82f, 0.95f, 0.9f);
-                RectTransform icRt = icObj.GetComponent<RectTransform>();
-                icRt.anchorMin = new Vector2(0f, 0.5f);
-                icRt.anchorMax = new Vector2(0f, 0.5f);
-                icRt.pivot = new Vector2(0f, 0.5f);
-                icRt.anchoredPosition = new Vector2(18f, 0f);
-                icRt.sizeDelta = new Vector2(36f, 36f);
-
-                // Label
+                // Label (Warm Ivory-Gold when active, rich walnut ink when inactive)
                 GameObject lbObj = new GameObject("Label");
                 lbObj.transform.SetParent(tObj.transform, false);
                 Text lb = lbObj.AddComponent<Text>();
                 lb.text = tabLabels[i];
                 lb.font = font;
-                lb.fontSize = 19;
-                lb.fontStyle = (i == 0) ? FontStyle.Bold : FontStyle.Normal;
-                lb.alignment = TextAnchor.MiddleLeft;
-                lb.color = (i == 0) ? Color.white : new Color(0.78f, 0.88f, 0.98f, 0.9f);
+                lb.fontSize = 22;
+                lb.fontStyle = FontStyle.Bold;
+                lb.alignment = TextAnchor.MiddleCenter;
+                lb.color = (i == 0) ? new Color(1f, 0.95f, 0.82f, 1f) : new Color(0.32f, 0.20f, 0.12f, 0.92f);
                 lb.raycastTarget = false;
+                MakeTextCrisp(lb);
                 RectTransform lbRt = lbObj.GetComponent<RectTransform>();
-                lbRt.anchorMin = new Vector2(0f, 0.5f);
-                lbRt.anchorMax = new Vector2(0f, 0.5f);
-                lbRt.pivot = new Vector2(0f, 0.5f);
-                lbRt.anchoredPosition = new Vector2(68f, 0f);
-                lbRt.sizeDelta = new Vector2(160f, 40f);
+                lbRt.anchorMin = Vector2.zero;
+                lbRt.anchorMax = Vector2.one;
+                lbRt.offsetMin = Vector2.zero;
+                lbRt.offsetMax = Vector2.zero;
 
                 _settingsTabBgs[i] = bg;
                 _settingsTabTexts[i] = lb;
-                _settingsTabIcons[i] = ic;
+                _settingsTabIcons[i] = null;
             }
 
-            // 3. Vertical Divider Line
+            // 3. Vertical Divider Line (Warm Antique Gold)
             GameObject vLine = new GameObject("VerticalDivider");
             vLine.transform.SetParent(cardObj.transform, false);
             Image vImg = vLine.AddComponent<Image>();
-            vImg.color = new Color(0.08f, 0.22f, 0.38f, 0.55f);
+            vImg.color = new Color(0.72f, 0.54f, 0.28f, 0.55f);
             RectTransform vlRt = vLine.GetComponent<RectTransform>();
-            vlRt.anchorMin = new Vector2(0f, 0f);
+            vlRt.anchorMin = new Vector2(0f, 1f);
             vlRt.anchorMax = new Vector2(0f, 1f);
-            vlRt.pivot = new Vector2(0.5f, 0.5f);
-            vlRt.anchoredPosition = new Vector2(280f, -40f);
-            vlRt.sizeDelta = new Vector2(1.5f, -110f);
+            vlRt.pivot = new Vector2(0.5f, 1f);
+            vlRt.anchoredPosition = new Vector2(335f, -165f);
+            vlRt.sizeDelta = new Vector2(2f, 480f);
 
-            // 4. Right Content Container
+            // 4. Right Content Container (With ample padding avoiding golden corner carvings)
             GameObject contentContainer = new GameObject("SettingsContentContainer");
             contentContainer.transform.SetParent(cardObj.transform, false);
             RectTransform ccRt = contentContainer.AddComponent<RectTransform>();
             ccRt.anchorMin = new Vector2(0f, 0f);
             ccRt.anchorMax = new Vector2(1f, 1f);
             ccRt.pivot = new Vector2(0f, 0.5f);
-            ccRt.offsetMin = new Vector2(305f, 20f);
-            ccRt.offsetMax = new Vector2(-25f, -80f);
+            ccRt.offsetMin = new Vector2(360f, 40f);
+            ccRt.offsetMax = new Vector2(-55f, -165f);
 
             // Build all 5 content panels
             BuildSettingsPanelGame(contentContainer.transform, font);
@@ -3560,24 +4347,25 @@ namespace MechChess.UI
         {
             if (_selectedSettingsTab != tabIndex) AegisAudioManager.PlayTabSwitch();
             _selectedSettingsTab = tabIndex;
-            Sprite activeSprite = ArcaneAssetLoader.LoadArcaneSprite("settings_tab_active.png");
+            Sprite activeSprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.DarkGold)
+                                ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold")
+                                ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodCarved);
+            Sprite inactiveSprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodSmall)
+                                  ?? MedievalUIAssetLoader.GetSprite("dropdown_parchment_box");
 
             for (int i = 0; i < 5; i++)
             {
                 bool active = (i == tabIndex);
                 if (_settingsTabBgs[i] != null)
                 {
-                    _settingsTabBgs[i].sprite = active ? activeSprite : null;
-                    _settingsTabBgs[i].color = active ? Color.white : Color.clear;
+                    _settingsTabBgs[i].sprite = active ? activeSprite : inactiveSprite;
+                    _settingsTabBgs[i].type = Image.Type.Sliced;
+                    _settingsTabBgs[i].color = active ? Color.white : new Color(0.85f, 0.78f, 0.68f, 0.55f);
                 }
                 if (_settingsTabTexts[i] != null)
                 {
-                    _settingsTabTexts[i].fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
-                    _settingsTabTexts[i].color = active ? Color.white : new Color(0.78f, 0.88f, 0.98f, 0.9f);
-                }
-                if (_settingsTabIcons[i] != null)
-                {
-                    _settingsTabIcons[i].color = active ? Color.white : new Color(0.72f, 0.82f, 0.95f, 0.9f);
+                    _settingsTabTexts[i].fontStyle = FontStyle.Bold;
+                    _settingsTabTexts[i].color = active ? new Color(1f, 0.95f, 0.82f, 1f) : new Color(0.32f, 0.20f, 0.12f, 0.92f);
                 }
                 if (_settingsPanels[i] != null)
                 {
@@ -3597,7 +4385,7 @@ namespace MechChess.UI
             prt.offsetMax = Vector2.zero;
 
             float yStart = -15f;
-            float step = 68f;
+            float step = 85f;
 
             string[] diffOpts = {
                 AegisLocalization.T("Dễ", "Easy"),
@@ -3631,20 +4419,20 @@ namespace MechChess.UI
                 AegisAudioManager.SetMusicEnabled(on);
             });
 
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh", "SFX"), AegisAudioManager.IsSFXEnabled(), yStart - 3 * step, font, on =>
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh hiệu ứng", "Sound Effects"), AegisAudioManager.IsSFXEnabled(), yStart - 3 * step, font, on =>
             {
                 AegisAudioManager.SetSFXEnabled(on);
             });
 
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Rung", "Vibration"), true, yStart - 4 * step, font, on =>
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Rung phản hồi (Vibration)", "Haptic Vibration"), true, yStart - 4 * step, font, on =>
             {
                 PlayerPrefs.SetInt("aegis.vibrate", on ? 1 : 0);
             });
 
-            CreateModernDropdownRow(panel.transform, AegisLocalization.T("Ngôn ngữ", "Language"), langOpts, AegisLocalization.GetCurrentLanguageIndex(), yStart - 5 * step, font, val =>
+            CreateModernDropdownRow(panel.transform, AegisLocalization.T("Ngôn ngữ giao diện", "Interface Language"), langOpts, AegisLocalization.GetCurrentLanguageIndex(), yStart - 5 * step, font, val =>
             {
-                AppLanguage target = (val == "English") ? AppLanguage.English : AppLanguage.Vietnamese;
-                AegisLocalization.SetLanguage(target);
+                AppLanguage targetLang = (val == "Tiếng Việt") ? AppLanguage.Vietnamese : AppLanguage.English;
+                AegisLocalization.SetLanguage(targetLang);
             });
 
             _settingsPanels[0] = panel;
@@ -3660,8 +4448,8 @@ namespace MechChess.UI
             prt.offsetMin = Vector2.zero;
             prt.offsetMax = Vector2.zero;
 
-            float yStart = -15f;
-            float step = 68f;
+            float yStart = -25f;
+            float step = 98f;
 
             string[] fxOpts = {
                 AegisLocalization.T("Thấp", "Low"),
@@ -3695,13 +4483,19 @@ namespace MechChess.UI
             prt.offsetMin = Vector2.zero;
             prt.offsetMax = Vector2.zero;
 
-            float yStart = -15f;
-            float step = 68f;
+            float yStart = -35f;
+            float step = 115f;
 
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Nhạc nền (BGM)", "Music (BGM)"), true, yStart - 0 * step, font, null);
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh hiệu ứng (SFX)", "Sound Effects (SFX)"), true, yStart - 1 * step, font, null);
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh nước cờ", "Move Sound Cues"), true, yStart - 2 * step, font, null);
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh thông báo", "Notification Sounds"), true, yStart - 3 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Nhạc nền (BGM)", "Background Music"), AegisAudioManager.IsMusicEnabled(), yStart - 0 * step, font, on =>
+            {
+                AegisAudioManager.SetMusicEnabled(on);
+            });
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Âm thanh hiệu ứng (SFX)", "Sound Effects"), AegisAudioManager.IsSFXEnabled(), yStart - 1 * step, font, on =>
+            {
+                AegisAudioManager.SetSFXEnabled(on);
+            });
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Giọng bình luận viên (Voice)", "Announcer Voice"), true, yStart - 2 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Rung phản hồi lực", "Haptic Feedback"), true, yStart - 3 * step, font, null);
 
             _settingsPanels[2] = panel;
         }
@@ -3716,18 +4510,18 @@ namespace MechChess.UI
             prt.offsetMin = Vector2.zero;
             prt.offsetMax = Vector2.zero;
 
-            float yStart = -15f;
-            float step = 68f;
+            float yStart = -35f;
+            float step = 115f;
 
             string[] sensOpts = {
                 AegisLocalization.T("Chậm", "Slow"),
-                AegisLocalization.T("Bình thường", "Normal"),
+                AegisLocalization.T("Tiêu chuẩn", "Normal"),
                 AegisLocalization.T("Nhanh", "Fast")
             };
 
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Rung phản hồi (Haptic)", "Haptic Feedback"), true, yStart - 0 * step, font, null);
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Gợi ý nước đi hợp lệ", "Highlight Valid Moves"), true, yStart - 1 * step, font, null);
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Tự động xoay bàn cờ", "Auto-rotate Board"), false, yStart - 2 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Chạm để chọn & di chuyển", "Tap to Select & Move"), true, yStart - 0 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Kéo & thả quân cờ", "Drag & Drop Pieces"), true, yStart - 1 * step, font, null);
+            CreateModernToggleRow(panel.transform, AegisLocalization.T("Đảo ngược trục xoay Camera", "Invert Camera Orbit"), false, yStart - 2 * step, font, null);
             CreateModernDropdownRow(panel.transform, AegisLocalization.T("Độ nhạy xoay camera 3D", "Camera Orbit Sensitivity"), sensOpts, 1, yStart - 3 * step, font, null);
 
             _settingsPanels[3] = panel;
@@ -3743,20 +4537,17 @@ namespace MechChess.UI
             prt.offsetMin = Vector2.zero;
             prt.offsetMax = Vector2.zero;
 
-            float yStart = -15f;
-            float step = 68f;
+            float yStart = -50f;
+            float step = 115f;
 
-            // Chế độ 2 ngôn ngữ duy nhất: Tiếng Việt hoặc English theo yêu cầu
             string[] langOpts = { "Tiếng Việt", "English" };
             int currentIdx = AegisLocalization.GetCurrentLanguageIndex();
 
             CreateModernDropdownRow(panel.transform, AegisLocalization.T("Ngôn ngữ hiển thị", "Display Language"), langOpts, currentIdx, yStart - 0 * step, font, val =>
             {
-                AppLanguage target = (val == "English") ? AppLanguage.English : AppLanguage.Vietnamese;
-                AegisLocalization.SetLanguage(target);
+                AppLanguage targetLang = (val == "Tiếng Việt") ? AppLanguage.Vietnamese : AppLanguage.English;
+                AegisLocalization.SetLanguage(targetLang);
             });
-
-            CreateModernToggleRow(panel.transform, AegisLocalization.T("Phụ đề hướng dẫn", "Tutorial Subtitles"), true, yStart - 1 * step, font, null);
 
             _settingsPanels[4] = panel;
         }
@@ -3770,29 +4561,34 @@ namespace MechChess.UI
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.anchoredPosition = new Vector2(0f, y);
-            rt.sizeDelta = new Vector2(0f, 48f);
+            rt.sizeDelta = new Vector2(0f, 60f);
 
-            // Left Label
+            // Left Label (Ample width 460px and bold 23px font for effortless reading)
             GameObject lbObj = new GameObject("Label");
             lbObj.transform.SetParent(row.transform, false);
             Text lb = lbObj.AddComponent<Text>();
             lb.text = label;
             lb.font = font;
-            lb.fontSize = 20;
+            lb.fontSize = 23;
+            lb.fontStyle = FontStyle.Bold;
             lb.alignment = TextAnchor.MiddleLeft;
-            lb.color = new Color(0.9f, 0.95f, 1.0f, 0.95f);
+            lb.horizontalOverflow = HorizontalWrapMode.Wrap;
+            lb.verticalOverflow = VerticalWrapMode.Overflow;
+            lb.color = new Color(0.18f, 0.10f, 0.04f, 1f); // Deep High-Contrast Antique Ink
+            MakeTextCrisp(lb);
             RectTransform lrt = lbObj.GetComponent<RectTransform>();
             lrt.anchorMin = new Vector2(0f, 0.5f);
-            lrt.anchorMax = new Vector2(0.6f, 0.5f);
+            lrt.anchorMax = new Vector2(0f, 0.5f);
             lrt.pivot = new Vector2(0f, 0.5f);
             lrt.anchoredPosition = new Vector2(10f, 0f);
-            lrt.sizeDelta = new Vector2(0f, 40f);
+            lrt.sizeDelta = new Vector2(460f, 52f);
 
-            // Right Dropdown Box
+            // Right Dropdown Box (Scaled up to 260x50 for comfortable touch and crystal readability)
             GameObject ddObj = new GameObject("Dropdown");
             ddObj.transform.SetParent(row.transform, false);
             Image bg = ddObj.AddComponent<Image>();
-            Sprite ddSprite = ArcaneAssetLoader.LoadArcaneSprite("settings_dropdown_box.png");
+            Sprite ddSprite = MedievalUIAssetLoader.GetSprite("dropdown_parchment_box")
+                              ?? ArcaneAssetLoader.LoadArcaneSprite("settings_dropdown_box.png");
             if (ddSprite != null)
             {
                 bg.sprite = ddSprite;
@@ -3800,7 +4596,7 @@ namespace MechChess.UI
             }
             else
             {
-                bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(190, 44, 10f, new Color(0.04f, 0.10f, 0.18f, 0.9f), ColCyanBorder, 1.2f);
+                bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(260, 50, 10f, new Color(0.04f, 0.10f, 0.18f, 0.9f), ColCyanBorder, 1.2f);
                 bg.type = Image.Type.Sliced;
             }
 
@@ -3811,50 +4607,57 @@ namespace MechChess.UI
             drt.anchorMin = new Vector2(1f, 0.5f);
             drt.anchorMax = new Vector2(1f, 0.5f);
             drt.pivot = new Vector2(1f, 0.5f);
-            drt.anchoredPosition = new Vector2(-15f, 0f);
-            drt.sizeDelta = new Vector2(190f, 44f);
+            drt.anchoredPosition = new Vector2(-20f, 0f);
+            drt.sizeDelta = new Vector2(260f, 50f);
 
-            // Text value
+            // Text value (Bold 20px)
             int currentIdx = Mathf.Clamp(defaultIdx, 0, options.Length - 1);
             GameObject valObj = new GameObject("ValueText");
             valObj.transform.SetParent(ddObj.transform, false);
             Text valTxt = valObj.AddComponent<Text>();
             valTxt.text = options[currentIdx];
             valTxt.font = font;
-            valTxt.fontSize = 17;
+            valTxt.fontSize = 20;
+            valTxt.fontStyle = FontStyle.Bold;
             valTxt.alignment = TextAnchor.MiddleLeft;
-            valTxt.color = Color.white;
+            valTxt.color = new Color(0.20f, 0.12f, 0.05f, 1f); // Dark Antique Ink on Parchment
             valTxt.raycastTarget = false;
+            MakeTextCrisp(valTxt);
             RectTransform vrt = valObj.GetComponent<RectTransform>();
             vrt.anchorMin = new Vector2(0f, 0f);
             vrt.anchorMax = new Vector2(1f, 1f);
-            vrt.offsetMin = new Vector2(18f, 0f);
-            vrt.offsetMax = new Vector2(-36f, 0f);
+            vrt.offsetMin = new Vector2(20f, 0f);
+            vrt.offsetMax = new Vector2(-44f, 0f);
 
-            // Right Chevron Arrow "∨"
+            // Right Chevron Arrow
             GameObject arrObj = new GameObject("Arrow");
             arrObj.transform.SetParent(ddObj.transform, false);
-            Text arrTxt = arrObj.AddComponent<Text>();
-            arrTxt.text = "∨";
-            arrTxt.font = font;
-            arrTxt.fontSize = 16;
-            arrTxt.alignment = TextAnchor.MiddleCenter;
-            arrTxt.color = new Color(0.0f, 0.85f, 1.0f, 0.9f);
-            arrTxt.raycastTarget = false;
-            RectTransform art = arrObj.GetComponent<RectTransform>();
-            art.anchorMin = new Vector2(1f, 0.5f);
-            art.anchorMax = new Vector2(1f, 0.5f);
-            art.pivot = new Vector2(1f, 0.5f);
-            art.anchoredPosition = new Vector2(-14f, 0f);
-            art.sizeDelta = new Vector2(24f, 24f);
+            bool hasBakedArrow = (ddSprite != null && ddSprite.name == "dropdown_parchment_box");
+            if (!hasBakedArrow)
+            {
+                Text arrTxt = arrObj.AddComponent<Text>();
+                arrTxt.text = "▼";
+                arrTxt.font = font;
+                arrTxt.fontSize = 14;
+                arrTxt.alignment = TextAnchor.MiddleCenter;
+                arrTxt.color = new Color(0.48f, 0.32f, 0.18f, 1f);
+                arrTxt.raycastTarget = false;
+                MakeTextCrisp(arrTxt);
+                RectTransform art = arrObj.GetComponent<RectTransform>();
+                art.anchorMin = new Vector2(1f, 0.5f);
+                art.anchorMax = new Vector2(1f, 0.5f);
+                art.pivot = new Vector2(1f, 0.5f);
+                art.anchoredPosition = new Vector2(-15f, 0f);
+                art.sizeDelta = new Vector2(24f, 24f);
+            }
 
+            // Click listener: cycle options
             btn.onClick.AddListener(() =>
             {
                 currentIdx = (currentIdx + 1) % options.Length;
-                string chosen = options[currentIdx];
-                if (valTxt != null) valTxt.text = chosen;
-                onSelected?.Invoke(chosen);
-                ShowToast($"{label}: {chosen}", ToastType.Info);
+                valTxt.text = options[currentIdx];
+                onSelected?.Invoke(options[currentIdx]);
+                AegisAudioManager.PlayButtonClick();
             });
         }
 
@@ -3867,32 +4670,36 @@ namespace MechChess.UI
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.anchoredPosition = new Vector2(0f, y);
-            rt.sizeDelta = new Vector2(0f, 48f);
+            rt.sizeDelta = new Vector2(0f, 60f);
 
-            // Left Label
+            // Left Label (Ample width 460px and bold 23px font)
             GameObject lbObj = new GameObject("Label");
             lbObj.transform.SetParent(row.transform, false);
             Text lb = lbObj.AddComponent<Text>();
             lb.text = label;
             lb.font = font;
-            lb.fontSize = 20;
+            lb.fontSize = 23;
+            lb.fontStyle = FontStyle.Bold;
             lb.alignment = TextAnchor.MiddleLeft;
-            lb.color = new Color(0.9f, 0.95f, 1.0f, 0.95f);
+            lb.horizontalOverflow = HorizontalWrapMode.Wrap;
+            lb.verticalOverflow = VerticalWrapMode.Overflow;
+            lb.color = new Color(0.18f, 0.10f, 0.04f, 1f); // Deep High-Contrast Antique Ink 
+            MakeTextCrisp(lb);
             RectTransform lrt = lbObj.GetComponent<RectTransform>();
             lrt.anchorMin = new Vector2(0f, 0.5f);
-            lrt.anchorMax = new Vector2(0.6f, 0.5f);
+            lrt.anchorMax = new Vector2(0f, 0.5f);
             lrt.pivot = new Vector2(0f, 0.5f);
             lrt.anchoredPosition = new Vector2(10f, 0f);
-            lrt.sizeDelta = new Vector2(0f, 40f);
+            lrt.sizeDelta = new Vector2(460f, 52f);
 
-            // Right Toggle Capsule
+            // Right Toggle Capsule (Enlarged to 88x40 for prominence)
             bool state = initialOn;
             GameObject toggleObj = new GameObject("ToggleCapsule");
             toggleObj.transform.SetParent(row.transform, false);
 
             Image toggleImg = toggleObj.AddComponent<Image>();
-            Sprite onSprite = ArcaneAssetLoader.LoadArcaneSprite("settings_toggle_on.png");
-            Sprite offSprite = ArcaneAssetLoader.LoadArcaneSprite("settings_toggle_off.png");
+            Sprite onSprite = MedievalUIAssetLoader.GetSprite("toggle_switch_on") ?? MedievalUIAssetLoader.GetSprite("checkbox_checked") ?? ArcaneAssetLoader.LoadArcaneSprite("settings_toggle_on.png");
+            Sprite offSprite = MedievalUIAssetLoader.GetSprite("toggle_switch_off") ?? MedievalUIAssetLoader.GetSprite("checkbox_unchecked") ?? ArcaneAssetLoader.LoadArcaneSprite("settings_toggle_off.png");
             toggleImg.sprite = state ? onSprite : offSprite;
             toggleImg.preserveAspect = true;
 
@@ -3903,8 +4710,8 @@ namespace MechChess.UI
             trt.anchorMin = new Vector2(1f, 0.5f);
             trt.anchorMax = new Vector2(1f, 0.5f);
             trt.pivot = new Vector2(1f, 0.5f);
-            trt.anchoredPosition = new Vector2(-22f, 0f);
-            trt.sizeDelta = new Vector2(68f, 36f);
+            trt.anchoredPosition = new Vector2(-25f, 0f);
+            trt.sizeDelta = new Vector2(88f, 40f);
 
             btn.onClick.AddListener(() =>
             {
@@ -3912,35 +4719,99 @@ namespace MechChess.UI
                 toggleImg.sprite = state ? onSprite : offSprite;
                 onToggled?.Invoke(state);
                 ShowToast($"{label}: {(state ? "BẬT" : "TẮT")}", ToastType.Info);
+                AegisAudioManager.PlayButtonClick();
             });
         }
 
-        // =========================================================================
-        // SCREEN 6: HƯỚNG DẪN (Interactive Tutorial Modal with Dynamic 2D Board & AR Visuals)
-        // =========================================================================
+        private Text CreateGrimoireTextComp(Transform parent, string content, int size, FontStyle style, Color color, Font font, Vector2 pos, Vector2 delta, TextAnchor anchor = TextAnchor.MiddleCenter)
+        {
+            string safeContent = content ?? "";
+            GameObject txtObj = new GameObject("Txt_" + safeContent.GetHashCode(), typeof(RectTransform));
+            txtObj.transform.SetParent(parent, false);
+            Text t = txtObj.AddComponent<Text>();
+            t.text = safeContent;
+            t.font = font;
+            t.fontSize = size;
+            t.fontStyle = style;
+            t.alignment = anchor;
+            t.color = color;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            t.verticalOverflow = VerticalWrapMode.Truncate;
+            t.raycastTarget = false;
+            MakeTextCrisp(t);
+            RectTransform rt = txtObj.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = delta;
+            return t;
+        }
         private void BuildScreen6Tutorial(Transform parent, Font font)
         {
-            _tutorialModal = CreateModalOverlay(parent, "Screen6_TutorialModal");
+            _tutorialModal = CreateFullscreenPanel(parent, "Screen6_TutorialScreen");
+            _tutorialModal.transform.SetAsLastSibling();
 
+            // Fullscreen Background & Deep Dark Backdrop to completely cover previous screens
+            GameObject bgImgObj = new GameObject("FullscreenBg");
+            bgImgObj.transform.SetParent(_tutorialModal.transform, false);
+            RectTransform bgRt = bgImgObj.AddComponent<RectTransform>();
+            bgRt.anchorMin = Vector2.zero;
+            bgRt.anchorMax = Vector2.one;
+            bgRt.offsetMin = Vector2.zero;
+            bgRt.offsetMax = Vector2.zero;
+
+            Image bgImg = bgImgObj.AddComponent<Image>();
+            bgImg.sprite = MedievalUIAssetLoader.GetSprite("medieval_main_menu_bg");
+            bgImg.type = Image.Type.Simple;
+            bgImg.preserveAspect = false;
+            bgImg.color = new Color(0.12f, 0.10f, 0.08f, 1f);
+
+            GameObject darkBackdropObj = new GameObject("DarkBackdrop");
+            darkBackdropObj.transform.SetParent(_tutorialModal.transform, false);
+            RectTransform dbRt = darkBackdropObj.AddComponent<RectTransform>();
+            dbRt.anchorMin = Vector2.zero;
+            dbRt.anchorMax = Vector2.one;
+            dbRt.offsetMin = Vector2.zero;
+            dbRt.offsetMax = Vector2.zero;
+            Image dbImg = darkBackdropObj.AddComponent<Image>();
+            dbImg.color = new Color(0.02f, 0.02f, 0.03f, 0.88f);
+            dbImg.raycastTarget = true;
+            Button dbBtn = darkBackdropObj.AddComponent<Button>();
+            dbBtn.onClick.AddListener(() => CloseModal(_tutorialModal));
+
+            // 1. Fullscreen Epic Grimoire Card (1820x980 - Fits comfortably without clipping)
             GameObject cardObj = new GameObject("TutorialCard");
             cardObj.transform.SetParent(_tutorialModal.transform, false);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1200, 720, 24f, ColGlassFill, ColCyanBorder, 2f);
-            cardBg.type = Image.Type.Sliced;
+            cardBg.sprite = MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.GrimoireOpen) 
+                          ?? ArcaneAssetLoader.GetGlassBoxSprite(1820, 980, 24f, ColGlassFill, ColCyanBorder, 2f);
+            cardBg.type = Image.Type.Simple;
+            cardBg.preserveAspect = false;
+            cardBg.color = Color.white;
+            cardBg.raycastTarget = true;
 
             RectTransform cRt = cardObj.GetComponent<RectTransform>();
+            cRt.anchorMin = new Vector2(0.5f, 0.5f);
+            cRt.anchorMax = new Vector2(0.5f, 0.5f);
+            cRt.pivot = new Vector2(0.5f, 0.5f);
             cRt.anchoredPosition = Vector2.zero;
-            cRt.sizeDelta = new Vector2(1200f, 720f);
+            cRt.sizeDelta = new Vector2(1820f, 980f);
 
-            CreateModalHeader(cardObj.transform, AegisLocalization.T("<  HƯỚNG DẪN", "<  TUTORIAL"), () => _tutorialModal.SetActive(false), font);
+            // Clean Header & Royal Close Button [ Nút X Vàng Hoàng Gia ] (Top right of book, enlarged 72x72)
+            GameObject tutCloseBtn = CreateRoyalCloseButton(cardObj.transform, new Vector2(-75f, -60f), () => CloseModal(_tutorialModal), 72f, "BtnCloseTutorial");
 
-            // Sub-Tabs Header (4 tabs: Cơ bản, Luật chơi, Các quân cờ, AR)
+            // Sub-Tabs Header (4 tabs: Cơ bản, Luật chơi, Các quân cờ, AR - Enlarged Royal Gold Tabs)
             GameObject tabsHeader = new GameObject("TutorialTabs");
             tabsHeader.transform.SetParent(cardObj.transform, false);
             RectTransform thRt = tabsHeader.AddComponent<RectTransform>();
-            thRt.anchoredPosition = new Vector2(0f, 252f);
-            thRt.sizeDelta = new Vector2(900f, 44f);
+            thRt.anchorMin = new Vector2(0.5f, 0.5f);
+            thRt.anchorMax = new Vector2(0.5f, 0.5f);
+            thRt.pivot = new Vector2(0.5f, 0.5f);
+            thRt.anchoredPosition = new Vector2(-101f, 353f);
+            thRt.localScale = new Vector3(0.91f, 1f, 1f);
+            thRt.sizeDelta = new Vector2(1520f, 76f);
 
             string[] tabLabels = {
                 AegisLocalization.T("Cơ bản", "Basics"),
@@ -3949,15 +4820,16 @@ namespace MechChess.UI
                 "AR"
             };
 
-            float tabWidth = 210f;
+            float tabSpacing = 370f;
             for (int i = 0; i < 4; i++)
             {
                 int tabIdx = i;
-                float x = (i - 1.5f) * tabWidth;
+                float x = (i - 1.5f) * tabSpacing;
                 GameObject tabObj = new GameObject("Tab_" + i);
                 tabObj.transform.SetParent(tabsHeader.transform, false);
 
                 Image bg = tabObj.AddComponent<Image>();
+                bg.sprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_inactive");
                 bg.type = Image.Type.Sliced;
                 _tutorialTabBgs[i] = bg;
 
@@ -3967,30 +4839,34 @@ namespace MechChess.UI
 
                 RectTransform rt = tabObj.GetComponent<RectTransform>();
                 rt.anchoredPosition = new Vector2(x, 0f);
-                rt.sizeDelta = new Vector2(195f, 44f);
+                rt.sizeDelta = new Vector2(350f, 76f);
 
-                Text tabTxt = CreateTextComp(tabObj.transform, tabLabels[i], 19, FontStyle.Bold, ColTextWhite, font, Vector2.zero, new Vector2(190f, 34f));
+                Text tabTxt = CreateTextComp(tabObj.transform, tabLabels[i], 26, FontStyle.Bold, new Color(0.24f, 0.12f, 0.05f), font, new Vector2(0f, 4f), new Vector2(310f, 52f));
+                tabTxt.resizeTextForBestFit = true;
+                tabTxt.resizeTextMinSize = 22;
+                tabTxt.resizeTextMaxSize = 28;
+                MakeTextCrisp(tabTxt, new Color(1.0f, 0.95f, 0.82f, 0.7f));
                 _tutorialTabTexts[i] = tabTxt;
             }
 
-            // Left: 2D Tactical Diagram Container
+            // Left: 2D Tactical Diagram Container (Enlarged to 680x720)
             GameObject leftContainer = new GameObject("Left_DiagramContainer");
             leftContainer.transform.SetParent(cardObj.transform, false);
-            Image lcBg = leftContainer.AddComponent<Image>();
-            lcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(420, 460, 16f, new Color(0.04f, 0.08f, 0.14f, 0.88f), ColMutedBorder, 1.2f);
-            lcBg.type = Image.Type.Sliced;
-            RectTransform lcRt = leftContainer.GetComponent<RectTransform>();
-            lcRt.anchoredPosition = new Vector2(-330f, -8f);
-            lcRt.sizeDelta = new Vector2(420f, 460f);
+            RectTransform lcRt = leftContainer.AddComponent<RectTransform>();
+            lcRt.anchorMin = new Vector2(0.5f, 0.5f);
+            lcRt.anchorMax = new Vector2(0.5f, 0.5f);
+            lcRt.pivot = new Vector2(0.5f, 0.5f);
+            lcRt.anchoredPosition = new Vector2(-470f, -10f);
+            lcRt.sizeDelta = new Vector2(680f, 720f);
 
-            // Diagram Image (360x360)
+            // Diagram Image (Enlarged to 590x590 for clear, magnificent visibility)
             GameObject boardObj = new GameObject("BoardDiagram");
             boardObj.transform.SetParent(leftContainer.transform, false);
             _tutorialDiagramImg = boardObj.AddComponent<Image>();
             _tutorialDiagramImg.preserveAspect = true;
             RectTransform bRt = boardObj.GetComponent<RectTransform>();
-            bRt.anchoredPosition = new Vector2(0f, 28f);
-            bRt.sizeDelta = new Vector2(360f, 360f);
+            bRt.anchoredPosition = new Vector2(0f, 30f);
+            bRt.sizeDelta = new Vector2(590f, 590f);
 
             // Piece / Overlay Container
             GameObject overlayObj = new GameObject("PieceOverlay");
@@ -4002,182 +4878,227 @@ namespace MechChess.UI
             oRt.offsetMin = Vector2.zero;
             oRt.offsetMax = Vector2.zero;
 
-            // Caption Text
+            // Caption Box & Text (Semi-transparent dark gold glass pill with crisp radiant gold text)
             GameObject capObj = new GameObject("DiagramCaption");
             capObj.transform.SetParent(leftContainer.transform, false);
-            _tutorialCaptionTxt = capObj.AddComponent<Text>();
+            Image capBg = capObj.AddComponent<Image>();
+            capBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(640, 56, 12f, new Color(0.12f, 0.08f, 0.04f, 0.90f), ColGoldBorder, 1.4f);
+            capBg.type = Image.Type.Sliced;
+            RectTransform capRt = capObj.GetComponent<RectTransform>();
+            capRt.anchoredPosition = new Vector2(0f, -295f);
+            capRt.sizeDelta = new Vector2(640f, 56f);
+
+            GameObject capTxtObj = new GameObject("CaptionText");
+            capTxtObj.transform.SetParent(capObj.transform, false);
+            _tutorialCaptionTxt = capTxtObj.AddComponent<Text>();
             _tutorialCaptionTxt.font = font;
-            _tutorialCaptionTxt.fontSize = 16;
-            _tutorialCaptionTxt.fontStyle = FontStyle.Italic;
+            _tutorialCaptionTxt.fontSize = 20;
+            _tutorialCaptionTxt.fontStyle = FontStyle.Bold;
             _tutorialCaptionTxt.alignment = TextAnchor.MiddleCenter;
-            _tutorialCaptionTxt.color = new Color(1.0f, 0.88f, 0.58f);
+            _tutorialCaptionTxt.color = new Color(1.0f, 0.95f, 0.82f); // Radiant warm ivory gold
             _tutorialCaptionTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _tutorialCaptionTxt.verticalOverflow = VerticalWrapMode.Truncate;
+            _tutorialCaptionTxt.resizeTextForBestFit = true;
+            _tutorialCaptionTxt.resizeTextMinSize = 14;
+            _tutorialCaptionTxt.resizeTextMaxSize = 20;
             _tutorialCaptionTxt.lineSpacing = 1.15f;
-            RectTransform capRt = capObj.GetComponent<RectTransform>();
-            capRt.anchoredPosition = new Vector2(0f, -182f);
-            capRt.sizeDelta = new Vector2(400f, 50f);
+            MakeTextCrisp(_tutorialCaptionTxt, new Color(0.10f, 0.05f, 0.02f, 0.95f));
+            RectTransform ctxtRt = capTxtObj.GetComponent<RectTransform>();
+            ctxtRt.anchorMin = Vector2.zero;
+            ctxtRt.anchorMax = Vector2.one;
+            ctxtRt.offsetMin = new Vector2(16f, 4f);
+            ctxtRt.offsetMax = new Vector2(-16f, -4f);
 
-            // Right: Guide Information & Steps (Expanded width and balanced spacing)
+            // Right: Guide Information & Steps (Shifted left to X=285 to balance margin and stay away from leather straps)
             GameObject rightContainer = new GameObject("Right_GuideContainer");
             rightContainer.transform.SetParent(cardObj.transform, false);
             RectTransform rcRt = rightContainer.AddComponent<RectTransform>();
-            rcRt.anchoredPosition = new Vector2(230f, -8f);
-            rcRt.sizeDelta = new Vector2(660f, 460f);
+            rcRt.anchorMin = new Vector2(0.5f, 0.5f);
+            rcRt.anchorMax = new Vector2(0.5f, 0.5f);
+            rcRt.pivot = new Vector2(0.5f, 0.5f);
+            rcRt.anchoredPosition = new Vector2(243f, -24f);
+            rcRt.sizeDelta = new Vector2(580f, 700f);
 
             // Badge / Category Indicator
             GameObject badgeObj = new GameObject("CategoryBadge");
             badgeObj.transform.SetParent(rightContainer.transform, false);
             _tutorialBadgeTxt = badgeObj.AddComponent<Text>();
             _tutorialBadgeTxt.font = font;
-            _tutorialBadgeTxt.fontSize = 17;
+            _tutorialBadgeTxt.fontSize = 19;
             _tutorialBadgeTxt.fontStyle = FontStyle.Bold;
             _tutorialBadgeTxt.alignment = TextAnchor.MiddleLeft;
-            _tutorialBadgeTxt.color = new Color(0.96f, 0.78f, 0.36f);
+            _tutorialBadgeTxt.color = new Color(0.72f, 0.40f, 0.12f); // Royal bronze
+            MakeTextCrisp(_tutorialBadgeTxt);
             RectTransform bdRt = badgeObj.GetComponent<RectTransform>();
-            bdRt.anchoredPosition = new Vector2(0f, 205f);
-            bdRt.sizeDelta = new Vector2(650f, 26f);
+            bdRt.anchoredPosition = new Vector2(0f, 310f);
+            bdRt.sizeDelta = new Vector2(580f, 32f);
 
-            // Main Title
+            // Main Title (Deep Imperial Brown, font 32 bold, readable, elegant)
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(rightContainer.transform, false);
             _tutorialTitleTxt = titleObj.AddComponent<Text>();
             _tutorialTitleTxt.font = font;
-            _tutorialTitleTxt.fontSize = 29;
+            _tutorialTitleTxt.fontSize = 32;
             _tutorialTitleTxt.fontStyle = FontStyle.Bold;
             _tutorialTitleTxt.alignment = TextAnchor.MiddleLeft;
-            _tutorialTitleTxt.color = ColTextWhite;
+            _tutorialTitleTxt.color = new Color(0.20f, 0.10f, 0.04f); // Crisp Dark Chestnut
+            MakeTextCrisp(_tutorialTitleTxt);
             RectTransform ttRt = titleObj.GetComponent<RectTransform>();
-            ttRt.anchoredPosition = new Vector2(0f, 170f);
-            ttRt.sizeDelta = new Vector2(650f, 40f);
+            ttRt.anchoredPosition = new Vector2(0f, 260f);
+            ttRt.sizeDelta = new Vector2(580f, 52f);
 
-            // Overview Paragraph
+            // Overview Paragraph (Font 19, clear scribe dark ink, cleanly wrapped on parchment)
             GameObject overviewObj = new GameObject("Overview");
             overviewObj.transform.SetParent(rightContainer.transform, false);
             _tutorialOverviewTxt = overviewObj.AddComponent<Text>();
             _tutorialOverviewTxt.font = font;
-            _tutorialOverviewTxt.fontSize = 17;
+            _tutorialOverviewTxt.fontSize = 19;
             _tutorialOverviewTxt.fontStyle = FontStyle.Normal;
             _tutorialOverviewTxt.alignment = TextAnchor.UpperLeft;
-            _tutorialOverviewTxt.color = new Color(0.88f, 0.94f, 1.0f);
+            _tutorialOverviewTxt.color = new Color(0.20f, 0.12f, 0.06f);
             _tutorialOverviewTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _tutorialOverviewTxt.verticalOverflow = VerticalWrapMode.Truncate;
+            _tutorialOverviewTxt.resizeTextForBestFit = true;
+            _tutorialOverviewTxt.resizeTextMinSize = 15;
+            _tutorialOverviewTxt.resizeTextMaxSize = 19;
             _tutorialOverviewTxt.lineSpacing = 1.25f;
+            MakeTextCrisp(_tutorialOverviewTxt);
             RectTransform ovRt = overviewObj.GetComponent<RectTransform>();
-            ovRt.anchoredPosition = new Vector2(0f, 118f);
-            ovRt.sizeDelta = new Vector2(650f, 56f);
+            ovRt.anchoredPosition = new Vector2(0f, 180f);
+            ovRt.sizeDelta = new Vector2(580f, 95f);
 
-            // Steps Guide Container
+            // Steps Guide Container (Non-overlapping layout: 105px step spacing)
             GameObject stepsGroup = new GameObject("StepsGroup");
             stepsGroup.transform.SetParent(rightContainer.transform, false);
             RectTransform sgRt = stepsGroup.AddComponent<RectTransform>();
-            sgRt.anchoredPosition = new Vector2(0f, -10f);
-            sgRt.sizeDelta = new Vector2(650f, 226f);
+            sgRt.anchoredPosition = new Vector2(0f, -40f);
+            sgRt.sizeDelta = new Vector2(580f, 330f);
 
             for (int i = 0; i < 3; i++)
             {
-                float y = 74f - i * 74f;
+                float y = 105f - i * 105f;
                 GameObject row = new GameObject($"Step_{i + 1}");
                 row.transform.SetParent(stepsGroup.transform, false);
                 _tutorialStepRows[i] = row;
                 RectTransform rRt = row.AddComponent<RectTransform>();
                 rRt.anchoredPosition = new Vector2(0f, y);
-                rRt.sizeDelta = new Vector2(650f, 70f);
+                rRt.sizeDelta = new Vector2(580f, 90f);
 
-                // Number badge
+                // Number badge (Antique gold seal, enlarged to 44x44)
                 GameObject numObj = new GameObject("Badge");
                 numObj.transform.SetParent(row.transform, false);
                 Image nbImg = numObj.AddComponent<Image>();
-                nbImg.sprite = ArcaneAssetLoader.GetCircleSprite(38, ColCyanBorder, Color.white, 1.5f);
+                nbImg.sprite = ArcaneAssetLoader.GetCircleSprite(44, ColGoldBorder, new Color(0.35f, 0.22f, 0.10f), 1.5f);
                 RectTransform nbRt = numObj.GetComponent<RectTransform>();
-                nbRt.anchoredPosition = new Vector2(-295f, 0f);
-                nbRt.sizeDelta = new Vector2(38f, 38f);
+                nbRt.anchoredPosition = new Vector2(-260f, 0f);
+                nbRt.sizeDelta = new Vector2(44f, 44f);
 
-                _tutorialStepBadges[i] = CreateTextComp(numObj.transform, (i + 1).ToString(), 20, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(38f, 38f));
+                _tutorialStepBadges[i] = CreateGrimoireTextComp(numObj.transform, (i + 1).ToString(), 20, FontStyle.Bold, new Color(1.0f, 0.95f, 0.80f), font, Vector2.zero, new Vector2(44f, 44f));
 
-                // Step Title & Description
-                _tutorialStepTitles[i] = CreateTextComp(row.transform, "", 20, FontStyle.Bold, new Color(1.0f, 0.96f, 0.88f), font, new Vector2(25f, 16f), new Vector2(580f, 28f), TextAnchor.MiddleLeft);
-                _tutorialStepDescs[i] = CreateTextComp(row.transform, "", 16, FontStyle.Normal, new Color(0.82f, 0.90f, 0.98f), font, new Vector2(25f, -14f), new Vector2(580f, 36f), TextAnchor.MiddleLeft);
+                // Step Title (Chestnut bold, font 21)
+                _tutorialStepTitles[i] = CreateGrimoireTextComp(row.transform, "", 21, FontStyle.Bold, new Color(0.24f, 0.12f, 0.05f), font, new Vector2(28f, 18f), new Vector2(510f, 28f), TextAnchor.MiddleLeft);
+
+                // Step Description (Scribe dark ink, wrapped cleanly, font 17)
+                _tutorialStepDescs[i] = CreateGrimoireTextComp(row.transform, "", 17, FontStyle.Normal, new Color(0.22f, 0.14f, 0.08f), font, new Vector2(28f, -18f), new Vector2(510f, 48f), TextAnchor.MiddleLeft);
                 _tutorialStepDescs[i].horizontalOverflow = HorizontalWrapMode.Wrap;
-                _tutorialStepDescs[i].lineSpacing = 1.2f;
+                _tutorialStepDescs[i].verticalOverflow = VerticalWrapMode.Truncate;
+                _tutorialStepDescs[i].resizeTextForBestFit = true;
+                _tutorialStepDescs[i].resizeTextMinSize = 13;
+                _tutorialStepDescs[i].resizeTextMaxSize = 17;
+                _tutorialStepDescs[i].lineSpacing = 1.18f;
             }
 
-            // Tactical Tip Box
+            // Tactical Tip Box (Styled as royal parchment note with lightbulb banner, font 17)
             _tutorialTipContainer = new GameObject("TipContainer");
             _tutorialTipContainer.transform.SetParent(rightContainer.transform, false);
             Image tipBg = _tutorialTipContainer.AddComponent<Image>();
-            tipBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(650, 60, 10f, new Color(0.06f, 0.12f, 0.20f, 0.92f), ColGoldBorder, 1.4f);
+            tipBg.sprite = MedievalUIAssetLoader.GetSprite("banner_tip_full")
+                          ?? ArcaneAssetLoader.GetGlassBoxSprite(620, 96, 8f, new Color(0.18f, 0.12f, 0.06f, 0.94f), ColGoldBorder, 1.4f);
             tipBg.type = Image.Type.Sliced;
             RectTransform tipRt = _tutorialTipContainer.GetComponent<RectTransform>();
-            tipRt.anchoredPosition = new Vector2(0f, -172f);
-            tipRt.sizeDelta = new Vector2(650f, 60f);
+            tipRt.anchoredPosition = new Vector2(-9f, -285f);
+            tipRt.sizeDelta = new Vector2(620f, 96f);
 
             GameObject tipTxtObj = new GameObject("TipText");
             tipTxtObj.transform.SetParent(_tutorialTipContainer.transform, false);
             _tutorialTipTxt = tipTxtObj.AddComponent<Text>();
             _tutorialTipTxt.font = font;
-            _tutorialTipTxt.fontSize = 16;
+            _tutorialTipTxt.fontSize = 17;
+            _tutorialTipTxt.fontStyle = FontStyle.Bold;
             _tutorialTipTxt.alignment = TextAnchor.MiddleLeft;
-            _tutorialTipTxt.color = new Color(1.0f, 0.92f, 0.65f);
+            _tutorialTipTxt.color = new Color(0.24f, 0.12f, 0.05f); // Deep Antique Scribe Ink
             _tutorialTipTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _tutorialTipTxt.verticalOverflow = VerticalWrapMode.Truncate;
-            _tutorialTipTxt.lineSpacing = 1.22f;
-            RectTransform ttRt2 = tipTxtObj.GetComponent<RectTransform>();
-            ttRt2.anchorMin = Vector2.zero;
-            ttRt2.anchorMax = Vector2.one;
-            ttRt2.offsetMin = new Vector2(18f, 6f);
-            ttRt2.offsetMax = new Vector2(-18f, -6f);
+            _tutorialTipTxt.lineSpacing = 1.20f;
+            MakeTextCrisp(_tutorialTipTxt, new Color(1.0f, 0.95f, 0.82f, 0.85f));
+            RectTransform ttCompRt = tipTxtObj.GetComponent<RectTransform>();
+            ttCompRt.anchorMin = Vector2.zero;
+            ttCompRt.anchorMax = Vector2.one;
+            ttCompRt.offsetMin = new Vector2(95f, 8f);
+            ttCompRt.offsetMax = new Vector2(-25f, -8f);
 
-            // Bottom Navigation Footer
-            GameObject footer = new GameObject("TutorialFooter");
+            // Footer Navigation (Enlarged to 1200x60 at Y = -465)
+            GameObject footer = new GameObject("FooterPagination");
             footer.transform.SetParent(cardObj.transform, false);
             RectTransform fRt = footer.AddComponent<RectTransform>();
-            fRt.anchoredPosition = new Vector2(0f, -295f);
-            fRt.sizeDelta = new Vector2(1100f, 50f);
+            fRt.anchorMin = new Vector2(0.5f, 0.5f);
+            fRt.anchorMax = new Vector2(0.5f, 0.5f);
+            fRt.pivot = new Vector2(0.5f, 0.5f);
+            fRt.anchoredPosition = new Vector2(0f, -405f);
+            fRt.sizeDelta = new Vector2(1200f, 60f);
 
-            // Button Prev
+            // Button Prev (Gothic Gold Nav Button as in User Ref 5: 230x60)
             GameObject prevBtnObj = new GameObject("BtnPrev");
             prevBtnObj.transform.SetParent(footer.transform, false);
             _tutorialBtnPrevBg = prevBtnObj.AddComponent<Image>();
-            _tutorialBtnPrevBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(170, 48, 22f, ColGlassFill, ColCyanBorder, 1.5f);
-            _tutorialBtnPrevBg.type = Image.Type.Sliced;
+            _tutorialBtnPrevBg.sprite = MedievalUIAssetLoader.GetSprite("btn_gothic_gold_blank") 
+                                       ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold");
+            _tutorialBtnPrevBg.type = Image.Type.Simple;
+            _tutorialBtnPrevBg.preserveAspect = true;
             _tutorialBtnPrev = prevBtnObj.AddComponent<Button>();
             _tutorialBtnPrev.onClick.AddListener(PreviousTutorialPage);
             prevBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform pRt = prevBtnObj.GetComponent<RectTransform>();
-            pRt.anchoredPosition = new Vector2(-330f, 0f);
-            pRt.sizeDelta = new Vector2(170f, 48f);
-            _tutorialBtnPrevTxt = CreateTextComp(prevBtnObj.transform, AegisLocalization.T("❮ Trước", "❮ Prev"), 19, FontStyle.Bold, ColCyanGlow, font, Vector2.zero, new Vector2(160f, 38f));
+            pRt.anchoredPosition = new Vector2(-430f, 0f);
+            pRt.sizeDelta = new Vector2(230f, 60f);
+            _tutorialBtnPrevTxt = CreateTextComp(prevBtnObj.transform, AegisLocalization.T("⬅  Trở về", "⬅  Back"), 20, FontStyle.Bold, new Color(1.0f, 0.94f, 0.80f), font, Vector2.zero, new Vector2(210f, 48f));
+            MakeTextCrisp(_tutorialBtnPrevTxt, new Color(0.10f, 0.05f, 0.02f, 0.95f));
 
-            // Page Indicator
+            // Page Indicator (Golden parchment counter, font 24)
             GameObject indObj = new GameObject("PageIndicator");
             indObj.transform.SetParent(footer.transform, false);
             _tutorialPageIndicatorTxt = indObj.AddComponent<Text>();
             _tutorialPageIndicatorTxt.font = font;
-            _tutorialPageIndicatorTxt.fontSize = 22;
+            _tutorialPageIndicatorTxt.fontSize = 24;
             _tutorialPageIndicatorTxt.fontStyle = FontStyle.Bold;
             _tutorialPageIndicatorTxt.alignment = TextAnchor.MiddleCenter;
-            _tutorialPageIndicatorTxt.color = ColTextWhite;
+            _tutorialPageIndicatorTxt.color = new Color(0.96f, 0.90f, 0.75f);
+            MakeTextCrisp(_tutorialPageIndicatorTxt);
             RectTransform indRt = indObj.GetComponent<RectTransform>();
             indRt.anchoredPosition = new Vector2(0f, 0f);
-            indRt.sizeDelta = new Vector2(280f, 40f);
+            indRt.sizeDelta = new Vector2(300f, 46f);
 
-            // Button Next
+            // Button Next (Gothic Gold Nav Button as in User Ref 4: 230x60)
             GameObject nextBtnObj = new GameObject("BtnNext");
             nextBtnObj.transform.SetParent(footer.transform, false);
             _tutorialBtnNextBg = nextBtnObj.AddComponent<Image>();
-            _tutorialBtnNextBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(170, 48, 22f, ColCyanBorder, Color.white, 1.5f);
-            _tutorialBtnNextBg.type = Image.Type.Sliced;
+            _tutorialBtnNextBg.sprite = MedievalUIAssetLoader.GetSprite("btn_gothic_gold_blank") 
+                                       ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold");
+            _tutorialBtnNextBg.type = Image.Type.Simple;
+            _tutorialBtnNextBg.preserveAspect = true;
             _tutorialBtnNext = nextBtnObj.AddComponent<Button>();
             _tutorialBtnNext.onClick.AddListener(NextTutorialPage);
             nextBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform nRt = nextBtnObj.GetComponent<RectTransform>();
-            nRt.anchoredPosition = new Vector2(330f, 0f);
-            nRt.sizeDelta = new Vector2(170f, 48f);
-            _tutorialBtnNextTxt = CreateTextComp(nextBtnObj.transform, AegisLocalization.T("Tiếp theo ❯", "Next ❯"), 19, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(160f, 38f));
+            nRt.anchoredPosition = new Vector2(430f, 0f);
+            nRt.sizeDelta = new Vector2(230f, 60f);
+            _tutorialBtnNextTxt = CreateTextComp(nextBtnObj.transform, AegisLocalization.T("Tiếp tục  ➔", "Next  ➔"), 20, FontStyle.Bold, new Color(1.0f, 0.94f, 0.80f), font, Vector2.zero, new Vector2(210f, 48f));
+            MakeTextCrisp(_tutorialBtnNextTxt, new Color(0.10f, 0.05f, 0.02f, 0.95f));
 
-            // Initial view update
-            UpdateTutorialUI(font);
+            // Ensure Royal Close Button is on top-most visual layer
+            if (tutCloseBtn != null) tutCloseBtn.transform.SetAsLastSibling();
+
+            // Initialize display
+            SwitchTutorialTab(TutorialTabType.Basics);
 
             _tutorialModal.SetActive(false);
         }
@@ -4211,11 +5132,12 @@ namespace MechChess.UI
             }
             else
             {
-                // Last page reached in this tab
+                // Advance to next tab if available
                 int nextTab = (int)_selectedTutorialTab + 1;
                 if (nextTab < 4)
                 {
-                    ShowToast(AegisLocalization.T("Chuyển sang phần hướng dẫn kế tiếp!", "Advancing to next tutorial section!"), ToastType.Info);
+                    AegisAudioManager.PlayTabSwitch();
+                    ShowToast(AegisLocalization.T($"Chuyển sang mục: {((TutorialTabType)nextTab)}", $"Switched to: {((TutorialTabType)nextTab)}"), ToastType.Info);
                     SwitchTutorialTab((TutorialTabType)nextTab);
                 }
                 else
@@ -4229,21 +5151,24 @@ namespace MechChess.UI
         {
             if (font == null && _tutorialTitleTxt != null) font = _tutorialTitleTxt.font;
 
-            // 1. Update Tabs Highlight
+            // 1. Update Tabs Highlight (Gold Ribbon style from User Reference 2)
+            Sprite tabActiveSp = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_active");
+            Sprite tabInactiveSp = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_inactive");
+
             for (int i = 0; i < 4; i++)
             {
                 bool active = (i == (int)_selectedTutorialTab);
                 if (_tutorialTabBgs[i] != null)
                 {
-                    _tutorialTabBgs[i].sprite = ArcaneAssetLoader.GetGlassBoxSprite(195, 44, 14f, 
-                        active ? ColGlassActive : ColGlassFill, 
-                        active ? ColCyanBorder : ColMutedBorder, 
-                        active ? 1.8f : 1.0f);
+                    _tutorialTabBgs[i].sprite = active ? tabActiveSp : tabInactiveSp;
+                    _tutorialTabBgs[i].type = Image.Type.Sliced;
                 }
                 if (_tutorialTabTexts[i] != null)
                 {
-                    _tutorialTabTexts[i].color = active ? ColCyanGlow : ColTextWhite;
-                    _tutorialTabTexts[i].fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
+                    _tutorialTabTexts[i].color = active ? new Color(0.18f, 0.06f, 0.02f) : new Color(0.38f, 0.24f, 0.12f);
+                    _tutorialTabTexts[i].fontStyle = FontStyle.Bold;
+                    _tutorialTabTexts[i].fontSize = 26;
+                    MakeTextCrisp(_tutorialTabTexts[i], active ? new Color(1.0f, 0.92f, 0.70f, 0.85f) : new Color(1.0f, 0.95f, 0.85f, 0.5f));
                 }
             }
 
@@ -4263,45 +5188,41 @@ namespace MechChess.UI
             for (int i = 0; i < 3; i++)
             {
                 if (_tutorialStepRows[i] == null) continue;
-                if (i < page.steps.Count)
+                bool hasStep = page.steps != null && i < page.steps.Count && !string.IsNullOrEmpty(page.steps[i].titleVi);
+                _tutorialStepRows[i].SetActive(hasStep);
+                if (hasStep)
                 {
-                    _tutorialStepRows[i].SetActive(true);
-                    if (_tutorialStepBadges[i] != null) _tutorialStepBadges[i].text = page.steps[i].number;
                     if (_tutorialStepTitles[i] != null) _tutorialStepTitles[i].text = page.steps[i].GetTitle();
                     if (_tutorialStepDescs[i] != null) _tutorialStepDescs[i].text = page.steps[i].GetDesc();
                 }
-                else
-                {
-                    _tutorialStepRows[i].SetActive(false);
-                }
             }
 
-            // 5. Update Tip Box
+            // 5. Update Tactical Tip
             string tip = page.GetTip();
+            bool hasTip = !string.IsNullOrEmpty(tip);
             if (_tutorialTipContainer != null)
             {
-                bool hasTip = !string.IsNullOrEmpty(tip);
                 _tutorialTipContainer.SetActive(hasTip);
                 if (hasTip && _tutorialTipTxt != null) _tutorialTipTxt.text = tip;
             }
 
-            // 6. Update Visual Diagram
+            // 6. Update Visual Diagram (Render at 590px high-resolution for clear tactical vision)
             if (_tutorialDiagramImg != null)
             {
                 if (_selectedTutorialTab == TutorialTabType.AR)
                 {
-                    _tutorialDiagramImg.sprite = ArcaneAssetLoader.GetARDiagramSprite(360, page.arGraphicType);
+                    _tutorialDiagramImg.sprite = ArcaneAssetLoader.GetARDiagramSprite(590, page.arGraphicType);
                 }
                 else
                 {
-                    _tutorialDiagramImg.sprite = ArcaneAssetLoader.GetCustomBoardDiagram(360, 
+                    _tutorialDiagramImg.sprite = ArcaneAssetLoader.GetCustomBoardDiagram(590, 
                         page.hasSelectedSquare, page.selectedSquare, 
                         page.moveSquares, page.captureSquares, page.specialSquares,
                         page.pieces);
                 }
             }
 
-            // Clear old piece overlay markers (pieces are now rendered with crisp anti-aliasing directly in the board diagram)
+            // Clear old piece overlay markers (pieces are rendered with crisp anti-aliasing directly in the board diagram)
             if (_tutorialPieceOverlay != null)
             {
                 for (int i = _tutorialPieceOverlay.childCount - 1; i >= 0; i--)
@@ -4324,11 +5245,12 @@ namespace MechChess.UI
                 _tutorialBtnPrev.interactable = canPrev;
                 if (_tutorialBtnPrevBg != null)
                 {
-                    _tutorialBtnPrevBg.color = canPrev ? Color.white : new Color(0.35f, 0.35f, 0.35f, 0.5f);
+                    _tutorialBtnPrevBg.color = canPrev ? Color.white : new Color(0.55f, 0.50f, 0.45f, 0.4f);
                 }
                 if (_tutorialBtnPrevTxt != null)
                 {
-                    _tutorialBtnPrevTxt.color = canPrev ? ColCyanGlow : new Color(0.5f, 0.5f, 0.5f, 0.6f);
+                    _tutorialBtnPrevTxt.color = canPrev ? new Color(1.0f, 0.94f, 0.80f) : new Color(0.60f, 0.55f, 0.45f, 0.5f);
+                    _tutorialBtnPrevTxt.text = AegisLocalization.T("⬅  Trở về", "⬅  Back");
                 }
             }
 
@@ -4339,45 +5261,376 @@ namespace MechChess.UI
 
                 if (isLastPage && !hasNextTab)
                 {
-                    _tutorialBtnNextTxt.text = AegisLocalization.T("Hoàn thành ✓", "Complete ✓");
-                    _tutorialBtnNextTxt.color = ColDarkBtnText;
-                    if (_tutorialBtnNextBg != null) _tutorialBtnNextBg.color = ColGoldBorder;
+                    _tutorialBtnNextTxt.text = AegisLocalization.T("Hoàn thành  ✓", "Complete  ✓");
                 }
                 else if (isLastPage && hasNextTab)
                 {
-                    _tutorialBtnNextTxt.text = AegisLocalization.T("Mục tiếp ❯❯", "Next Tab ❯❯");
-                    _tutorialBtnNextTxt.color = ColDarkBtnText;
-                    if (_tutorialBtnNextBg != null) _tutorialBtnNextBg.color = ColGoldBorder;
+                    _tutorialBtnNextTxt.text = AegisLocalization.T("Mục tiếp  ➔➔", "Next Tab  ➔➔");
                 }
                 else
                 {
-                    _tutorialBtnNextTxt.text = AegisLocalization.T("Tiếp theo ❯", "Next ❯");
-                    _tutorialBtnNextTxt.color = ColDarkBtnText;
-                    if (_tutorialBtnNextBg != null) _tutorialBtnNextBg.color = Color.white;
+                    _tutorialBtnNextTxt.text = AegisLocalization.T("Tiếp tục  ➔", "Next  ➔");
                 }
+                _tutorialBtnNextTxt.color = new Color(1.0f, 0.94f, 0.80f);
+                if (_tutorialBtnNextBg != null) _tutorialBtnNextBg.color = Color.white;
             }
         }
-
-        private PieceType GetPieceTypeFromSymbol(string symbol)
+        // =========================================================================
+        // SCREEN 6.5: HÒM THƯ HOÀNG GIA (Royal Mailbox / Inbox Modal)
+        // =========================================================================
+        private void BuildMailboxModal(Transform parent, Font font)
         {
-            if (string.IsNullOrEmpty(symbol)) return PieceType.Pawn;
-            switch (symbol)
+            _mailboxModal = CreateModalOverlay(parent, "Screen17_MailboxModal");
+
+            GameObject cardObj = new GameObject("MailboxCard");
+            cardObj.transform.SetParent(_mailboxModal.transform, false);
+
+            Image cardBg = cardObj.AddComponent<Image>();
+            Sprite cardSprite = MedievalUIAssetLoader.GetSprite("frame_shop_collection_1520")
+                              ?? MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ModalCrowned);
+            cardBg.sprite = cardSprite;
+            cardBg.type = Image.Type.Simple;
+            cardBg.preserveAspect = false;
+            cardBg.color = Color.white;
+
+            RectTransform cRt = cardObj.GetComponent<RectTransform>();
+            cRt.anchoredPosition = Vector2.zero;
+            cRt.sizeDelta = new Vector2(1260f, 780f);
+
+            // Close Button [ Nút X Vàng Hoàng Gia ] (Top-Right)
+            CreateRoyalCloseButton(cardObj.transform, new Vector2(-43f, -130f), () => CloseModal(_mailboxModal), 68f, "BtnClose");
+
+            // Content Area for Mail Items (Scrollable Viewport & Content - Enlarged to embrace all mail items cleanly)
+            GameObject mailScrollObj = new GameObject("MailScrollView");
+            mailScrollObj.transform.SetParent(cardObj.transform, false);
+            RectTransform msRt = mailScrollObj.AddComponent<RectTransform>();
+            msRt.anchorMin = new Vector2(0.5f, 0.5f);
+            msRt.anchorMax = new Vector2(0.5f, 0.5f);
+            msRt.pivot = new Vector2(0.5f, 0.5f);
+            msRt.anchoredPosition = new Vector2(-16f, -50f);
+            msRt.sizeDelta = new Vector2(1030f, 540f);
+
+            Image msImg = mailScrollObj.AddComponent<Image>();
+            msImg.color = Color.clear;
+            msImg.raycastTarget = true;
+            mailScrollObj.AddComponent<RectMask2D>();
+
+            ScrollRect sr = mailScrollObj.AddComponent<ScrollRect>();
+            sr.horizontal = false;
+            sr.vertical = true;
+            sr.movementType = ScrollRect.MovementType.Clamped;
+            sr.scrollSensitivity = 25f;
+
+            GameObject mailContentObj = new GameObject("MailContent");
+            mailContentObj.transform.SetParent(mailScrollObj.transform, false);
+            RectTransform mcRt = mailContentObj.AddComponent<RectTransform>();
+            mcRt.anchorMin = new Vector2(0f, 1f);
+            mcRt.anchorMax = new Vector2(1f, 1f);
+            mcRt.pivot = new Vector2(0.5f, 1f);
+            mcRt.anchoredPosition = Vector2.zero;
+            mcRt.sizeDelta = new Vector2(0f, 320f);
+
+            VerticalLayoutGroup vlg = mailContentObj.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 14f;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            vlg.padding = new RectOffset(6, 6, 8, 8);
+
+            ContentSizeFitter csf = mailContentObj.AddComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            sr.content = mcRt;
+            sr.viewport = msRt;
+
+            // Royal Vertical Scrollbar (Carved Walnut Track & Embossed Gold Thumb)
+            GameObject scrollbarObj = new GameObject("MailScrollbarVertical");
+            scrollbarObj.transform.SetParent(cardObj.transform, false);
+            RectTransform sbRt = scrollbarObj.AddComponent<RectTransform>();
+            sbRt.anchorMin = new Vector2(0.5f, 0.5f);
+            sbRt.anchorMax = new Vector2(0.5f, 0.5f);
+            sbRt.pivot = new Vector2(0.5f, 0.5f);
+            sbRt.anchoredPosition = new Vector2(485f, -60f);
+            sbRt.sizeDelta = new Vector2(14f, 536f);
+
+            Image trackImg = scrollbarObj.AddComponent<Image>();
+            trackImg.sprite = MedievalUIAssetLoader.GetSprite("scrollbar_track_vertical");
+            trackImg.type = Image.Type.Sliced;
+            trackImg.color = Color.white;
+
+            GameObject slidingArea = new GameObject("SlidingArea");
+            slidingArea.transform.SetParent(scrollbarObj.transform, false);
+            RectTransform saRt = slidingArea.AddComponent<RectTransform>();
+            saRt.anchorMin = Vector2.zero;
+            saRt.anchorMax = Vector2.one;
+            saRt.offsetMin = new Vector2(1f, 4f);
+            saRt.offsetMax = new Vector2(-1f, -4f);
+
+            GameObject handleObj = new GameObject("Handle");
+            handleObj.transform.SetParent(slidingArea.transform, false);
+            RectTransform handleRt = handleObj.AddComponent<RectTransform>();
+            handleRt.anchorMin = Vector2.zero;
+            handleRt.anchorMax = Vector2.one;
+            handleRt.offsetMin = Vector2.zero;
+            handleRt.offsetMax = Vector2.zero;
+
+            Image handleImg = handleObj.AddComponent<Image>();
+            handleImg.sprite = MedievalUIAssetLoader.GetSprite("scrollbar_thumb_vertical");
+            handleImg.type = Image.Type.Sliced;
+            handleImg.color = Color.white;
+
+            Scrollbar sb = scrollbarObj.AddComponent<Scrollbar>();
+            sb.direction = Scrollbar.Direction.BottomToTop;
+            sb.targetGraphic = handleImg;
+            sb.handleRect = handleRt;
+
+            sr.verticalScrollbar = sb;
+            sr.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
+
+            // MAIL ITEM 1: Starter / Season Reward Mail
+            CreateMailItem(mailContentObj.transform, font,
+                AegisLocalization.T("PHẦN THƯỞNG KHỞI ĐẦU MÙA GIẢI", "SEASON STARTER REWARD"),
+                AegisLocalization.T("Chào mừng chỉ huy gia nhập AegisMech AR! Nhận ngay 500 Vàng và 50 Kim Cương danh dự.", "Welcome Commander! Claim 500 Gold and 50 Gems to start your journey."),
+                true,
+                () =>
+                {
+                    AegisMech.UI.AegisPrefs.Coins += 500;
+                    AegisMech.UI.AegisPrefs.Gems += 50;
+                    UpdateUserProfileUI();
+                    if (_mailBadgeObj != null) _mailBadgeObj.SetActive(false);
+                    ShowToast(AegisLocalization.T("Đã nhận thành công 500 Vàng & 50 Kim Cương!", "Claimed 500 Gold & 50 Gems successfully!"), ToastType.Success);
+                }, "icon_gold_coins");
+
+            // MAIL ITEM 2: System Announcement Mail
+            CreateMailItem(mailContentObj.transform, font,
+                AegisLocalization.T("THÔNG BÁO HỆ THỐNG: MÙA GIẢI 1 ĐÃ MỞ", "SYSTEM NOTICE: SEASON 1 OPEN"),
+                AegisLocalization.T("Đấu trường Online đa nền tảng và Đấu Máy AI đã hoàn tất chuẩn bị. Chúc bạn bách chiến bách thắng!", "Online Crossplay and AI Arenas are fully live. Glory awaits you on the 3D board!"),
+                false,
+                null, "icon_mail_envelope");
+
+            // MAIL ITEM 3: Weekly Login Bonus
+            CreateMailItem(mailContentObj.transform, font,
+                AegisLocalization.T("QUÀ ĐĂNG NHẬP TUẦN ĐẦU TIÊN", "FIRST WEEK LOGIN BONUS"),
+                AegisLocalization.T("Cảm ơn bạn đã đồng hành cùng AegisMech AR! Nhận ngay 300 Vàng để chuẩn bị cho trận chiến tiếp theo.", "Thank you for playing AegisMech AR! Claim 300 Gold to prepare for your next battle."),
+                true,
+                () =>
+                {
+                    AegisMech.UI.AegisPrefs.Coins += 300;
+                    UpdateUserProfileUI();
+                    ShowToast(AegisLocalization.T("Đã nhận thành công 300 Vàng!", "Claimed 300 Gold successfully!"), ToastType.Success);
+                }, "icon_gold_coins");
+
+            // MAIL ITEM 4: Tournament / Arena Announcement
+            CreateMailItem(mailContentObj.transform, font,
+                AegisLocalization.T("SỰ KIỆN: ĐẠI CHIẾN ĐẠI KIỆN TƯỚNG", "EVENT: GRANDMASTER SHOWDOWN"),
+                AegisLocalization.T("Hoàn thành 5 trận thi đấu trực tuyến trong tuần để ghi danh vào bảng vàng và nhận danh hiệu Hiệp Sĩ Hoàng Gia.", "Complete 5 online matches this week to enter the leaderboard and earn the Royal Knight title."),
+                false,
+                null, "crest_royal_lion");
+
+            // MAIL ITEM 5: Patch Notes / Visual Update
+            CreateMailItem(mailContentObj.transform, font,
+                AegisLocalization.T("BẢN CẬP NHẬT 2.0: GIAO DIỆN HOÀNG GIA", "VERSION 2.0: GOTHIC UI UPDATE"),
+                AegisLocalization.T("Toàn bộ giao diện đã được nâng cấp sang phong cách Gothic Trung cổ cổ điển: Bàn cờ 3D, Hòm thư, Cửa hàng và Cài đặt.", "All interfaces upgraded to Medieval Gothic style: 3D Board, Mailbox, Shop, and Settings."),
+                false,
+                null, "icon_round_info");
+
+            // Bottom Action Button: [ ⚔  ĐÓNG ] (Royal Wood Button)
+            GameObject closeBtnBottom = new GameObject("BtnCloseBottom");
+            closeBtnBottom.transform.SetParent(cardObj.transform, false);
+            Image cbbImg = closeBtnBottom.AddComponent<Image>();
+            cbbImg.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodSmall)
+                          ?? MedievalUIAssetLoader.GetSprite("btn_wood_back");
+            cbbImg.type = Image.Type.Sliced;
+            Button cbbBtn = closeBtnBottom.AddComponent<Button>();
+            cbbBtn.onClick.AddListener(() =>
             {
-                case "♔": case "♚": case "K": case "k": return PieceType.King;
-                case "♕": case "♛": case "Q": case "q": return PieceType.Queen;
-                case "♖": case "♜": case "R": case "r": return PieceType.Rook;
-                case "♗": case "♝": case "B": case "b": return PieceType.Bishop;
-                case "♘": case "♞": case "N": case "n": return PieceType.Knight;
-                case "♙": case "♟": case "P": case "p": return PieceType.Pawn;
-                default:
-                    char c = symbol[0];
-                    if (c == 'K' || c == 'k') return PieceType.King;
-                    if (c == 'Q' || c == 'q') return PieceType.Queen;
-                    if (c == 'R' || c == 'r') return PieceType.Rook;
-                    if (c == 'B' || c == 'b') return PieceType.Bishop;
-                    if (c == 'N' || c == 'n') return PieceType.Knight;
-                    return PieceType.Pawn;
+                AegisAudioManager.PlayButtonClick();
+                CloseModal(_mailboxModal);
+            });
+            closeBtnBottom.AddComponent<MenuButtonEffect>();
+            RectTransform cbbRt = closeBtnBottom.GetComponent<RectTransform>();
+            cbbRt.anchorMin = new Vector2(0.5f, 0f);
+            cbbRt.anchorMax = new Vector2(0.5f, 0f);
+            cbbRt.pivot = new Vector2(0.5f, 0.5f);
+            cbbRt.anchoredPosition = new Vector2(0f, 44f);
+            cbbRt.sizeDelta = new Vector2(230f, 54f);
+
+            GameObject cbbTxtObj = new GameObject("Txt");
+            cbbTxtObj.transform.SetParent(closeBtnBottom.transform, false);
+            Text cbbTxt = cbbTxtObj.AddComponent<Text>();
+            cbbTxt.text = AegisLocalization.T("⚔ ĐÓNG", "⚔ CLOSE");
+            cbbTxt.font = font;
+            cbbTxt.fontSize = 22;
+            cbbTxt.fontStyle = FontStyle.Bold;
+            cbbTxt.alignment = TextAnchor.MiddleCenter;
+            cbbTxt.color = new Color(0.96f, 0.90f, 0.78f, 1f);
+            cbbTxt.raycastTarget = false;
+            MakeTextCrisp(cbbTxt, new Color(0.10f, 0.05f, 0.02f, 0.95f));
+            RectTransform cbbTxtRt = cbbTxtObj.GetComponent<RectTransform>();
+            cbbTxtRt.anchorMin = Vector2.zero;
+            cbbTxtRt.anchorMax = Vector2.one;
+            cbbTxtRt.offsetMin = Vector2.zero;
+            cbbTxtRt.offsetMax = Vector2.zero;
+
+            _mailboxModal.SetActive(false);
+        }
+
+        private GameObject CreateMailItem(Transform parent, Font font, string title, string description, bool hasClaimableReward, Action onClaim, string customIcon = null)
+        {
+            GameObject itemObj = new GameObject("MailItem");
+            itemObj.transform.SetParent(parent, false);
+
+            LayoutElement le = itemObj.AddComponent<LayoutElement>();
+            le.preferredHeight = 138f;
+            le.minHeight = 138f;
+
+            Image bg = itemObj.AddComponent<Image>();
+            Sprite rowBg = MedievalUIAssetLoader.GetSprite("dropdown_parchment_box")
+                        ?? MedievalUIAssetLoader.GetSprite("parchment_box_clean")
+                        ?? ArcaneAssetLoader.GetGlassBoxSprite(1000, 138, 16f, new Color(0.96f, 0.92f, 0.84f, 0.95f), new Color(0.70f, 0.54f, 0.28f, 0.95f), 1.5f);
+            bg.sprite = rowBg;
+            bg.type = Image.Type.Sliced;
+            bg.color = Color.white;
+
+            RectTransform rt = itemObj.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(1000f, 138f);
+
+            // Icon on Left
+            GameObject iconObj = new GameObject("MailIcon");
+            iconObj.transform.SetParent(itemObj.transform, false);
+            Image iconImg = iconObj.AddComponent<Image>();
+            string iconName = customIcon ?? (hasClaimableReward ? "icon_gold_coins" : "icon_mail_envelope");
+            iconImg.sprite = MedievalUIAssetLoader.GetSprite(iconName)
+                          ?? MedievalUIAssetLoader.GetSprite("icon_mail_envelope")
+                          ?? MedievalUIAssetLoader.GetSprite("icon_round_info");
+            iconImg.preserveAspect = true;
+            RectTransform iconRt = iconObj.GetComponent<RectTransform>();
+            iconRt.anchorMin = new Vector2(0f, 0.5f);
+            iconRt.anchorMax = new Vector2(0f, 0.5f);
+            iconRt.pivot = new Vector2(0f, 0.5f);
+            iconRt.anchoredPosition = new Vector2(22f, 0f);
+            iconRt.sizeDelta = new Vector2(52f, 52f);
+
+            // Title (Enlarged to 22pt, shifted down to -24f for vertical harmony)
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(itemObj.transform, false);
+            Text t = titleObj.AddComponent<Text>();
+            t.text = title;
+            t.font = font;
+            t.fontSize = 22;
+            t.fontStyle = FontStyle.Bold;
+            t.alignment = TextAnchor.MiddleLeft;
+            t.color = new Color(0.20f, 0.10f, 0.04f, 1f); // Deep imperial brown ink
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(t, new Color(1f, 0.95f, 0.85f, 0.65f));
+            RectTransform trt = titleObj.GetComponent<RectTransform>();
+            trt.anchorMin = new Vector2(0f, 1f);
+            trt.anchorMax = new Vector2(1f, 1f);
+            trt.pivot = new Vector2(0f, 1f);
+            trt.anchoredPosition = new Vector2(88f, -24f);
+            trt.sizeDelta = new Vector2(-280f, 32f);
+
+            // Description (Enlarged to 17pt, shifted down to -60f, high contrast clear text)
+            GameObject descObj = new GameObject("Desc");
+            descObj.transform.SetParent(itemObj.transform, false);
+            Text dt = descObj.AddComponent<Text>();
+            dt.text = description;
+            dt.font = font;
+            dt.fontSize = 17;
+            dt.fontStyle = FontStyle.Normal;
+            dt.alignment = TextAnchor.UpperLeft;
+            dt.color = new Color(0.22f, 0.13f, 0.06f, 1f); // Classic walnut scribe text, clear and readable
+            dt.lineSpacing = 1.22f;
+            dt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            dt.verticalOverflow = VerticalWrapMode.Truncate;
+            MakeTextCrisp(dt, new Color(1f, 0.96f, 0.88f, 0.50f));
+            RectTransform drt = descObj.GetComponent<RectTransform>();
+            drt.anchorMin = new Vector2(0f, 0f);
+            drt.anchorMax = new Vector2(1f, 1f);
+            drt.pivot = new Vector2(0f, 1f);
+            drt.offsetMin = new Vector2(88f, 12f);
+            drt.offsetMax = new Vector2(-195f, -60f);
+
+            // Claim Reward Button or Status Tag
+            if (hasClaimableReward)
+            {
+                GameObject claimBtnObj = new GameObject("BtnClaim");
+                claimBtnObj.transform.SetParent(itemObj.transform, false);
+                Image cImg = claimBtnObj.AddComponent<Image>();
+                cImg.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.GoldChampion)
+                           ?? MedievalUIAssetLoader.GetSprite("btn_hex_gold_radiant");
+                cImg.type = Image.Type.Sliced;
+                Button cBtn = claimBtnObj.AddComponent<Button>();
+                claimBtnObj.AddComponent<MenuButtonEffect>();
+
+                RectTransform crt = claimBtnObj.GetComponent<RectTransform>();
+                crt.anchorMin = new Vector2(1f, 0.5f);
+                crt.anchorMax = new Vector2(1f, 0.5f);
+                crt.pivot = new Vector2(1f, 0.5f);
+                crt.anchoredPosition = new Vector2(-18f, 0f);
+                crt.sizeDelta = new Vector2(160f, 46f);
+
+                GameObject cTxtObj = new GameObject("Text");
+                cTxtObj.transform.SetParent(claimBtnObj.transform, false);
+                Text ct = cTxtObj.AddComponent<Text>();
+                ct.text = AegisLocalization.T("NHẬN NGAY", "CLAIM");
+                ct.font = font;
+                ct.fontSize = 15;
+                ct.fontStyle = FontStyle.Bold;
+                ct.alignment = TextAnchor.MiddleCenter;
+                ct.color = new Color(0.22f, 0.10f, 0.04f, 1f);
+                MakeTextCrisp(ct, new Color(1f, 0.92f, 0.65f, 0.85f));
+                RectTransform ctrt = cTxtObj.GetComponent<RectTransform>();
+                ctrt.anchorMin = Vector2.zero;
+                ctrt.anchorMax = Vector2.one;
+                ctrt.offsetMin = Vector2.zero;
+                ctrt.offsetMax = Vector2.zero;
+
+                cBtn.onClick.AddListener(() =>
+                {
+                    onClaim?.Invoke();
+                    cBtn.interactable = false;
+                    ct.text = AegisLocalization.T("✓ ĐÃ NHẬN", "✓ CLAIMED");
+                    ct.color = new Color(0.35f, 0.35f, 0.35f);
+                    cImg.color = new Color(0.6f, 0.6f, 0.6f, 0.8f);
+                });
             }
+            else
+            {
+                GameObject statusObj = new GameObject("ReadStatus");
+                statusObj.transform.SetParent(itemObj.transform, false);
+                Image stBg = statusObj.AddComponent<Image>();
+                stBg.sprite = MedievalUIAssetLoader.GetSprite("parchment_box_clean")
+                           ?? ArcaneAssetLoader.GetGlassBoxSprite(120, 38, 10f, new Color(0.85f, 0.80f, 0.70f, 0.6f), new Color(0.60f, 0.50f, 0.38f, 0.6f), 1f);
+                stBg.type = Image.Type.Sliced;
+                RectTransform srt = statusObj.GetComponent<RectTransform>();
+                srt.anchorMin = new Vector2(1f, 0.5f);
+                srt.anchorMax = new Vector2(1f, 0.5f);
+                srt.pivot = new Vector2(1f, 0.5f);
+                srt.anchoredPosition = new Vector2(-18f, 0f);
+                srt.sizeDelta = new Vector2(120f, 38f);
+
+                GameObject stTxtObj = new GameObject("Txt");
+                stTxtObj.transform.SetParent(statusObj.transform, false);
+                Text st = stTxtObj.AddComponent<Text>();
+                st.text = AegisLocalization.T("✓ ĐÃ ĐỌC", "✓ READ");
+                st.font = font;
+                st.fontSize = 14;
+                st.fontStyle = FontStyle.Bold;
+                st.alignment = TextAnchor.MiddleCenter;
+                st.color = new Color(0.48f, 0.36f, 0.24f, 1f);
+                MakeTextCrisp(st);
+                RectTransform stTxtRt = stTxtObj.GetComponent<RectTransform>();
+                stTxtRt.anchorMin = Vector2.zero;
+                stTxtRt.anchorMax = Vector2.one;
+                stTxtRt.offsetMin = Vector2.zero;
+                stTxtRt.offsetMax = Vector2.zero;
+            }
+
+            return itemObj;
         }
 
         // =========================================================================
@@ -4387,7 +5640,7 @@ namespace MechChess.UI
         {
             _shopModal = CreateModalOverlay(parent, "Screen7_ShopModal");
 
-            // Centered Main Window Card (1520 x 820)
+            // Centered Main Window Card (Scaled up 10% to 1.1x -> 1672 x 902)
             GameObject cardObj = new GameObject("ShopCard");
             cardObj.transform.SetParent(_shopModal.transform, false);
             RectTransform cRt = cardObj.AddComponent<RectTransform>();
@@ -4396,92 +5649,55 @@ namespace MechChess.UI
             cRt.pivot = new Vector2(0.5f, 0.5f);
             cRt.anchoredPosition = Vector2.zero;
             cRt.sizeDelta = new Vector2(1520f, 820f);
+            cRt.localScale = new Vector3(1.10f, 1.10f, 1f);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1520, 820, 24f, new Color(0.03f, 0.08f, 0.16f, 0.94f), ColCyanBorder, 2f);
-            cardBg.type = Image.Type.Sliced;
+            cardBg.sprite = MedievalUIAssetLoader.GetSprite("frame_shop_collection_1520")
+                          ?? MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ModalCrowned);
+            cardBg.type = Image.Type.Simple;
+            cardBg.preserveAspect = false;
+            cardBg.color = Color.white;
 
-            // Window Header Bar (Height 64px, anchored top)
+            // Window Header Bar (Height 60px, anchored safely below parchment crown arch)
             GameObject headerObj = new GameObject("ShopHeader");
             headerObj.transform.SetParent(cardObj.transform, false);
             RectTransform hRt = headerObj.AddComponent<RectTransform>();
             hRt.anchorMin = new Vector2(0.5f, 1f);
             hRt.anchorMax = new Vector2(0.5f, 1f);
             hRt.pivot = new Vector2(0.5f, 1f);
-            hRt.anchoredPosition = new Vector2(0f, -16f);
-            hRt.sizeDelta = new Vector2(1440f, 60f);
+            hRt.anchoredPosition = new Vector2(54f, -92f);
+            hRt.sizeDelta = new Vector2(1420f, 60f);
 
-            // Back Button [ ❮ ] (Left)
-            GameObject backBtnObj = new GameObject("BtnBack");
-            backBtnObj.transform.SetParent(headerObj.transform, false);
-            Image bbImg = backBtnObj.AddComponent<Image>();
-            bbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(48, 48, 10f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
-            Button bbBtn = backBtnObj.AddComponent<Button>();
-            bbBtn.onClick.AddListener(() =>
-            {
-                CloseModal(_shopModal);
-            });
-            backBtnObj.AddComponent<MenuButtonEffect>();
-            RectTransform bbRt = backBtnObj.GetComponent<RectTransform>();
-            bbRt.anchorMin = new Vector2(0f, 0.5f);
-            bbRt.anchorMax = new Vector2(0f, 0.5f);
-            bbRt.pivot = new Vector2(0f, 0.5f);
-            bbRt.anchoredPosition = new Vector2(10f, 0f);
-            bbRt.sizeDelta = new Vector2(48f, 48f);
-
-            GameObject backIconObj = new GameObject("BackIcon");
-            backIconObj.transform.SetParent(backBtnObj.transform, false);
-            Sprite backSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_back.png");
-            if (backSprite != null)
-            {
-                Image backIconImg = backIconObj.AddComponent<Image>();
-                backIconImg.sprite = backSprite;
-                backIconImg.color = ColCyanGlow;
-            }
-            else
-            {
-                Text bkt = backIconObj.AddComponent<Text>();
-                bkt.text = "<";
-                bkt.font = font;
-                bkt.fontSize = 24;
-                bkt.fontStyle = FontStyle.Bold;
-                bkt.alignment = TextAnchor.MiddleCenter;
-                bkt.color = ColCyanGlow;
-            }
-            RectTransform backIconRt = backIconObj.GetComponent<RectTransform>();
-            backIconRt.anchorMin = Vector2.zero;
-            backIconRt.anchorMax = Vector2.one;
-            backIconRt.offsetMin = new Vector2(10f, 10f);
-            backIconRt.offsetMax = new Vector2(-10f, -10f);
-
-            // Title: "CỬA HÀNG" placed next to back button
+            // Title: "CỬA HÀNG"
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(headerObj.transform, false);
             Text titleTxt = titleObj.AddComponent<Text>();
             titleTxt.text = AegisLocalization.T("CỬA HÀNG", "SHOP");
             titleTxt.font = font;
-            titleTxt.fontSize = 30;
+            titleTxt.fontSize = 28;
             titleTxt.fontStyle = FontStyle.Bold;
             titleTxt.alignment = TextAnchor.MiddleLeft;
-            titleTxt.color = ColCyanGlow;
+            titleTxt.color = new Color(0.24f, 0.15f, 0.08f, 1f); // Deep Antique Walnut Scribe Ink
             titleTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             titleTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(titleTxt);
             RectTransform tRt = titleObj.GetComponent<RectTransform>();
             tRt.anchorMin = new Vector2(0f, 0.5f);
             tRt.anchorMax = new Vector2(0f, 0.5f);
             tRt.pivot = new Vector2(0f, 0.5f);
-            tRt.anchoredPosition = new Vector2(70f, 0f);
+            tRt.anchoredPosition = new Vector2(25f, -4f);
             tRt.sizeDelta = new Vector2(250f, 40f);
 
-            // Gold Currency Badge in Header (Right)
+            // Gold Currency Badge in Header (Right, lowered safely into parchment)
             GameObject coinObj = new GameObject("CoinBadge");
             coinObj.transform.SetParent(headerObj.transform, false);
             Image cbImg = coinObj.AddComponent<Image>();
-            Sprite coinBadgeSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_coin_badge.png");
-            if (coinBadgeSprite != null)
+            Sprite goldBarSp = MedievalUIAssetLoader.GetSprite("counter_gold_capsule");
+            if (goldBarSp != null)
             {
-                cbImg.sprite = coinBadgeSprite;
+                cbImg.sprite = goldBarSp;
                 cbImg.type = Image.Type.Simple;
+                cbImg.preserveAspect = true;
             }
             else
             {
@@ -4492,57 +5708,84 @@ namespace MechChess.UI
             cbRt.anchorMin = new Vector2(1f, 0.5f);
             cbRt.anchorMax = new Vector2(1f, 0.5f);
             cbRt.pivot = new Vector2(1f, 0.5f);
-            cbRt.anchoredPosition = new Vector2(-10f, 0f);
-            cbRt.sizeDelta = new Vector2(140f, 44f);
+            cbRt.anchoredPosition = new Vector2(-246f, -4f);
+            cbRt.sizeDelta = new Vector2(152f, 52f);
 
-            // Gold Coin Icon inside Badge
-            GameObject goldIconObj = new GameObject("CoinIcon");
-            goldIconObj.transform.SetParent(coinObj.transform, false);
-            Image goldIconImg = goldIconObj.AddComponent<Image>();
-            Sprite coinSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_gold_coin.png");
-            if (coinSprite != null)
+            // Gold Text (Precisely centered on carved dark plate between coin icon and + button)
+            GameObject goldTxtObj = new GameObject("GoldTxt", typeof(RectTransform));
+            goldTxtObj.transform.SetParent(coinObj.transform, false);
+            _shopGoldTxt = goldTxtObj.AddComponent<Text>();
+            _shopGoldTxt.text = _currentGold.ToString("N0");
+            _shopGoldTxt.font = font;
+            _shopGoldTxt.fontSize = 18;
+            _shopGoldTxt.fontStyle = FontStyle.Bold;
+            _shopGoldTxt.alignment = TextAnchor.MiddleCenter;
+            _shopGoldTxt.color = new Color(1.0f, 0.95f, 0.82f);
+            _shopGoldTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _shopGoldTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_shopGoldTxt);
+            RectTransform gtRt = goldTxtObj.GetComponent<RectTransform>();
+            gtRt.anchorMin = new Vector2(0.5f, 0.5f);
+            gtRt.anchorMax = new Vector2(0.5f, 0.5f);
+            gtRt.pivot = new Vector2(0.5f, 0.5f);
+            gtRt.anchoredPosition = new Vector2(9.5f, -0.5f);
+            gtRt.sizeDelta = new Vector2(72f, 36f);
+
+            // Gem / Diamond Currency Badge in Shop Header (Right, lowered safely into parchment)
+            GameObject gemBadgeObj = new GameObject("GemBadge");
+            gemBadgeObj.transform.SetParent(headerObj.transform, false);
+            Image gbImg = gemBadgeObj.AddComponent<Image>();
+            Sprite gemBarSp = MedievalUIAssetLoader.GetSprite("counter_gem_capsule");
+            if (gemBarSp != null)
             {
-                goldIconImg.sprite = coinSprite;
-                goldIconImg.preserveAspect = true;
+                gbImg.sprite = gemBarSp;
+                gbImg.type = Image.Type.Simple;
+                gbImg.preserveAspect = true;
             }
             else
             {
-                goldIconImg.color = ColGoldBorder;
+                gbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(140, 44, 14f, new Color(0.18f, 0.12f, 0.04f, 0.9f), ColGoldBorder, 1.5f);
+                gbImg.type = Image.Type.Sliced;
             }
-            RectTransform giRt = goldIconObj.GetComponent<RectTransform>();
-            giRt.anchorMin = new Vector2(0f, 0.5f);
-            giRt.anchorMax = new Vector2(0f, 0.5f);
-            giRt.pivot = new Vector2(0f, 0.5f);
-            giRt.anchoredPosition = new Vector2(12f, 0f);
-            giRt.sizeDelta = new Vector2(24f, 24f);
+            RectTransform gbRt = gemBadgeObj.GetComponent<RectTransform>();
+            gbRt.anchorMin = new Vector2(1f, 0.5f);
+            gbRt.anchorMax = new Vector2(1f, 0.5f);
+            gbRt.pivot = new Vector2(1f, 0.5f);
+            gbRt.anchoredPosition = new Vector2(-82f, -4f);
+            gbRt.sizeDelta = new Vector2(152f, 52f);
 
-            // Gold Text
-            GameObject goldTxtObj = new GameObject("GoldTxt");
-            goldTxtObj.transform.SetParent(coinObj.transform, false);
-            _shopGoldTxt = goldTxtObj.AddComponent<Text>();
-            _shopGoldTxt.text = _currentGold.ToString();
-            _shopGoldTxt.font = font;
-            _shopGoldTxt.fontSize = 22;
-            _shopGoldTxt.fontStyle = FontStyle.Bold;
-            _shopGoldTxt.alignment = TextAnchor.MiddleRight;
-            _shopGoldTxt.color = ColGoldBorder;
-            _shopGoldTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
-            _shopGoldTxt.verticalOverflow = VerticalWrapMode.Overflow;
-            RectTransform gtRt = goldTxtObj.GetComponent<RectTransform>();
-            gtRt.anchorMin = new Vector2(0f, 0f);
-            gtRt.anchorMax = new Vector2(1f, 1f);
-            gtRt.offsetMin = new Vector2(40f, 0f);
-            gtRt.offsetMax = new Vector2(-16f, 0f);
+            GameObject gemTxtObj = new GameObject("GemTxt", typeof(RectTransform));
+            gemTxtObj.transform.SetParent(gemBadgeObj.transform, false);
+            _shopGemTxt = gemTxtObj.AddComponent<Text>();
+            int curGems = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentGems : AegisMech.UI.AegisPrefs.Gems;
+            _shopGemTxt.text = curGems.ToString("N0");
+            _shopGemTxt.font = font;
+            _shopGemTxt.fontSize = 18;
+            _shopGemTxt.fontStyle = FontStyle.Bold;
+            _shopGemTxt.alignment = TextAnchor.MiddleCenter;
+            _shopGemTxt.color = new Color(1.0f, 0.96f, 0.88f);
+            _shopGemTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _shopGemTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_shopGemTxt);
+            RectTransform gemTxtRt = gemTxtObj.GetComponent<RectTransform>();
+            gemTxtRt.anchorMin = new Vector2(0.5f, 0.5f);
+            gemTxtRt.anchorMax = new Vector2(0.5f, 0.5f);
+            gemTxtRt.pivot = new Vector2(0.5f, 0.5f);
+            gemTxtRt.anchoredPosition = new Vector2(1.5f, 0f);
+            gemTxtRt.sizeDelta = new Vector2(72f, 36f);
 
-            // Category Sub-Tabs: Skin quân cờ (active), Bàn cờ, Hiệu ứng (Left-aligned)
+            // Close Button [ Crossed Swords Gold ] at Top-Right of ShopHeader (Enlarged 64x64)
+            CreateRoyalCloseButton(headerObj.transform, new Vector2(-10f, 0f), () => CloseModal(_shopModal), 64f, "BtnCloseShop", new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
+
+            // Category Sub-Tabs: Skin quân cờ (active), Bàn cờ, Hiệu ứng (Enlarged Royal Gold Tabs)
             GameObject shopTabs = new GameObject("ShopTabs");
             shopTabs.transform.SetParent(cardObj.transform, false);
             RectTransform stRt = shopTabs.AddComponent<RectTransform>();
             stRt.anchorMin = new Vector2(0.5f, 1f);
             stRt.anchorMax = new Vector2(0.5f, 1f);
             stRt.pivot = new Vector2(0.5f, 1f);
-            stRt.anchoredPosition = new Vector2(0f, -84f);
-            stRt.sizeDelta = new Vector2(1440f, 48f);
+            stRt.anchoredPosition = new Vector2(0f, -160f);
+            stRt.sizeDelta = new Vector2(1420f, 76f);
 
             _cachedShopFont = font;
 
@@ -4550,8 +5793,13 @@ namespace MechChess.UI
                 AegisLocalization.T("Bản Đồ & Bàn Cờ", "Maps & Arenas"),
                 AegisLocalization.T("Avatar", "Avatars")
             };
-            Sprite tabActSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_active.png");
-            Sprite tabInactSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_inactive.png");
+            Sprite tabActSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_active")
+                                ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_active")
+                                ?? MedievalUIAssetLoader.GetSprite("btn_hex_gold_radiant")
+                                ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold");
+            Sprite tabInactSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_inactive")
+                                  ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_inactive")
+                                  ?? MedievalUIAssetLoader.GetSprite("btn_blank_black_banner");
 
             for (int i = 0; i < 2; i++)
             {
@@ -4562,7 +5810,7 @@ namespace MechChess.UI
 
                 Image bg = tObj.AddComponent<Image>();
                 bg.sprite = active ? tabActSprite : tabInactSprite;
-                bg.type = Image.Type.Simple;
+                bg.type = Image.Type.Sliced;
                 _shopTabBgs[i] = bg;
 
                 Button btn = tObj.AddComponent<Button>();
@@ -4570,54 +5818,108 @@ namespace MechChess.UI
                 tObj.AddComponent<MenuButtonEffect>();
 
                 RectTransform rt = tObj.GetComponent<RectTransform>();
-                rt.anchorMin = new Vector2(0.5f, 0.5f);
-                rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(-160f + i * 320f, 0f);
-                rt.sizeDelta = new Vector2(290f, 46f);
+                rt.anchorMin = new Vector2(0f, 0.5f);
+                rt.anchorMax = new Vector2(0f, 0.5f);
+                rt.pivot = new Vector2(0f, 0.5f);
+                float[] sTabX = { 84f, 430f, 744f };
+                rt.anchoredPosition = new Vector2(sTabX[i], 0f);
+                rt.sizeDelta = new Vector2(310f, 74f);
 
                 GameObject txtObj = new GameObject("Txt");
                 txtObj.transform.SetParent(tObj.transform, false);
                 Text txtComp = txtObj.AddComponent<Text>();
                 txtComp.text = sTabs[i];
                 txtComp.font = font;
-                txtComp.fontSize = 20;
-                txtComp.fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
+                txtComp.fontSize = 26;
+                txtComp.fontStyle = FontStyle.Bold;
                 txtComp.alignment = TextAnchor.MiddleCenter;
-                txtComp.color = active ? ColCyanGlow : ColTextWhite;
+                txtComp.color = active ? new Color(0.18f, 0.08f, 0.02f, 1f) : new Color(0.38f, 0.24f, 0.12f, 1f);
                 txtComp.horizontalOverflow = HorizontalWrapMode.Overflow;
                 txtComp.verticalOverflow = VerticalWrapMode.Overflow;
+                MakeTextCrisp(txtComp, active ? new Color(1f, 0.90f, 0.60f, 0.85f) : new Color(1f, 0.95f, 0.85f, 0.40f));
                 _shopTabTexts[i] = txtComp;
 
                 RectTransform txtRt = txtObj.GetComponent<RectTransform>();
                 txtRt.anchorMin = Vector2.zero;
                 txtRt.anchorMax = Vector2.one;
-                txtRt.offsetMin = Vector2.zero;
-                txtRt.offsetMax = Vector2.zero;
+                txtRt.offsetMin = new Vector2(16f, 2f);
+                txtRt.offsetMax = new Vector2(-16f, 0f);
             }
 
-            // Container 0: Maps & Arenas
-            GameObject mapsContainer = new GameObject("Category_Maps");
-            mapsContainer.transform.SetParent(cardObj.transform, false);
-            _shopCategoryContainers[0] = mapsContainer;
-            RectTransform mcRt = mapsContainer.AddComponent<RectTransform>();
-            mcRt.anchorMin = new Vector2(0.5f, 0.5f);
-            mcRt.anchorMax = new Vector2(0.5f, 0.5f);
-            mcRt.pivot = new Vector2(0.5f, 0.5f);
-            mcRt.anchoredPosition = new Vector2(0f, -14f);
-            mcRt.sizeDelta = new Vector2(1440f, 480f);
+            // Category Horizontal ScrollViews (0: Skins, 1: Boards, 2: Effects)
+            string[] skinNames = { "Knight of Light", "Dark Legion", "Arcane Paladin", "Forest Spirit" };
+            string[] skinTextures = { "skin_knight_light.png", "skin_dark_legion.png", "skin_cyber_future.png", "skin_forest_spirit.png" };
+            string[] frameSprites = { "shop_card_frame_default.png", "shop_card_frame_crimson.png", "shop_card_frame_cyan.png", "shop_card_frame_default.png" };
+            int[] skinPricesGold = { 1000, 1200, 1500, 1500 };
+            int[] skinPricesGems = { 100, 120, 150, 150 };
 
-            // Container 1: Avatars
-            GameObject avatarsContainer = new GameObject("Category_Avatars");
-            avatarsContainer.transform.SetParent(cardObj.transform, false);
-            _shopCategoryContainers[1] = avatarsContainer;
-            RectTransform avRt = avatarsContainer.AddComponent<RectTransform>();
-            avRt.anchorMin = new Vector2(0.5f, 0.5f);
-            avRt.anchorMax = new Vector2(0.5f, 0.5f);
-            avRt.pivot = new Vector2(0.5f, 0.5f);
-            avRt.anchoredPosition = new Vector2(0f, -14f);
-            avRt.sizeDelta = new Vector2(1440f, 480f);
-            avatarsContainer.SetActive(false);
+            _shopCategoryContainers[0] = CreateShopCategoryScrollView(cardObj.transform, "Category_Skins", 0, skinNames, skinTextures, frameSprites, skinPricesGold, skinPricesGems, font);
+
+            string[] boardNames = {
+                AegisLocalization.T("Bàn Cờ Hoàng Gia Cổ Điển", "Royal Antique Board"),
+                AegisLocalization.T("Bàn Cờ Cổ Điển", "Classic Board"),
+                AegisLocalization.T("Bàn Cờ Dung Nham", "Magma Board"),
+                AegisLocalization.T("Bàn Cờ Pha Lê", "Crystal Board")
+            };
+            int[] boardPricesGold = { 800, 500, 1200, 1600 };
+            int[] boardPricesGems = { 80, 50, 120, 160 };
+
+            _shopCategoryContainers[1] = CreateShopCategoryScrollView(cardObj.transform, "Category_Boards", 1, boardNames, skinTextures, frameSprites, boardPricesGold, boardPricesGems, font);
+            _shopCategoryContainers[1].SetActive(false);
+
+            string[] effectNames = {
+                AegisLocalization.T("Sấm Sét Arcane", "Arcane Lightning"),
+                AegisLocalization.T("Hào Quang Thánh", "Divine Aura"),
+                AegisLocalization.T("Lửa Hỏa Ngục", "Hellfire Blaze"),
+                AegisLocalization.T("Bụi Sao Vũ Trụ", "Cosmic Stardust")
+            };
+            int[] effectPricesGold = { 600, 900, 1100, 1400 };
+            int[] effectPricesGems = { 60, 90, 110, 140 };
+            string[] effectTextures = {
+                skinTextures[2],
+                skinTextures[3],
+                skinTextures[0],
+                skinTextures[1]
+            };
+
+            _shopCategoryContainers[2] = CreateShopCategoryScrollView(cardObj.transform, "Category_Effects", 2, effectNames, effectTextures, frameSprites, effectPricesGold, effectPricesGems, font);
+            _shopCategoryContainers[2].SetActive(false);
+
+            // Navigation Left Chevron [ ◀ ] - Large Ornate Bronze/Gold Disc
+            _shopChevronLeft = new GameObject("ShopChevronLeft");
+            _shopChevronLeft.transform.SetParent(cardObj.transform, false);
+            Image lChvImg = _shopChevronLeft.AddComponent<Image>();
+            lChvImg.sprite = MedievalUIAssetLoader.GetSprite("btn_round_chevron_left");
+            lChvImg.type = Image.Type.Simple;
+            lChvImg.preserveAspect = true;
+            Button lChvBtn = _shopChevronLeft.AddComponent<Button>();
+            lChvBtn.onClick.AddListener(() => SmoothScrollShopDelta(-0.50f));
+            _shopChevronLeft.AddComponent<MenuButtonEffect>();
+            RectTransform lChvRt = _shopChevronLeft.GetComponent<RectTransform>();
+            lChvRt.anchorMin = new Vector2(0.5f, 0.5f);
+            lChvRt.anchorMax = new Vector2(0.5f, 0.5f);
+            lChvRt.pivot = new Vector2(0.5f, 0.5f);
+            lChvRt.anchoredPosition = new Vector2(-710f, -80f);
+            lChvRt.sizeDelta = new Vector2(64f, 64f);
+            _shopChevronLeft.transform.SetAsLastSibling();
+
+            // Navigation Right Chevron [ ▶ ] - Large Ornate Bronze/Gold Disc
+            _shopChevronRight = new GameObject("ShopChevronRight");
+            _shopChevronRight.transform.SetParent(cardObj.transform, false);
+            Image rChvImg = _shopChevronRight.AddComponent<Image>();
+            rChvImg.sprite = MedievalUIAssetLoader.GetSprite("btn_round_chevron_right");
+            rChvImg.type = Image.Type.Simple;
+            rChvImg.preserveAspect = true;
+            Button rChvBtn = _shopChevronRight.AddComponent<Button>();
+            rChvBtn.onClick.AddListener(() => SmoothScrollShopDelta(0.50f));
+            _shopChevronRight.AddComponent<MenuButtonEffect>();
+            RectTransform rChvRt = _shopChevronRight.GetComponent<RectTransform>();
+            rChvRt.anchorMin = new Vector2(0.5f, 0.5f);
+            rChvRt.anchorMax = new Vector2(0.5f, 0.5f);
+            rChvRt.pivot = new Vector2(0.5f, 0.5f);
+            rChvRt.anchoredPosition = new Vector2(710f, -80f);
+            rChvRt.sizeDelta = new Vector2(64f, 64f);
+            _shopChevronRight.transform.SetAsLastSibling();
 
             SwitchShopTab(0);
             _shopModal.SetActive(false);
@@ -4627,290 +5929,171 @@ namespace MechChess.UI
         {
             if (_selectedShopTab != tabIndex) AegisAudioManager.PlayTabSwitch();
             _selectedShopTab = tabIndex;
-            Sprite activeSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_active.png");
-            Sprite inactiveSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_inactive.png");
+            if (_shopScrollCoroutine != null)
+            {
+                StopCoroutine(_shopScrollCoroutine);
+                _shopScrollCoroutine = null;
+            }
+            if (tabIndex >= 0 && tabIndex < _shopCategoryScrollRects.Length && _shopCategoryScrollRects[tabIndex] != null)
+            {
+                _shopCategoryScrollRects[tabIndex].horizontalNormalizedPosition = 0f;
+            }
+
+            Sprite activeSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_active")
+                                ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_active")
+                                ?? MedievalUIAssetLoader.GetSprite("btn_hex_gold_radiant")
+                                ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold");
+            Sprite inactiveSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_inactive")
+                                  ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_inactive")
+                                  ?? MedievalUIAssetLoader.GetSprite("btn_blank_black_banner");
 
             for (int i = 0; i < _shopTabBgs.Length; i++)
             {
+                bool active = (i == tabIndex);
                 if (_shopTabBgs[i] != null)
                 {
-                    _shopTabBgs[i].sprite = (i == tabIndex) ? activeSprite : inactiveSprite;
+                    _shopTabBgs[i].sprite = active ? activeSprite : inactiveSprite;
+                    _shopTabBgs[i].type = Image.Type.Sliced;
                 }
                 if (_shopTabTexts[i] != null)
                 {
-                    _shopTabTexts[i].color = (i == tabIndex) ? ColCyanGlow : ColTextWhite;
-                    _shopTabTexts[i].fontStyle = (i == tabIndex) ? FontStyle.Bold : FontStyle.Normal;
+                    _shopTabTexts[i].color = active ? new Color(0.18f, 0.08f, 0.02f, 1f) : new Color(0.38f, 0.24f, 0.12f, 1f);
+                    _shopTabTexts[i].fontStyle = FontStyle.Bold;
+                    _shopTabTexts[i].fontSize = 26;
+                    MakeTextCrisp(_shopTabTexts[i], active ? new Color(1f, 0.90f, 0.60f, 0.85f) : new Color(1f, 0.95f, 0.85f, 0.40f));
                 }
                 if (_shopCategoryContainers[i] != null)
                 {
-                    _shopCategoryContainers[i].SetActive(i == tabIndex);
+                    _shopCategoryContainers[i].SetActive(active);
                 }
             }
-
-            PopulateShopCategory(tabIndex);
         }
 
-        private void PopulateShopCategory(int tabIndex)
+        public void SmoothScrollShopDelta(float delta)
         {
-            if (_shopCategoryContainers == null || tabIndex < 0 || tabIndex >= _shopCategoryContainers.Length) return;
-            GameObject container = _shopCategoryContainers[tabIndex];
-            if (container == null) return;
-            Transform parent = container.transform;
-            Font font = _cachedShopFont ?? GetDefaultFont();
-
-            if (tabIndex == 1)
-            {
-                PopulateAvatarShopCards(parent, font);
-                return;
-            }
-
-            for (int i = parent.childCount - 1; i >= 0; i--)
-            {
-                Destroy(parent.GetChild(i).gameObject);
-            }
-
-            float skinCardWidth = 330f;
-            float skinCardGap = 35f;
-            float skinStartX = -((4 * skinCardWidth + 3 * skinCardGap) / 2f) + skinCardWidth / 2f;
-
-            string[] frameSprites = { "card_frame_gold.png", "card_frame_silver.png", "card_frame_gold.png", "card_frame_silver.png" };
-            string[] mapTextures = { "menu_board_preview.png", "ingame_3d_table_bg.png", "mode_card_ai.png", "mode_card_online.png" };
-
-            string[] boardNames = {
-                AegisLocalization.T("Thánh Địa Hoa Anh Đào", "Spirit Blossom Sanctuary"),
-                AegisLocalization.T("Đấu Trường Hy Lạp Cổ", "Classical Pantheon"),
-                AegisLocalization.T("Địa Ngục Dung Nham", "Magma Hellfire Core"),
-                AegisLocalization.T("Cực Quang Pha Lê Băng", "Glacial Arcane Matrix")
-            };
-            string[] boardEquipValues = { "Royal Antique Board", "Classic Board", "Magma Board", "Crystal Board" };
-            int[] boardPrices = { 0, 800, 1200, 1600 };
-
-            for (int i = 0; i < 4; i++)
-            {
-                CreateShopSkinCard(parent, boardNames[i], mapTextures[i], frameSprites[i], boardPrices[i],
-                    new Vector2(skinStartX + i * (skinCardWidth + skinCardGap), 0f), font,
-                    PrefsEquippedBoard, boardEquipValues[i], 0);
-            }
+            int tab = _selectedShopTab;
+            if (tab < 0 || tab >= _shopCategoryScrollRects.Length) return;
+            ScrollRect sr = _shopCategoryScrollRects[tab];
+            if (sr == null) return;
+            float current = sr.horizontalNormalizedPosition;
+            SmoothScrollShop(Mathf.Clamp01(current + delta));
         }
 
-        private void PopulateAvatarShopCards(Transform parent, Font font)
+        public void SmoothScrollShop(float targetPos)
         {
-            if (parent == null) return;
-            for (int i = parent.childCount - 1; i >= 0; i--)
-            {
-                Destroy(parent.GetChild(i).gameObject);
-            }
-
-            var all = AvatarCatalog.All;
-            if (all == null || all.Length == 0) return;
-
-            float cardW = 265f;
-            float cardH = 220f;
-            float gapX = 22f;
-            float startX = -((5 * cardW + 4 * gapX) / 2f) + cardW / 2f;
-
-            for (int i = 0; i < all.Length && i < 10; i++)
-            {
-                var entry = all[i];
-                int col = i % 5;
-                int row = i / 5;
-                float posX = startX + col * (cardW + gapX);
-                float posY = (row == 0) ? 116f : -116f;
-
-                bool isEquipped = AvatarCatalog.IsEquipped(entry);
-                bool isOwned = AvatarCatalog.IsOwned(entry);
-
-                GameObject card = new GameObject("AvatarCard_" + entry.id);
-                card.transform.SetParent(parent, false);
-
-                RectTransform cRt = card.AddComponent<RectTransform>();
-                cRt.anchorMin = new Vector2(0.5f, 0.5f);
-                cRt.anchorMax = new Vector2(0.5f, 0.5f);
-                cRt.pivot = new Vector2(0.5f, 0.5f);
-                cRt.anchoredPosition = new Vector2(posX, posY);
-                cRt.sizeDelta = new Vector2(cardW, cardH);
-
-                Image bg = card.AddComponent<Image>();
-                Color borderCol = isEquipped ? ColAntiqueGold : (isOwned ? ColCyanGlow : ColCyanBorder);
-                bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)cardW, (int)cardH, 14f, new Color(0.04f, 0.09f, 0.18f, 0.92f), borderCol, isEquipped ? 2.0f : 1.2f);
-                bg.type = Image.Type.Sliced;
-
-                // Avatar Round Portrait (Size 74 x 74)
-                GameObject portraitObj = new GameObject("Portrait");
-                portraitObj.transform.SetParent(card.transform, false);
-                Image portImg = portraitObj.AddComponent<Image>();
-                portImg.sprite = AvatarCatalog.GetRoundSprite(entry.file);
-                portImg.preserveAspect = true;
-                RectTransform portRt = portraitObj.GetComponent<RectTransform>();
-                portRt.anchorMin = new Vector2(0.5f, 0.5f);
-                portRt.anchorMax = new Vector2(0.5f, 0.5f);
-                portRt.pivot = new Vector2(0.5f, 0.5f);
-                portRt.anchoredPosition = new Vector2(0f, 48f);
-                portRt.sizeDelta = new Vector2(74f, 74f);
-
-                // Glow Ring around avatar portrait
-                GameObject ringObj = new GameObject("Ring");
-                ringObj.transform.SetParent(portraitObj.transform, false);
-                Image ringImg = ringObj.AddComponent<Image>();
-                ringImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(80, 80, 40f, Color.clear, borderCol, 1.8f);
-                ringImg.type = Image.Type.Sliced;
-                RectTransform ringRt = ringObj.GetComponent<RectTransform>();
-                ringRt.anchorMin = Vector2.zero;
-                ringRt.anchorMax = Vector2.one;
-                ringRt.offsetMin = new Vector2(-3f, -3f);
-                ringRt.offsetMax = new Vector2(3f, 3f);
-
-                // Avatar Name Text
-                GameObject nameObj = new GameObject("NameTxt");
-                nameObj.transform.SetParent(card.transform, false);
-                Text nameTxt = nameObj.AddComponent<Text>();
-                nameTxt.text = entry.Name;
-                nameTxt.font = font;
-                nameTxt.fontSize = 16;
-                nameTxt.fontStyle = FontStyle.Bold;
-                nameTxt.alignment = TextAnchor.MiddleCenter;
-                nameTxt.color = ColTextWhite;
-                RectTransform nRt = nameObj.GetComponent<RectTransform>();
-                nRt.anchorMin = new Vector2(0.5f, 0.5f);
-                nRt.anchorMax = new Vector2(0.5f, 0.5f);
-                nRt.pivot = new Vector2(0.5f, 0.5f);
-                nRt.anchoredPosition = new Vector2(0f, -4f);
-                nRt.sizeDelta = new Vector2(240f, 22f);
-
-                // Status / Price badge text
-                GameObject statusObj = new GameObject("StatusTxt");
-                statusObj.transform.SetParent(card.transform, false);
-                Text statusTxt = statusObj.AddComponent<Text>();
-                if (isEquipped)
-                {
-                    statusTxt.text = AegisLocalization.T("✦ ĐANG DÙNG ✦", "✦ EQUIPPED ✦");
-                    statusTxt.color = ColAntiqueGold;
-                }
-                else if (isOwned)
-                {
-                    statusTxt.text = AegisLocalization.T("✓ ĐÃ SỞ HỮU", "✓ OWNED");
-                    statusTxt.color = ColCyanGlow;
-                }
-                else
-                {
-                    statusTxt.text = entry.price > 0 ? $"💰 {entry.price} Vàng" : AegisLocalization.T("Miễn Phí", "Free");
-                    statusTxt.color = ColGoldBorder;
-                }
-                statusTxt.font = font;
-                statusTxt.fontSize = 13;
-                statusTxt.fontStyle = FontStyle.Bold;
-                statusTxt.alignment = TextAnchor.MiddleCenter;
-                RectTransform sRt = statusObj.GetComponent<RectTransform>();
-                sRt.anchorMin = new Vector2(0.5f, 0.5f);
-                sRt.anchorMax = new Vector2(0.5f, 0.5f);
-                sRt.pivot = new Vector2(0.5f, 0.5f);
-                sRt.anchoredPosition = new Vector2(0f, -28f);
-                sRt.sizeDelta = new Vector2(240f, 18f);
-
-                // Bottom Action Button (Equip / Buy)
-                GameObject btnObj = new GameObject("ActionBtn");
-                btnObj.transform.SetParent(card.transform, false);
-                Image btnBg = btnObj.AddComponent<Image>();
-                Color btnBgCol = isEquipped 
-                    ? new Color(0.06f, 0.22f, 0.32f, 0.6f) 
-                    : (isOwned ? new Color(0.05f, 0.28f, 0.38f, 0.9f) : new Color(0.28f, 0.18f, 0.05f, 0.9f));
-                Color btnBorderCol = isEquipped ? ColCyanGlow : (isOwned ? ColCyanBorder : ColGoldBorder);
-                btnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(190, 36, 8f, btnBgCol, btnBorderCol, 1.4f);
-                btnBg.type = Image.Type.Sliced;
-
-                Button btn = btnObj.AddComponent<Button>();
-                btnObj.AddComponent<MenuButtonEffect>();
-                RectTransform bRt = btnObj.GetComponent<RectTransform>();
-                bRt.anchorMin = new Vector2(0.5f, 0.5f);
-                bRt.anchorMax = new Vector2(0.5f, 0.5f);
-                bRt.pivot = new Vector2(0.5f, 0.5f);
-                bRt.anchoredPosition = new Vector2(0f, -68f);
-                bRt.sizeDelta = new Vector2(190f, 36f);
-
-                GameObject btnTxtObj = new GameObject("BtnTxt");
-                btnTxtObj.transform.SetParent(btnObj.transform, false);
-                Text btnTxt = btnTxtObj.AddComponent<Text>();
-                btnTxt.text = isEquipped 
-                    ? AegisLocalization.T("ĐANG DÙNG", "IN USE")
-                    : (isOwned ? AegisLocalization.T("TRANG BỊ", "EQUIP") : AegisLocalization.T("MUA AVATAR", "BUY"));
-                btnTxt.font = font;
-                btnTxt.fontSize = 14;
-                btnTxt.fontStyle = FontStyle.Bold;
-                btnTxt.alignment = TextAnchor.MiddleCenter;
-                btnTxt.color = isEquipped ? ColCyanGlow : ColTextWhite;
-                RectTransform btRt = btnTxtObj.GetComponent<RectTransform>();
-                btRt.anchorMin = Vector2.zero;
-                btRt.anchorMax = Vector2.one;
-                btRt.offsetMin = Vector2.zero;
-                btRt.offsetMax = Vector2.zero;
-
-                btn.onClick.AddListener(() =>
-                {
-                    if (AvatarCatalog.IsEquipped(entry))
-                    {
-                        return;
-                    }
-                    else if (AvatarCatalog.IsOwned(entry))
-                    {
-                        AvatarCatalog.Equip(entry);
-                        AegisAudioManager.PlayButtonClick();
-                        UpdateUserProfileUI();
-                        ShowToast(AegisLocalization.T($"Đã trang bị avatar '{entry.Name}'!", $"Equipped avatar '{entry.Name}'!"), ToastType.Success);
-                        PopulateAvatarShopCards(parent, font);
-                    }
-                    else
-                    {
-                        int currentGold = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentGold : _currentGold;
-                        if (currentGold < entry.price)
-                        {
-                            ShowToast(AegisLocalization.T($"Không đủ vàng! Cần {entry.price} vàng (bạn có {currentGold}).", $"Not enough gold! Need {entry.price} gold (you have {currentGold})."), ToastType.Error);
-                            return;
-                        }
-
-                        bool spent = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.SpendGold(entry.price) : true;
-                        if (spent)
-                        {
-                            if (UserAccountManager.Instance == null)
-                            {
-                                _currentGold -= entry.price;
-                                AegisMech.UI.AegisPrefs.Coins = _currentGold;
-                            }
-                            if (_shopGoldTxt != null) _shopGoldTxt.text = _currentGold.ToString();
-                            AegisMech.UI.AegisPrefs.Own(entry.id);
-                            AvatarCatalog.Equip(entry);
-                            AegisAudioManager.PlayButtonClick();
-                            UpdateUserProfileUI();
-                            ShowToast(AegisLocalization.T($"Mua và trang bị thành công avatar '{entry.Name}'!", $"Successfully purchased and equipped avatar '{entry.Name}'!"), ToastType.Success);
-                            PopulateAvatarShopCards(parent, font);
-                        }
-                    }
-                });
-            }
+            if (_shopScrollCoroutine != null) StopCoroutine(_shopScrollCoroutine);
+            _shopScrollCoroutine = StartCoroutine(DoSmoothScrollShop(targetPos));
         }
 
-        private void CreateShopSkinCard(Transform parent, string name, string textureName, string frameSpriteName, int price, Vector2 pos, Font font, string prefsKey, string equipValue, int categoryIndex)
+        private IEnumerator DoSmoothScrollShop(float targetPos)
+        {
+            int tab = _selectedShopTab;
+            if (tab < 0 || tab >= _shopCategoryScrollRects.Length) yield break;
+            ScrollRect sr = _shopCategoryScrollRects[tab];
+            if (sr == null) yield break;
+            AegisAudioManager.PlayTabSwitch();
+            float startPos = sr.horizontalNormalizedPosition;
+            float elapsed = 0f;
+            float duration = 0.25f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float ease = 1f - Mathf.Pow(1f - t, 3f);
+                sr.horizontalNormalizedPosition = Mathf.Lerp(startPos, targetPos, ease);
+                yield return null;
+            }
+            sr.horizontalNormalizedPosition = targetPos;
+            _shopScrollCoroutine = null;
+        }
+
+        private GameObject CreateShopCategoryScrollView(Transform parent, string name, int categoryIndex, string[] itemNames, string[] itemTextures, string[] frameSprites, int[] pricesGold, int[] pricesGems, Font font)
+        {
+            GameObject scrollObj = new GameObject(name);
+            scrollObj.transform.SetParent(parent, false);
+            RectTransform svRt = scrollObj.AddComponent<RectTransform>();
+            svRt.anchorMin = new Vector2(0.5f, 0.5f);
+            svRt.anchorMax = new Vector2(0.5f, 0.5f);
+            svRt.pivot = new Vector2(0.5f, 0.5f);
+            svRt.anchoredPosition = new Vector2(0f, -80f);
+            svRt.sizeDelta = new Vector2(1380f, 510f);
+
+            Image svImg = scrollObj.AddComponent<Image>();
+            svImg.color = Color.clear;
+            svImg.raycastTarget = true;
+
+            scrollObj.AddComponent<RectMask2D>();
+
+            ScrollRect sr = scrollObj.AddComponent<ScrollRect>();
+            sr.horizontal = true;
+            sr.vertical = false;
+            sr.movementType = ScrollRect.MovementType.Clamped;
+            sr.elasticity = 0.12f;
+            sr.inertia = true;
+            sr.decelerationRate = 0.135f;
+            sr.scrollSensitivity = 35f;
+            _shopCategoryScrollRects[categoryIndex] = sr;
+
+            GameObject contentObj = new GameObject("ScrollContent");
+            contentObj.transform.SetParent(scrollObj.transform, false);
+            RectTransform ctRt = contentObj.AddComponent<RectTransform>();
+            ctRt.anchorMin = new Vector2(0f, 0.5f);
+            ctRt.anchorMax = new Vector2(0f, 0.5f);
+            ctRt.pivot = new Vector2(0f, 0.5f);
+            ctRt.anchoredPosition = Vector2.zero;
+
+            float cardW = 428f;
+            float cardGap = 32f;
+            float padLeft = 15f;
+            int count = itemNames.Length;
+            float totalW = count * cardW + (count - 1) * cardGap + padLeft * 2f;
+            ctRt.sizeDelta = new Vector2(totalW, 540f);
+
+            sr.content = ctRt;
+            sr.viewport = svRt;
+
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 pos = new Vector2(padLeft + i * (cardW + cardGap), 0f);
+                CreateShopSkinCard(contentObj.transform, itemNames[i], itemTextures[i], frameSprites[i], pricesGold[i], pricesGems[i], pos, font);
+            }
+
+            return scrollObj;
+        }
+
+        private void CreateShopSkinCard(Transform parent, string name, string textureName, string frameSpriteName, int priceGold, int priceGems, Vector2 pos, Font font)
         {
             string cleanId = "item_" + System.Text.RegularExpressions.Regex.Replace(name.ToLower(), @"[^a-z0-9]", "_");
-            bool isOwned = AegisMech.UI.AegisPrefs.Owns(cleanId) || price <= 0 || (categoryIndex == 0 && equipValue == "Knight of Light") || (categoryIndex == 1 && equipValue == "Royal Antique Board") || (categoryIndex == 2 && equipValue == "Arcane Lightning");
-            string currentEquipped = PlayerPrefs.GetString(prefsKey, "");
-            bool isEquipped = (currentEquipped == equipValue || currentEquipped == name || (string.IsNullOrEmpty(currentEquipped) && price <= 0));
+            bool isOwned = AegisMech.UI.AegisPrefs.Owns(cleanId) || priceGold <= 0 || name == "Knight of Light" || name == "Royal Antique Board" || name == "Arcane Lightning";
+            string currentEquipped = PlayerPrefs.GetString(PrefsEquippedSkin, "Knight of Light");
+            bool isEquipped = (currentEquipped == name || (string.IsNullOrEmpty(currentEquipped) && priceGold <= 0));
 
-            GameObject card = new GameObject("Card_" + equipValue);
+            GameObject card = new GameObject("Card_" + cleanId);
             card.transform.SetParent(parent, false);
 
             Image bg = card.AddComponent<Image>();
-            Color borderCol = isEquipped ? ColAntiqueGold : (isOwned ? ColCyanGlow : ColCyanBorder);
-            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(330, 480, 20f, ColGlassFill, borderCol, isEquipped ? 2.2f : 1.5f);
-            bg.type = Image.Type.Sliced;
+            // Use authentic royal parchment card frame (filigree gold corners & rim)
+            Sprite frameSp = MedievalUIAssetLoader.GetSprite("frame_parchment_tall");
+            if (frameSp != null)
+            {
+                bg.sprite = frameSp;
+                bg.type = Image.Type.Sliced;
+            }
+            else
+            {
+                bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(330, 480, 20f, new Color(0.18f, 0.12f, 0.05f, 0.95f), ColGoldBorder, 1.5f);
+                bg.type = Image.Type.Sliced;
+            }
 
             RectTransform rt = card.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
             rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(330f, 480f);
+            rt.sizeDelta = new Vector2(428f, 516f);
 
-            // Skin Artwork Image - fills upper 68% of card
+            // Skin Artwork Image - fills upper portion of card
             GameObject imgObj = new GameObject("Artwork");
             imgObj.transform.SetParent(card.transform, false);
             Image img = imgObj.AddComponent<Image>();
@@ -4929,143 +6112,195 @@ namespace MechChess.UI
             irt.anchorMax = new Vector2(0.5f, 1f);
             irt.pivot = new Vector2(0.5f, 1f);
             irt.anchoredPosition = new Vector2(0f, -14f);
-            irt.sizeDelta = new Vector2(302f, 330f);
+            irt.sizeDelta = new Vector2(398f, 308f);
 
-            // Title
+            // Title (Deep Walnut Scribe Ink, bold, crisp on royal parchment)
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(card.transform, false);
             Text titleComp = titleObj.AddComponent<Text>();
             titleComp.text = name;
             titleComp.font = font;
-            titleComp.fontSize = 24;
+            titleComp.fontSize = 25;
             titleComp.fontStyle = FontStyle.Bold;
             titleComp.alignment = TextAnchor.MiddleCenter;
-            titleComp.color = ColTextWhite;
+            titleComp.color = new Color(0.24f, 0.15f, 0.08f, 1f);
             titleComp.horizontalOverflow = HorizontalWrapMode.Overflow;
             titleComp.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(titleComp);
             RectTransform tRt = titleObj.GetComponent<RectTransform>();
             tRt.anchorMin = new Vector2(0.5f, 0f);
             tRt.anchorMax = new Vector2(0.5f, 0f);
-            tRt.pivot = new Vector2(0.5f, 0f);
-            tRt.anchoredPosition = new Vector2(0f, 72f);
-            tRt.sizeDelta = new Vector2(300f, 32f);
+            tRt.pivot = new Vector2(0.5f, 0.5f);
+            tRt.anchoredPosition = new Vector2(0f, 134f);
+            tRt.sizeDelta = new Vector2(390f, 36f);
 
-            // Buy / Equip Button (Pill with Coin icon + Price)
-            GameObject buyBtnObj = new GameObject("BtnBuy");
-            buyBtnObj.transform.SetParent(card.transform, false);
-            Image bbImg = buyBtnObj.AddComponent<Image>();
-            Color btnBgCol = isEquipped 
-                ? new Color(0.12f, 0.22f, 0.16f, 0.95f) 
-                : (isOwned ? new Color(0.05f, 0.28f, 0.38f, 0.9f) : new Color(0.28f, 0.18f, 0.05f, 0.9f));
-            Color btnBorderCol = isEquipped ? ColAntiqueGold : (isOwned ? ColCyanBorder : ColGoldBorder);
-            bbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(190, 42, 14f, btnBgCol, btnBorderCol, 1.8f);
-            bbImg.type = Image.Type.Sliced;
+            // Button containers
+            GameObject ownedBtnObj = new GameObject("BtnOwned");
+            ownedBtnObj.transform.SetParent(card.transform, false);
+            Image ownedImg = ownedBtnObj.AddComponent<Image>();
+            ownedImg.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.GoldChampion)
+                            ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold");
+            ownedImg.type = Image.Type.Sliced;
+            RectTransform ownedRt = ownedBtnObj.GetComponent<RectTransform>();
+            ownedRt.anchorMin = new Vector2(0.5f, 0f);
+            ownedRt.anchorMax = new Vector2(0.5f, 0f);
+            ownedRt.pivot = new Vector2(0.5f, 0.5f);
+            ownedRt.anchoredPosition = new Vector2(0f, 50f);
+            ownedRt.sizeDelta = new Vector2(360f, 52f);
 
-            RectTransform bbrt = buyBtnObj.GetComponent<RectTransform>();
-            bbrt.anchorMin = new Vector2(0.5f, 0f);
-            bbrt.anchorMax = new Vector2(0.5f, 0f);
-            bbrt.pivot = new Vector2(0.5f, 0f);
-            bbrt.anchoredPosition = new Vector2(0f, 20f);
-            bbrt.sizeDelta = new Vector2(190f, 42f);
+            GameObject ownedTxtObj = new GameObject("OwnedTxt");
+            ownedTxtObj.transform.SetParent(ownedBtnObj.transform, false);
+            Text ownedTxt = ownedTxtObj.AddComponent<Text>();
+            ownedTxt.text = AegisLocalization.T("✓ ĐÃ SỞ HỮU", "✓ OWNED");
+            ownedTxt.font = font;
+            ownedTxt.fontSize = 22;
+            ownedTxt.fontStyle = FontStyle.Bold;
+            ownedTxt.alignment = TextAnchor.MiddleCenter;
+            ownedTxt.color = new Color(0.24f, 0.12f, 0.05f); // Deep imperial brown on bright gold banner
+            MakeTextCrisp(ownedTxt);
+            RectTransform otRt = ownedTxtObj.GetComponent<RectTransform>();
+            otRt.anchorMin = Vector2.zero;
+            otRt.anchorMax = Vector2.one;
+            otRt.offsetMin = Vector2.zero;
+            otRt.offsetMax = Vector2.zero;
 
-            // Gold Coin Icon inside button (only visible if unowned)
-            GameObject btnCoinObj = new GameObject("CoinIcon");
-            btnCoinObj.transform.SetParent(buyBtnObj.transform, false);
-            Image btnCoinImg = btnCoinObj.AddComponent<Image>();
-            Sprite coinSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_gold_coin.png");
-            if (coinSprite != null) btnCoinImg.sprite = coinSprite;
-            else btnCoinImg.color = ColGoldBorder;
-            btnCoinImg.preserveAspect = true;
-            btnCoinImg.enabled = !isOwned;
-            RectTransform bciRt = btnCoinObj.GetComponent<RectTransform>();
-            bciRt.anchorMin = new Vector2(0f, 0.5f);
-            bciRt.anchorMax = new Vector2(0f, 0.5f);
-            bciRt.pivot = new Vector2(0f, 0.5f);
-            bciRt.anchoredPosition = new Vector2(24f, 0f);
-            bciRt.sizeDelta = new Vector2(22f, 22f);
-
-            // Price / Status Text
-            GameObject priceTxtObj = new GameObject("PriceTxt");
-            priceTxtObj.transform.SetParent(buyBtnObj.transform, false);
-            Text priceComp = priceTxtObj.AddComponent<Text>();
-            if (isEquipped)
+            Button ownedBtn = ownedBtnObj.AddComponent<Button>();
+            ownedBtn.onClick.AddListener(() =>
             {
-                priceComp.text = AegisLocalization.T("✦ ĐANG DÙNG ✦", "✦ IN USE ✦");
-                priceComp.color = ColAntiqueGold;
-            }
-            else if (isOwned)
-            {
-                priceComp.text = AegisLocalization.T("TRANG BỊ", "EQUIP");
-                priceComp.color = ColCyanGlow;
-            }
-            else
-            {
-                priceComp.text = price.ToString();
-                priceComp.color = ColGoldBorder;
-            }
-            priceComp.font = font;
-            priceComp.fontSize = 17;
-            priceComp.fontStyle = FontStyle.Bold;
-            priceComp.alignment = isOwned ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft;
-            priceComp.horizontalOverflow = HorizontalWrapMode.Overflow;
-            priceComp.verticalOverflow = VerticalWrapMode.Overflow;
-            RectTransform ptRt = priceTxtObj.GetComponent<RectTransform>();
-            ptRt.anchorMin = new Vector2(0f, 0f);
-            ptRt.anchorMax = new Vector2(1f, 1f);
-            ptRt.offsetMin = isOwned ? new Vector2(10f, 0f) : new Vector2(56f, 0f);
-            ptRt.offsetMax = new Vector2(-10f, 0f);
+                PlayerPrefs.SetString(PrefsEquippedSkin, name);
+                PlayerPrefs.Save();
+                ShowToast(AegisLocalization.T($"Đã trang bị '{name}'!", $"Equipped '{name}'!"), ToastType.Success);
+            });
+            ownedBtnObj.AddComponent<MenuButtonEffect>();
 
-            Button bBtn = buyBtnObj.AddComponent<Button>();
-            bBtn.onClick.AddListener(() =>
+            // Dual Buy Buttons: 1 for Gold, 1 for Gems (using authentic capsule art with baked-in icons)
+            GameObject buyGoldObj = new GameObject("BtnBuyGold");
+            buyGoldObj.transform.SetParent(card.transform, false);
+            Image bgImg = buyGoldObj.AddComponent<Image>();
+            Sprite goldCapSp = MedievalUIAssetLoader.GetSprite("counter_gold_capsule")
+                            ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.DarkGold);
+            bgImg.sprite = goldCapSp;
+            bgImg.type = Image.Type.Simple;
+            bgImg.preserveAspect = true;
+            RectTransform bgRt = buyGoldObj.GetComponent<RectTransform>();
+            bgRt.anchorMin = new Vector2(0.5f, 0f);
+            bgRt.anchorMax = new Vector2(0.5f, 0f);
+            bgRt.pivot = new Vector2(0.5f, 0.5f);
+            bgRt.anchoredPosition = new Vector2(-96f, 50f);
+            bgRt.sizeDelta = new Vector2(182f, 52f);
+
+            // Note: counter_gold_capsule already features the embossed coin on the left and '+' on the right; no duplicate icon overlay
+            GameObject goldTxtObj = new GameObject("GoldTxt");
+            goldTxtObj.transform.SetParent(buyGoldObj.transform, false);
+            Text goldTxt = goldTxtObj.AddComponent<Text>();
+            goldTxt.text = priceGold.ToString("N0");
+            goldTxt.font = font;
+            goldTxt.fontSize = 20;
+            goldTxt.fontStyle = FontStyle.Bold;
+            goldTxt.alignment = TextAnchor.MiddleCenter;
+            goldTxt.color = new Color(1f, 0.94f, 0.65f); // Warm gold on dark capsule
+            MakeTextCrisp(goldTxt);
+            RectTransform gtRt = goldTxtObj.GetComponent<RectTransform>();
+            gtRt.anchorMin = new Vector2(0.5f, 0.5f);
+            gtRt.anchorMax = new Vector2(0.5f, 0.5f);
+            gtRt.pivot = new Vector2(0.5f, 0.5f);
+            gtRt.anchoredPosition = new Vector2(9.5f, -0.5f);
+            gtRt.sizeDelta = new Vector2(85f, 36f);
+
+            Button buyGoldBtn = buyGoldObj.AddComponent<Button>();
+            buyGoldObj.AddComponent<MenuButtonEffect>();
+
+            // Gem Buy Button (Royal Sapphire Gem Capsule with baked-in gem icon)
+            GameObject buyGemObj = new GameObject("BtnBuyGem");
+            buyGemObj.transform.SetParent(card.transform, false);
+            Image gemBgImg = buyGemObj.AddComponent<Image>();
+            Sprite gemCapSp = MedievalUIAssetLoader.GetSprite("counter_gem_capsule")
+                           ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.DarkGold);
+            gemBgImg.sprite = gemCapSp;
+            gemBgImg.type = Image.Type.Simple;
+            gemBgImg.preserveAspect = true;
+            RectTransform gemBgRt = buyGemObj.GetComponent<RectTransform>();
+            gemBgRt.anchorMin = new Vector2(0.5f, 0f);
+            gemBgRt.anchorMax = new Vector2(0.5f, 0f);
+            gemBgRt.pivot = new Vector2(0.5f, 0.5f);
+            gemBgRt.anchoredPosition = new Vector2(96f, 50f);
+            gemBgRt.sizeDelta = new Vector2(182f, 52f);
+
+            // Note: counter_gem_capsule already features the sapphire gem on the left and '+' on the right; no duplicate icon overlay
+            GameObject gemTxtObj = new GameObject("GemTxt");
+            gemTxtObj.transform.SetParent(buyGemObj.transform, false);
+            Text gemTxt = gemTxtObj.AddComponent<Text>();
+            gemTxt.text = priceGems.ToString("N0");
+            gemTxt.font = font;
+            gemTxt.fontSize = 20;
+            gemTxt.fontStyle = FontStyle.Bold;
+            gemTxt.alignment = TextAnchor.MiddleCenter;
+            gemTxt.color = new Color(1f, 0.96f, 0.88f);
+            MakeTextCrisp(gemTxt);
+            RectTransform gmtRt = gemTxtObj.GetComponent<RectTransform>();
+            gmtRt.anchorMin = new Vector2(0.5f, 0.5f);
+            gmtRt.anchorMax = new Vector2(0.5f, 0.5f);
+            gmtRt.pivot = new Vector2(0.5f, 0.5f);
+            gmtRt.anchoredPosition = new Vector2(1.5f, -0.5f);
+            gmtRt.sizeDelta = new Vector2(85f, 36f);
+
+            Button buyGemBtn = buyGemObj.AddComponent<Button>();
+            buyGemObj.AddComponent<MenuButtonEffect>();
+
+            // Setup state
+            ownedBtnObj.SetActive(isOwned);
+            buyGoldObj.SetActive(!isOwned);
+            buyGemObj.SetActive(!isOwned);
+
+            // Buy with Gold handler
+            buyGoldBtn.onClick.AddListener(() =>
             {
-                if (isEquipped)
+                int currentGold = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentGold : AegisMech.UI.AegisPrefs.Coins;
+                if (currentGold < priceGold)
                 {
+                    ShowToast(AegisLocalization.T($"Không đủ vàng! Cần {priceGold:N0} vàng (bạn có {currentGold:N0}).", $"Not enough gold! Need {priceGold:N0} gold (you have {currentGold:N0})."), ToastType.Error);
                     return;
                 }
 
-                if (isOwned)
-                {
-                    PlayerPrefs.SetString(prefsKey, equipValue);
-                    PlayerPrefs.Save();
-                    AegisAudioManager.PlayButtonClick();
-                    if (categoryIndex == 0 && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
-                        MechChess.Chess3D.ChessBoard3DManager.Instance.ApplySkinTheme(equipValue);
-                    else if (categoryIndex == 1 && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
-                        MechChess.Chess3D.ChessBoard3DManager.Instance.ApplyBoardTheme(equipValue);
-                    ShowToast(AegisLocalization.T($"Đã trang bị: {name}!", $"Equipped: {name}!"), ToastType.Success);
-                    PopulateShopCategory(categoryIndex);
-                    return;
-                }
-
-                int currentGold = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentGold : _currentGold;
-                if (currentGold < price)
-                {
-                    ShowToast(AegisLocalization.T($"Không đủ vàng! Cần {price} vàng (bạn có {currentGold}).", $"Not enough gold! Need {price} gold (you have {currentGold})."), ToastType.Error);
-                    return;
-                }
-
-                bool spent = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.SpendGold(price) : true;
+                bool spent = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.SpendGold(priceGold) : true;
                 if (spent)
                 {
-                    if (UserAccountManager.Instance == null)
-                    {
-                        _currentGold -= price;
-                        AegisMech.UI.AegisPrefs.Coins = _currentGold;
-                    }
+                    AegisMech.UI.AegisPrefs.Coins = Mathf.Max(0, AegisMech.UI.AegisPrefs.Coins - priceGold);
                     AegisMech.UI.AegisPrefs.Own(cleanId);
-                    PlayerPrefs.SetString(prefsKey, equipValue);
-                    PlayerPrefs.Save();
-                    AegisAudioManager.PlayButtonClick();
-                    if (categoryIndex == 0 && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
-                        MechChess.Chess3D.ChessBoard3DManager.Instance.ApplySkinTheme(equipValue);
-                    else if (categoryIndex == 1 && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
-                        MechChess.Chess3D.ChessBoard3DManager.Instance.ApplyBoardTheme(equipValue);
+                    ownedBtnObj.SetActive(true);
+                    buyGoldObj.SetActive(false);
+                    buyGemObj.SetActive(false);
                     UpdateUserProfileUI();
-                    ShowToast(AegisLocalization.T($"Mua và trang bị thành công: {name}!", $"Successfully purchased and equipped: {name}!"), ToastType.Success);
-                    PopulateShopCategory(categoryIndex);
+                    ShowToast(AegisLocalization.T($"Mua thành công: '{name}' bằng {priceGold:N0} Vàng!", $"Successfully purchased: '{name}' for {priceGold:N0} Gold!"), ToastType.Success);
                 }
             });
-            buyBtnObj.AddComponent<MenuButtonEffect>();
+
+            // Buy with Gems handler
+            buyGemBtn.onClick.AddListener(() =>
+            {
+                int currentGems = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentGems : AegisMech.UI.AegisPrefs.Gems;
+                if (currentGems < priceGems)
+                {
+                    ShowToast(AegisLocalization.T($"Không đủ kim cương! Cần {priceGems:N0} kim cương (bạn có {currentGems:N0}).", $"Not enough gems! Need {priceGems:N0} gems (you have {currentGems:N0})."), ToastType.Error);
+                    return;
+                }
+
+                bool spent = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.SpendGems(priceGems) : true;
+                if (spent)
+                {
+                    AegisMech.UI.AegisPrefs.Gems = Mathf.Max(0, AegisMech.UI.AegisPrefs.Gems - priceGems);
+                    AegisMech.UI.AegisPrefs.Own(cleanId);
+                    ownedBtnObj.SetActive(true);
+                    buyGoldObj.SetActive(false);
+                    buyGemObj.SetActive(false);
+                    UpdateUserProfileUI();
+                    ShowToast(AegisLocalization.T($"Mua thành công: '{name}' bằng {priceGems:N0} Kim Cương!", $"Successfully purchased: '{name}' for {priceGems:N0} Gems!"), ToastType.Success);
+                    if (_selectedShopTab == 0 && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+                        MechChess.Chess3D.ChessBoard3DManager.Instance.ApplySkinTheme(name);
+                    else if (_selectedShopTab == 1 && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+                        MechChess.Chess3D.ChessBoard3DManager.Instance.ApplyBoardTheme(name);
+                }
+            });
         }
 
         // =========================================================================
@@ -5195,7 +6430,26 @@ namespace MechChess.UI
                 prefsKey = null
             });
 
-            // Category 1: Skin Huyền Thoại (Skins) - 4 items
+            // Category 1: Skin Quân Cờ (Skins) - 5 items (Default Classic + 4 Premium)
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "skin_classic_chess",
+                nameVi = "Quân Cờ Cổ Điển",
+                nameEn = "Classic Wood & Marble",
+                category = 1,
+                rarity = "CƠ BẢN",
+                rarityColor = new Color(0.85f, 0.85f, 0.85f),
+                typeVi = "Bộ Quân Cờ Truyền Thống Mặc Định",
+                typeEn = "Default Classic Chess Set",
+                descVi = "Bộ quân cờ phong cách mộc cổ điển hoàng gia truyền thống, chạm khắc thủ công từ gỗ sồi và đá cẩm thạch trắng đen. Cân bằng hoàn mỹ cho mọi đại kiện tướng.",
+                descEn = "Timeless hand-carved wooden and marble chess pieces. Elegant, traditional and balanced for true grandmasters.",
+                perksVi = "🪵 Khắc gỗ thủ công • Điêu khắc cổ điển • Âm thanh gõ cờ mộc trầm ấm",
+                perksEn = "🪵 Handcrafted wood • Timeless silhouette • Authentic tactile wooden clicks",
+                spriteName = "skin_classic_chess.png",
+                isOwned = true, // MẶC ĐỊNH SỞ HỮU MIỄN PHÍ
+                prefsKey = PrefsEquippedSkin
+            });
+
             _allCollectionItems.Add(new CollectionItemData
             {
                 id = "skin_knight_light",
@@ -5211,7 +6465,7 @@ namespace MechChess.UI
                 perksVi = "✨ Hào quang hoàng kim • Viền giáp mạ vàng 24K • Hiệu ứng bước đi phát sáng",
                 perksEn = "✨ Solar aura • 24K gold gilded plates • Glowing stride VFX",
                 spriteName = "skin_knight_light.png",
-                isOwned = true,
+                isOwned = AegisMech.UI.AegisPrefs.Owns("item_knight_of_light"),
                 prefsKey = PrefsEquippedSkin
             });
 
@@ -5230,7 +6484,7 @@ namespace MechChess.UI
                 perksVi = "🔥 Lửa hỏa ngục • Giáp đen nhám phản quang • Âm thanh di chuyển uy lực",
                 perksEn = "🔥 Hellfire flames • Matte obsidian armor • Thunderous march sound",
                 spriteName = "skin_dark_legion.png",
-                isOwned = true,
+                isOwned = AegisMech.UI.AegisPrefs.Owns("item_dark_legion"),
                 prefsKey = PrefsEquippedSkin
             });
 
@@ -5249,7 +6503,7 @@ namespace MechChess.UI
                 perksVi = "⚡ Tia laser lượng tử • Lõi năng lượng nhịp đập • Giao diện HUD tương lai",
                 perksEn = "⚡ Quantum lasers • Pulsing power core • Futuristic HUD interface",
                 spriteName = "skin_cyber_future.png",
-                isOwned = true,
+                isOwned = AegisMech.UI.AegisPrefs.Owns("item_arcane_paladin"),
                 prefsKey = PrefsEquippedSkin
             });
 
@@ -5268,11 +6522,11 @@ namespace MechChess.UI
                 perksVi = "🌿 Cánh hoa anh đào rơi • Gỗ thiêng cổ thụ • Âm thanh chim hót thanh khiết",
                 perksEn = "🌿 Falling sakura petals • Sacred wood • Serene birdsong ambient",
                 spriteName = "skin_forest_spirit.png",
-                isOwned = true,
+                isOwned = AegisMech.UI.AegisPrefs.Owns("item_forest_spirit"),
                 prefsKey = PrefsEquippedSkin
             });
 
-            // Category 2: Đấu Trường & Bàn Cờ (Boards) - 4 items
+            // Category 2: Đấu Trường & Bàn Cờ (Boards) - 6 items
             _allCollectionItems.Add(new CollectionItemData
             {
                 id = "board_spirit_blossom",
@@ -5287,7 +6541,7 @@ namespace MechChess.UI
                 descEn = "Ancient shrine arena with blooming sakura trees, mossy stone bridges, and tranquil streams.",
                 perksVi = "🌸 Cây Sakura 3D • Cánh hoa rơi theo gió • Đá phong thủy cổ trấn",
                 perksEn = "🌸 3D Sakura tree • Wind-blown petals • Sacred stone bridge",
-                spriteName = "cyber_hack_arena_bg.png",
+                spriteName = "board_spirit_blossom.png",
                 isOwned = true,
                 prefsKey = PrefsEquippedBoard
             });
@@ -5306,7 +6560,7 @@ namespace MechChess.UI
                 descEn = "Handcrafted from solid oak inlaid with precious metals, once reserved for Renaissance monarchs.",
                 perksVi = "🪵 Gỗ sồi tự nhiên • Viền khắc hoa văn hoàng tộc • Âm thanh gõ gỗ thanh tao",
                 perksEn = "🪵 Natural oak texture • Gilded imperial borders • Crisp wooden click SFX",
-                spriteName = "ingame_3d_table_bg.png",
+                spriteName = "board_royal_antique.png",
                 isOwned = true,
                 prefsKey = PrefsEquippedBoard
             });
@@ -5325,7 +6579,7 @@ namespace MechChess.UI
                 descEn = "Built right atop an active volcanic caldera, bubbling magma under every single move.",
                 perksVi = "🌋 Vết nứt dung nham • Khói lửa địa ngục • Sức nóng thiêu đốt",
                 perksEn = "🌋 Magma fissures • Volcanic smoke • Scorching heat glow",
-                spriteName = "cyber_hack_arena_bg.png",
+                spriteName = "board_magma_core.png",
                 isOwned = true,
                 prefsKey = PrefsEquippedBoard
             });
@@ -5344,12 +6598,50 @@ namespace MechChess.UI
                 descEn = "Sacred amethyst sanctuary where eternal starlight converges upon the board.",
                 perksVi = "💎 Tinh thể phát quang • Phản chiếu đa chiều • Tiếng chuông pha lê ngân vang",
                 perksEn = "💎 Luminescent crystals • Multi-dimensional prism • Crystal resonance SFX",
-                spriteName = "main_menu_bg.png",
+                spriteName = "board_crystal_sanctuary.png",
                 isOwned = false,
                 prefsKey = PrefsEquippedBoard
             });
 
-            // Category 3: Hiệu Ứng Bắt Quân (Effects) - 4 items
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "board_celestial_temple",
+                nameVi = "Điện Thờ Thần Thánh",
+                nameEn = "Celestial Sanctuary",
+                category = 2,
+                rarity = "THẦN THOẠI",
+                rarityColor = colMythic,
+                typeVi = "Đấu Trường Thượng Giới",
+                typeEn = "Ascended Realm Arena",
+                descVi = "Đấu trường La Mã cổ trên đỉnh tầng mây bồng bềnh, nơi các vị thần tối cao dõi theo những ván cờ định đoạt vận mệnh thế giới.",
+                descEn = "Ancient pantheon amphitheater above the clouds where ancient deities watch over epoch-defining matches.",
+                perksVi = "🏛️ Thức cột đá cẩm thạch • Biển mây bồng bềnh • Ánh dương quang vĩnh cửu",
+                perksEn = "🏛️ Marble colonnades • Sea of clouds • Eternal daylight brilliance",
+                spriteName = "board_celestial_temple.png",
+                isOwned = false,
+                prefsKey = PrefsEquippedBoard
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "board_cyber_neon",
+                nameVi = "Đấu Trường Cyberpunk",
+                nameEn = "Cyber Neon Grid",
+                category = 2,
+                rarity = "HUYỀN THOẠI",
+                rarityColor = colLegendary,
+                typeVi = "Đấu Trường Công Nghệ 2088",
+                typeEn = "Futuristic Cyber Arena",
+                descVi = "Sàn đấu vi mạch kỹ thuật số phản chiếu những tòa nhà chọc trời neon, mưa acid lất phất và âm nhạc synthwave sôi động.",
+                descEn = "High-tech circuit arena reflecting neon skyscrapers under light acid drizzle with synthwave beats.",
+                perksVi = "🏙️ Thành phố đêm Neon • Đường truyền laser xanh tím • Nhịp đập âm nhạc tương lai",
+                perksEn = "🏙️ Neon cityscape • Laser datalines • Pumping synthwave pulses",
+                spriteName = "board_cyber_neon.png",
+                isOwned = false,
+                prefsKey = PrefsEquippedBoard
+            });
+
+            // Category 3: Hiệu Ứng Bắt Quân (Effects) - 8 items
             _allCollectionItems.Add(new CollectionItemData
             {
                 id = "fx_arcane_lightning",
@@ -5364,7 +6656,7 @@ namespace MechChess.UI
                 descEn = "High-voltage lightning strike from the stratosphere, disintegrating captured pieces.",
                 perksVi = "⚡ Tia chớp xanh neon • Âm thanh sấm nổ vang rền • Chấn động màn hình",
                 perksEn = "⚡ Cyan neon bolts • Thunder crack audio • Screen rumble",
-                spriteName = "cyber_impulse_orb.png",
+                spriteName = "effect_arcane_lightning.png",
                 isOwned = true,
                 prefsKey = PrefsEquippedEffect
             });
@@ -5383,7 +6675,7 @@ namespace MechChess.UI
                 descEn = "Pillar of celestial light showering the victor of the engagement.",
                 perksVi = "✨ Vòng hào quang thiên thần • Bụi sáng hoàng kim • Âm vang thánh ca",
                 perksEn = "✨ Halo burst • Golden dust • Choral hymn resonance",
-                spriteName = "arcane_crest.png",
+                spriteName = "effect_divine_aura.png",
                 isOwned = true,
                 prefsKey = PrefsEquippedEffect
             });
@@ -5402,7 +6694,7 @@ namespace MechChess.UI
                 descEn = "Infernal flames erupt from below to consume the vanquished piece into embers.",
                 perksVi = "🔥 Cột lửa hỏa ngục • Tàn tro bay theo gió • Âm thanh bùng cháy mãnh liệt",
                 perksEn = "🔥 Fire geyser • Flying ash • Roaring blaze audio",
-                spriteName = "cyber_core_reactor.png",
+                spriteName = "effect_hellfire_blaze.png",
                 isOwned = true,
                 prefsKey = PrefsEquippedEffect
             });
@@ -5421,7 +6713,83 @@ namespace MechChess.UI
                 descEn = "Opens a miniature cosmic wormhole, drawing the piece into space-time currents.",
                 perksVi = "🌌 Vòng xoáy lỗ sâu • Bụi tinh vân lấp lánh • Biến mất huyền bí",
                 perksEn = "🌌 Wormhole vortex • Sparkling nebula dust • Mystic phase-out",
-                spriteName = "cyber_laser_barrier.png",
+                spriteName = "effect_cosmic_stardust.png",
+                isOwned = false,
+                prefsKey = PrefsEquippedEffect
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "fx_void_singularity",
+                nameVi = "Hố Đen Hư Không",
+                nameEn = "Void Singularity",
+                category = 3,
+                rarity = "THẦN THOẠI",
+                rarityColor = colMythic,
+                typeVi = "Hiệu Ứng Lượng Tử Không Gian",
+                typeEn = "Quantum Singularity FX",
+                descVi = "Vòng xoáy hố đen lượng tử nuốt chửng quân cờ bị bắt vào chiều không gian thứ 4, tỏa ra sóng xung kích tím đậm.",
+                descEn = "Quantum event horizon devouring captured pieces into hyper-dimensions with dark violet shockwaves.",
+                perksVi = "🌀 Hố đen không gian • Sóng xung kích tím • Tiếng gầm lượng tử",
+                perksEn = "🌀 Event horizon • Void shockwave • Quantum roar audio",
+                spriteName = "effect_void_singularity.png",
+                isOwned = false,
+                prefsKey = PrefsEquippedEffect
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "fx_frost_shatter",
+                nameVi = "Băng Phong Tuyệt Đối",
+                nameEn = "Absolute Frostbite",
+                category = 3,
+                rarity = "SỬ THI",
+                rarityColor = colEpic,
+                typeVi = "Hiệu Ứng Băng Giá Cực Độ",
+                typeEn = "Glacial Shatter FX",
+                descVi = "Cơn lốc hàn băng âm 273 độ C lập tức đóng băng và đập vỡ vụn quân cờ đối phương thành hàng vạn mảnh băng tuyết lấp lánh.",
+                descEn = "Sub-zero blizzard freezing and shattering defeated pieces into thousands of glinting ice crystals.",
+                perksVi = "❄️ Đóng băng cực hạn • Vỡ vụn tinh thể tuyết • Âm thanh băng nứt giòn tan",
+                perksEn = "❄️ Absolute zero freeze • Crystal shatter VFX • Crisp cracking ice SFX",
+                spriteName = "effect_frost_shatter.png",
+                isOwned = false,
+                prefsKey = PrefsEquippedEffect
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "fx_cherry_sakura",
+                nameVi = "Vũ Điệu Hoa Anh Đào",
+                nameEn = "Sakura Petal Dance",
+                category = 3,
+                rarity = "SỬ THI",
+                rarityColor = colEpic,
+                typeVi = "Hiệu Ứng Phong Thủy Tinh Hoa",
+                typeEn = "Zen Sakura Blossom FX",
+                descVi = "Cơn lốc cánh hoa anh đào nở rộ xoay tròn thanh nhã, đưa linh hồn quân cờ tử trận về cõi thiên đường an lạc.",
+                descEn = "Swirling vortex of blossoming cherry petals escorting fallen warriors into peaceful eternal slumber.",
+                perksVi = "🌸 Cánh hoa anh đào rơi • Cơn gió thiền định • Âm vang sáo trúc thanh khiết",
+                perksEn = "🌸 Sakura storm • Zen wind breeze • Gentle bamboo flute resonance",
+                spriteName = "effect_cherry_sakura.png",
+                isOwned = false,
+                prefsKey = PrefsEquippedEffect
+            });
+
+            _allCollectionItems.Add(new CollectionItemData
+            {
+                id = "fx_golden_judgment",
+                nameVi = "Phán Quyết Hoàng Kim",
+                nameEn = "Divine Golden Judgment",
+                category = 3,
+                rarity = "HUYỀN THOẠI",
+                rarityColor = colLegendary,
+                typeVi = "Hiệu Ứng Thánh Kiếm Trảm",
+                typeEn = "Holy Judgement Blade FX",
+                descVi = "Thanh cự kiếm ánh sáng rực rỡ từ cổng trời giáng thẳng xuống đất, phân giải đối thủ trong hào quang chói lọi.",
+                descEn = "Radiant colossus sword descending from celestial gates, vaporizing targets in pure holy brilliance.",
+                perksVi = "⚔️ Cự kiếm ánh sáng • Cột sáng thiên đường • Tiếng chuông khải hoàn",
+                perksEn = "⚔️ Holy colossus sword • Divine light column • Triumphant cathedral chime",
+                spriteName = "effect_golden_judgment.png",
                 isOwned = false,
                 prefsKey = PrefsEquippedEffect
             });
@@ -5432,11 +6800,13 @@ namespace MechChess.UI
             if (item == null) return null;
             if (item.pieceType.HasValue)
             {
+                Sprite medPiece = MedievalUIAssetLoader.GetChessIcon(item.pieceType.Value.ToString());
+                if (medPiece != null) return medPiece;
                 return ArcaneAssetLoader.GetChessPiece2DSprite(item.pieceType.Value, true, 128);
             }
             if (!string.IsNullOrEmpty(item.spriteName))
             {
-                Sprite sp = ArcaneAssetLoader.LoadArcaneSprite(item.spriteName);
+                Sprite sp = MedievalUIAssetLoader.GetSprite(item.spriteName) ?? ArcaneAssetLoader.LoadArcaneSprite(item.spriteName);
                 if (sp != null) return sp;
             }
             return ArcaneAssetLoader.GetMiniChessboardDiagram(128);
@@ -5449,9 +6819,17 @@ namespace MechChess.UI
 
             if (string.IsNullOrEmpty(item.prefsKey)) return false;
 
-            string defaultVal = item.category == 1 ? "Knight of Light" :
+            string defaultVal = item.category == 1 ? "Quân Cờ Cổ Điển" :
                                 item.category == 2 ? "Vườn Hoa Linh Hồn" : "Sấm Sét Arcane";
             string current = PlayerPrefs.GetString(item.prefsKey, defaultVal);
+
+            if (item.id == "skin_classic_chess")
+            {
+                return string.IsNullOrEmpty(current) ||
+                       string.Equals(current, item.nameVi, StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(current, item.nameEn, StringComparison.OrdinalIgnoreCase) ||
+                       current.Contains("Classic") || current.Contains("Cổ Điển");
+            }
 
             return string.Equals(current, item.nameVi, StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(current, item.nameEn, StringComparison.OrdinalIgnoreCase) ||
@@ -5465,7 +6843,7 @@ namespace MechChess.UI
 
             _collectionModal = CreateModalOverlay(parent, "Screen8_CollectionModal");
 
-            // Main Window Card (1520 x 820)
+            // Centered Royal Crowned Card Frame (Scaled up 10% to 1.1x -> 1672 x 902)
             GameObject cardObj = new GameObject("CollectionCard");
             cardObj.transform.SetParent(_collectionModal.transform, false);
             RectTransform cRt = cardObj.AddComponent<RectTransform>();
@@ -5474,214 +6852,48 @@ namespace MechChess.UI
             cRt.pivot = new Vector2(0.5f, 0.5f);
             cRt.anchoredPosition = Vector2.zero;
             cRt.sizeDelta = new Vector2(1520f, 820f);
+            cRt.localScale = new Vector3(1.10f, 1.10f, 1f);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1520, 820, 24f, new Color(0.03f, 0.08f, 0.16f, 0.96f), ColCyanBorder, 2f);
-            cardBg.type = Image.Type.Sliced;
+            cardBg.sprite = MedievalUIAssetLoader.GetSprite("frame_shop_collection_1520")
+                          ?? MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ModalCrowned);
+            cardBg.type = Image.Type.Simple;
+            cardBg.preserveAspect = false;
+            cardBg.color = Color.white;
 
-            // Header Bar
+            // Window Header Bar (Height 54px, anchored safely below parchment crown arch)
             GameObject headerObj = new GameObject("CollectionHeader");
             headerObj.transform.SetParent(cardObj.transform, false);
             RectTransform hRt = headerObj.AddComponent<RectTransform>();
             hRt.anchorMin = new Vector2(0.5f, 1f);
             hRt.anchorMax = new Vector2(0.5f, 1f);
             hRt.pivot = new Vector2(0.5f, 1f);
-            hRt.anchoredPosition = new Vector2(0f, -16f);
-            hRt.sizeDelta = new Vector2(1440f, 60f);
+            hRt.anchoredPosition = new Vector2(54f, -92f);
+            hRt.sizeDelta = new Vector2(1420f, 58f);
 
-            // Back Button [ < ]
-            GameObject backBtnObj = new GameObject("BtnBack");
-            backBtnObj.transform.SetParent(headerObj.transform, false);
-            Image bbImg = backBtnObj.AddComponent<Image>();
-            bbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(48, 48, 10f, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
-            Button bbBtn = backBtnObj.AddComponent<Button>();
-            bbBtn.onClick.AddListener(() => CloseModal(_collectionModal));
-            backBtnObj.AddComponent<MenuButtonEffect>();
-            RectTransform bbRt = backBtnObj.GetComponent<RectTransform>();
-            bbRt.anchorMin = new Vector2(0f, 0.5f);
-            bbRt.anchorMax = new Vector2(0f, 0.5f);
-            bbRt.pivot = new Vector2(0f, 0.5f);
-            bbRt.anchoredPosition = new Vector2(10f, 0f);
-            bbRt.sizeDelta = new Vector2(48f, 48f);
+            // Title: "BỘ SƯU TẬP"
+            // Header Title removed as per Scene design to optimize header bar space
 
-            GameObject backIconObj = new GameObject("BackIcon");
-            backIconObj.transform.SetParent(backBtnObj.transform, false);
-            Sprite backSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_nav_back.png");
-            if (backSprite != null)
-            {
-                Image backIconImg = backIconObj.AddComponent<Image>();
-                backIconImg.sprite = backSprite;
-                backIconImg.color = ColCyanGlow;
-                backIconImg.preserveAspect = true;
-            }
-            else
-            {
-                Text bkt = backIconObj.AddComponent<Text>();
-                bkt.text = "<";
-                bkt.font = font;
-                bkt.fontSize = 26;
-                bkt.fontStyle = FontStyle.Bold;
-                bkt.alignment = TextAnchor.MiddleCenter;
-                bkt.color = ColCyanGlow;
-            }
-            RectTransform backIconRt = backIconObj.GetComponent<RectTransform>();
-            backIconRt.anchorMin = Vector2.zero;
-            backIconRt.anchorMax = Vector2.one;
-            backIconRt.offsetMin = new Vector2(8f, 8f);
-            backIconRt.offsetMax = new Vector2(-8f, -8f);
-
-            // Title & Subtitle
-            GameObject titleObj = new GameObject("Title");
-            titleObj.transform.SetParent(headerObj.transform, false);
-            Text titleTxt = titleObj.AddComponent<Text>();
-            titleTxt.text = AegisLocalization.T("BỘ SƯU TẬP (COLLECTION)", "COLLECTION & ARMORY");
-            titleTxt.font = font;
-            titleTxt.fontSize = 28;
-            titleTxt.fontStyle = FontStyle.Bold;
-            titleTxt.alignment = TextAnchor.MiddleLeft;
-            titleTxt.color = ColCyanGlow;
-            RectTransform tRt = titleObj.GetComponent<RectTransform>();
-            tRt.anchorMin = new Vector2(0f, 0.5f);
-            tRt.anchorMax = new Vector2(0f, 0.5f);
-            tRt.pivot = new Vector2(0f, 0.5f);
-            tRt.anchoredPosition = new Vector2(70f, 10f);
-            tRt.sizeDelta = new Vector2(420f, 32f);
-
-            GameObject subTitleObj = new GameObject("SubTitle");
-            subTitleObj.transform.SetParent(headerObj.transform, false);
-            Text subTitleTxt = subTitleObj.AddComponent<Text>();
-            subTitleTxt.text = AegisLocalization.T("Kho Binh Khí & Thần Binh Tinh Anh AegisMech", "Elite Weapons & Armory Collection");
-            subTitleTxt.font = font;
-            subTitleTxt.fontSize = 15;
-            subTitleTxt.fontStyle = FontStyle.Normal;
-            subTitleTxt.alignment = TextAnchor.MiddleLeft;
-            subTitleTxt.color = ColTextMuted;
-            RectTransform stRt = subTitleObj.GetComponent<RectTransform>();
-            stRt.anchorMin = new Vector2(0f, 0.5f);
-            stRt.anchorMax = new Vector2(0f, 0.5f);
-            stRt.pivot = new Vector2(0f, 0.5f);
-            stRt.anchoredPosition = new Vector2(70f, -14f);
-            stRt.sizeDelta = new Vector2(420f, 22f);
-
-            // Progress Badge (Center-Right)
-            GameObject progBadge = new GameObject("ProgressBadge");
-            progBadge.transform.SetParent(headerObj.transform, false);
-            Image pbBg = progBadge.AddComponent<Image>();
-            pbBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(240, 44, 14f, new Color(0.04f, 0.12f, 0.20f, 0.90f), ColCyanBorder, 1.2f);
-            pbBg.type = Image.Type.Sliced;
-            RectTransform pbRt = progBadge.GetComponent<RectTransform>();
-            pbRt.anchorMin = new Vector2(1f, 0.5f);
-            pbRt.anchorMax = new Vector2(1f, 0.5f);
-            pbRt.pivot = new Vector2(1f, 0.5f);
-            pbRt.anchoredPosition = new Vector2(-165f, 0f);
-            pbRt.sizeDelta = new Vector2(240f, 44f);
-
-            GameObject progIcon = new GameObject("ProgIcon");
-            progIcon.transform.SetParent(progBadge.transform, false);
-            Image piImg = progIcon.AddComponent<Image>();
-            piImg.sprite = ArcaneAssetLoader.LoadArcaneSprite("dock_icon_inventory.png");
-            piImg.preserveAspect = true;
-            RectTransform piRt = progIcon.GetComponent<RectTransform>();
-            piRt.anchorMin = new Vector2(0f, 0.5f);
-            piRt.anchorMax = new Vector2(0f, 0.5f);
-            piRt.pivot = new Vector2(0f, 0.5f);
-            piRt.anchoredPosition = new Vector2(10f, 0f);
-            piRt.sizeDelta = new Vector2(26f, 26f);
-
-            GameObject progTxtObj = new GameObject("ProgTxt");
-            progTxtObj.transform.SetParent(progBadge.transform, false);
-            _collectionProgressTxt = progTxtObj.AddComponent<Text>();
-            _collectionProgressTxt.font = font;
-            _collectionProgressTxt.fontSize = 17;
-            _collectionProgressTxt.fontStyle = FontStyle.Bold;
-            _collectionProgressTxt.alignment = TextAnchor.MiddleLeft;
-            _collectionProgressTxt.color = ColCyanGlow;
-            RectTransform pgtRt = progTxtObj.GetComponent<RectTransform>();
-            pgtRt.anchorMin = new Vector2(0f, 0.5f);
-            pgtRt.anchorMax = new Vector2(1f, 0.5f);
-            pgtRt.pivot = new Vector2(0f, 0.5f);
-            pgtRt.anchoredPosition = new Vector2(44f, 8f);
-            pgtRt.sizeDelta = new Vector2(-50f, 20f);
-
-            // Progress Bar Underneath text
-            GameObject pBarBg = new GameObject("ProgBarBg");
-            pBarBg.transform.SetParent(progBadge.transform, false);
-            Image pbbImg = pBarBg.AddComponent<Image>();
-            pbbImg.color = new Color(0.08f, 0.16f, 0.24f, 0.95f);
-            RectTransform pbbRt = pBarBg.GetComponent<RectTransform>();
-            pbbRt.anchorMin = new Vector2(0f, 0f);
-            pbbRt.anchorMax = new Vector2(0f, 0f);
-            pbbRt.pivot = new Vector2(0f, 0f);
-            pbbRt.anchoredPosition = new Vector2(44f, 7f);
-            pbbRt.sizeDelta = new Vector2(180f, 6f);
-
-            GameObject pBarFill = new GameObject("ProgBarFill");
-            pBarFill.transform.SetParent(pBarBg.transform, false);
-            Image pbfImg = pBarFill.AddComponent<Image>();
-            pbfImg.color = ColCyanGlow;
-            _collectionProgressBarFill = pBarFill.GetComponent<RectTransform>();
-            _collectionProgressBarFill.anchorMin = Vector2.zero;
-            _collectionProgressBarFill.anchorMax = Vector2.zero;
-            _collectionProgressBarFill.pivot = Vector2.zero;
-            _collectionProgressBarFill.anchoredPosition = Vector2.zero;
-            _collectionProgressBarFill.sizeDelta = new Vector2(150f, 6f);
-
-            // Gold Badge (Far Right)
-            GameObject coinObj = new GameObject("CoinBadge");
-            coinObj.transform.SetParent(headerObj.transform, false);
-            Image cbImg = coinObj.AddComponent<Image>();
-            cbImg.sprite = ArcaneAssetLoader.LoadArcaneSprite("shop_coin_badge.png") ??
-                           ArcaneAssetLoader.GetGlassBoxSprite(140, 44, 14f, new Color(0.18f, 0.12f, 0.04f, 0.9f), ColGoldBorder, 1.5f);
-            cbImg.type = Image.Type.Simple;
-            RectTransform cbRt = coinObj.GetComponent<RectTransform>();
-            cbRt.anchorMin = new Vector2(1f, 0.5f);
-            cbRt.anchorMax = new Vector2(1f, 0.5f);
-            cbRt.pivot = new Vector2(1f, 0.5f);
-            cbRt.anchoredPosition = new Vector2(-10f, 0f);
-            cbRt.sizeDelta = new Vector2(140f, 44f);
-
-            GameObject goldIconObj = new GameObject("CoinIcon");
-            goldIconObj.transform.SetParent(coinObj.transform, false);
-            Image goldIconImg = goldIconObj.AddComponent<Image>();
-            goldIconImg.sprite = ArcaneAssetLoader.LoadArcaneSprite("icon_gold_coin.png");
-            goldIconImg.preserveAspect = true;
-            RectTransform giRt = goldIconObj.GetComponent<RectTransform>();
-            giRt.anchorMin = new Vector2(0f, 0.5f);
-            giRt.anchorMax = new Vector2(0f, 0.5f);
-            giRt.pivot = new Vector2(0f, 0.5f);
-            giRt.anchoredPosition = new Vector2(12f, 0f);
-            giRt.sizeDelta = new Vector2(24f, 24f);
-
-            GameObject goldTxtObj = new GameObject("GoldTxt");
-            goldTxtObj.transform.SetParent(coinObj.transform, false);
-            _collectionGoldTxt = goldTxtObj.AddComponent<Text>();
-            _collectionGoldTxt.text = _currentGold.ToString();
-            _collectionGoldTxt.font = font;
-            _collectionGoldTxt.fontSize = 22;
-            _collectionGoldTxt.fontStyle = FontStyle.Bold;
-            _collectionGoldTxt.alignment = TextAnchor.MiddleRight;
-            _collectionGoldTxt.color = ColGoldBorder;
-            RectTransform gtRt = goldTxtObj.GetComponent<RectTransform>();
-            gtRt.anchorMin = Vector2.zero;
-            gtRt.anchorMax = Vector2.one;
-            gtRt.offsetMin = new Vector2(40f, 0f);
-            gtRt.offsetMax = new Vector2(-16f, 0f);
-
-            // Category Navigation Tabs (Width 220, Height 46)
+            // Category Navigation Tabs (Positioned in Center of Header Bar, styled identically to Shop tabs)
             GameObject tabsObj = new GameObject("CollectionTabs");
-            tabsObj.transform.SetParent(cardObj.transform, false);
+            tabsObj.transform.SetParent(headerObj.transform, false);
             RectTransform ctbRt = tabsObj.AddComponent<RectTransform>();
-            ctbRt.anchorMin = new Vector2(0.5f, 1f);
-            ctbRt.anchorMax = new Vector2(0.5f, 1f);
-            ctbRt.pivot = new Vector2(0.5f, 1f);
-            ctbRt.anchoredPosition = new Vector2(0f, -84f);
-            ctbRt.sizeDelta = new Vector2(1440f, 48f);
+            ctbRt.anchorMin = new Vector2(0.5f, 0.5f);
+            ctbRt.anchorMax = new Vector2(0.5f, 0.5f);
+            ctbRt.pivot = new Vector2(0.5f, 0.5f);
+            ctbRt.anchoredPosition = new Vector2(-234f, -13f);
+            ctbRt.sizeDelta = new Vector2(940f, 54f);
 
-            string[] tabNamesVi = { "♟️ Quân Cờ Mech", "🛡️ Skin Huyền Thoại", "🏟️ Đấu Trường & Bàn", "✨ Hiệu Ứng Bắt Quân" };
+            string[] tabNamesVi = { "Quân Cờ Mech", "Skin Huyền Thoại", "Đấu Trường & Bàn", "Hiệu Ứng Bắt Quân" };
             string[] tabNamesEn = { "♟️ Mech Pieces", "🛡️ Mythic Skins", "🏟️ Battlefields", "✨ Finisher FX" };
-            Sprite tabActSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_active.png");
-            Sprite tabInactSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_inactive.png");
+            Sprite tabActSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_active")
+                                ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_active")
+                                ?? MedievalUIAssetLoader.GetSprite("btn_hex_gold_radiant");
+            Sprite tabInactSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_inactive")
+                                  ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_inactive")
+                                  ?? MedievalUIAssetLoader.GetSprite("btn_blank_black_banner");
 
+            float[] tabPosXs = { -345f, -115f, 115f, 345f };
             for (int i = 0; i < 4; i++)
             {
                 int tabIdx = i;
@@ -5691,7 +6903,7 @@ namespace MechChess.UI
 
                 Image bg = tObj.AddComponent<Image>();
                 bg.sprite = active ? tabActSprite : tabInactSprite;
-                bg.type = Image.Type.Simple;
+                bg.type = Image.Type.Sliced;
                 _collectionTabBgs[i] = bg;
 
                 Button btn = tObj.AddComponent<Button>();
@@ -5699,39 +6911,87 @@ namespace MechChess.UI
                 tObj.AddComponent<MenuButtonEffect>();
 
                 RectTransform rt = tObj.GetComponent<RectTransform>();
-                rt.anchorMin = new Vector2(0f, 0.5f);
-                rt.anchorMax = new Vector2(0f, 0.5f);
-                rt.pivot = new Vector2(0f, 0.5f);
-                rt.anchoredPosition = new Vector2(10f + i * 236f, 0f);
-                rt.sizeDelta = new Vector2(225f, 46f);
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = new Vector2(tabPosXs[i], 0f);
+                rt.sizeDelta = new Vector2(220f, 52f);
 
                 GameObject txtObj = new GameObject("Txt");
                 txtObj.transform.SetParent(tObj.transform, false);
                 Text txtComp = txtObj.AddComponent<Text>();
                 txtComp.text = AegisLocalization.T(tabNamesVi[i], tabNamesEn[i]);
                 txtComp.font = font;
-                txtComp.fontSize = 19;
-                txtComp.fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
+                txtComp.fontSize = active ? 19 : 18;
+                txtComp.fontStyle = FontStyle.Bold;
                 txtComp.alignment = TextAnchor.MiddleCenter;
-                txtComp.color = active ? ColCyanGlow : ColTextWhite;
+                txtComp.color = active ? new Color(0.18f, 0.08f, 0.02f, 1f) : new Color(0.92f, 0.86f, 0.74f, 1f);
+                txtComp.horizontalOverflow = HorizontalWrapMode.Overflow;
+                txtComp.verticalOverflow = VerticalWrapMode.Overflow;
+                MakeTextCrisp(txtComp, active ? new Color(1f, 0.90f, 0.60f, 0.85f) : new Color(0.10f, 0.05f, 0.02f, 0.95f));
                 _collectionTabTexts[i] = txtComp;
 
                 RectTransform txtRt = txtObj.GetComponent<RectTransform>();
                 txtRt.anchorMin = Vector2.zero;
                 txtRt.anchorMax = Vector2.one;
-                txtRt.offsetMin = Vector2.zero;
-                txtRt.offsetMax = Vector2.zero;
+                txtRt.offsetMin = new Vector2(6f, 2f);
+                txtRt.offsetMax = new Vector2(-6f, 0f);
             }
 
-            // Left Area: 4 Category Containers (Width 960, Height 640)
+            // Gold Badge
+            GameObject coinObj = new GameObject("CoinBadge");
+            coinObj.transform.SetParent(headerObj.transform, false);
+            Image cbImg = coinObj.AddComponent<Image>();
+            Sprite goldBarSp = MedievalUIAssetLoader.GetSprite("counter_gold_capsule");
+            if (goldBarSp != null)
+            {
+                cbImg.sprite = goldBarSp;
+                cbImg.type = Image.Type.Simple;
+                cbImg.preserveAspect = true;
+            }
+            else
+            {
+                cbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(140, 42, 12f, new Color(0.18f, 0.12f, 0.04f, 0.9f), ColGoldBorder, 1.5f);
+                cbImg.type = Image.Type.Sliced;
+            }
+            RectTransform cbRt = coinObj.GetComponent<RectTransform>();
+            cbRt.anchorMin = new Vector2(1f, 0.5f);
+            cbRt.anchorMax = new Vector2(1f, 0.5f);
+            cbRt.pivot = new Vector2(1f, 0.5f);
+            cbRt.anchoredPosition = new Vector2(-65f, 0f);
+            cbRt.sizeDelta = new Vector2(140f, 42f);
+
+            GameObject goldTxtObj = new GameObject("GoldTxt", typeof(RectTransform));
+            goldTxtObj.transform.SetParent(coinObj.transform, false);
+            _collectionGoldTxt = goldTxtObj.AddComponent<Text>();
+            _collectionGoldTxt.text = _currentGold.ToString("N0");
+            _collectionGoldTxt.font = font;
+            _collectionGoldTxt.fontSize = 17;
+            _collectionGoldTxt.fontStyle = FontStyle.Bold;
+            _collectionGoldTxt.alignment = TextAnchor.MiddleCenter;
+            _collectionGoldTxt.color = new Color(1.0f, 0.95f, 0.82f);
+            _collectionGoldTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _collectionGoldTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_collectionGoldTxt);
+            RectTransform gtRt = goldTxtObj.GetComponent<RectTransform>();
+            gtRt.anchorMin = new Vector2(0.5f, 0.5f);
+            gtRt.anchorMax = new Vector2(0.5f, 0.5f);
+            gtRt.pivot = new Vector2(0.5f, 0.5f);
+            gtRt.anchoredPosition = new Vector2(8f, -0.5f);
+            gtRt.sizeDelta = new Vector2(60f, 32f);
+
+            // Close Button [ Crossed Swords Gold ] (Top-Right Corner of Card Frame, Enlarged 66x66)
+            CreateRoyalCloseButton(cardObj.transform, new Vector2(-44f, -130f), () => CloseModal(_collectionModal), 66f, "BtnClose");
+
+            // Left Showcase Area (Width 930, Height 630 - perfectly filling left side of parchment)
             GameObject showcaseArea = new GameObject("ShowcaseArea");
             showcaseArea.transform.SetParent(cardObj.transform, false);
             RectTransform scRt = showcaseArea.AddComponent<RectTransform>();
-            scRt.anchorMin = new Vector2(0.5f, 0.5f);
-            scRt.anchorMax = new Vector2(0.5f, 0.5f);
-            scRt.pivot = new Vector2(0.5f, 0.5f);
-            scRt.anchoredPosition = new Vector2(-240f, -25f);
-            scRt.sizeDelta = new Vector2(960f, 630f);
+            scRt.anchorMin = new Vector2(0f, 0.5f);
+            scRt.anchorMax = new Vector2(0f, 0.5f);
+            scRt.pivot = new Vector2(0f, 0.5f);
+            scRt.anchoredPosition = new Vector2(61f, -62f);
+            scRt.sizeDelta = new Vector2(930f, 630f);
 
             // Container 0: 6 Quân Cờ Mech (2 rows x 3 columns)
             GameObject cont0 = new GameObject("Category_Pieces");
@@ -5744,7 +7004,7 @@ namespace MechChess.UI
             c0Rt.offsetMax = Vector2.zero;
 
             List<CollectionItemData> pieces = _allCollectionItems.FindAll(x => x.category == 0);
-            float[] pieceColX = { -315f, 0f, 315f };
+            float[] pieceColX = { -305f, 0f, 305f };
             float[] pieceRowY = { 150f, -150f };
             for (int i = 0; i < pieces.Count; i++)
             {
@@ -5754,7 +7014,7 @@ namespace MechChess.UI
                 CreatePieceCollectionCard(cont0.transform, pItem, new Vector2(pieceColX[col], pieceRowY[row]), font);
             }
 
-            // Container 1: 4 Skin Sets
+            // Container 1: Skin Sets (Horizontal Scrollable Carousel, 3 visible at a time)
             GameObject cont1 = new GameObject("Category_Skins");
             cont1.transform.SetParent(showcaseArea.transform, false);
             _collectionCategoryContainers[1] = cont1;
@@ -5764,61 +7024,100 @@ namespace MechChess.UI
             c1Rt.offsetMin = Vector2.zero;
             c1Rt.offsetMax = Vector2.zero;
 
+            Image c1MaskImg = cont1.AddComponent<Image>();
+            c1MaskImg.color = Color.clear;
+            c1MaskImg.raycastTarget = true;
+
+            cont1.AddComponent<RectMask2D>();
+
+            ScrollRect sr1 = cont1.AddComponent<ScrollRect>();
+            sr1.horizontal = true;
+            sr1.vertical = false;
+            sr1.movementType = ScrollRect.MovementType.Clamped;
+            sr1.elasticity = 0.12f;
+            sr1.inertia = true;
+            sr1.decelerationRate = 0.135f;
+            sr1.scrollSensitivity = 40f;
+            _collectionSkinsScrollRect = sr1;
+
+            GameObject content1Obj = new GameObject("ScrollContent");
+            content1Obj.transform.SetParent(cont1.transform, false);
+            RectTransform ct1Rt = content1Obj.AddComponent<RectTransform>();
+            ct1Rt.anchorMin = new Vector2(0f, 0.5f);
+            ct1Rt.anchorMax = new Vector2(0f, 0.5f);
+            ct1Rt.pivot = new Vector2(0f, 0.5f);
+            ct1Rt.anchoredPosition = Vector2.zero;
+
+            sr1.content = ct1Rt;
+            sr1.viewport = c1Rt;
+
             List<CollectionItemData> skins = _allCollectionItems.FindAll(x => x.category == 1);
-            float skinCardW = 225f;
-            float skinGap = 16f;
-            float skinStartX = -((4 * skinCardW + 3 * skinGap) / 2f) + skinCardW / 2f;
-            for (int i = 0; i < skins.Count; i++)
+            float skinCardW = 285f;
+            float skinGap = 20f;
+            float padLeft = 15f;
+            int skinCount = skins.Count;
+            float totalSkinW = padLeft * 2f + skinCount * skinCardW + (skinCount - 1) * skinGap;
+            ct1Rt.sizeDelta = new Vector2(totalSkinW, 610f);
+
+            for (int i = 0; i < skinCount; i++)
             {
                 var sItem = skins[i];
-                CreateSkinCollectionCard(cont1.transform, sItem, new Vector2(skinStartX + i * (skinCardW + skinGap), 0f), font);
+                Vector2 pos = new Vector2(padLeft + i * (skinCardW + skinGap), 0f);
+                CreateSkinCollectionCard(content1Obj.transform, sItem, pos, skinCardW, font);
             }
             cont1.SetActive(false);
 
-            // Container 2: 4 Arenas / Boards (2x2 grid)
-            GameObject cont2 = new GameObject("Category_Boards");
-            cont2.transform.SetParent(showcaseArea.transform, false);
+            // Container 2: Arenas / Boards (Vertical Scrollable, 4 visible at a time in 2x2 view)
+            GameObject cont2 = CreateVerticalCollectionScrollView(showcaseArea.transform, "Category_Boards", 2, font);
             _collectionCategoryContainers[2] = cont2;
-            RectTransform c2Rt = cont2.AddComponent<RectTransform>();
-            c2Rt.anchorMin = Vector2.zero;
-            c2Rt.anchorMax = Vector2.one;
-            c2Rt.offsetMin = Vector2.zero;
-            c2Rt.offsetMax = Vector2.zero;
-
-            List<CollectionItemData> boards = _allCollectionItems.FindAll(x => x.category == 2);
-            float[] boardColX = { -235f, 235f };
-            float[] boardRowY = { 150f, -150f };
-            for (int i = 0; i < boards.Count; i++)
-            {
-                var bItem = boards[i];
-                int col = i % 2;
-                int row = i / 2;
-                CreateWideCollectionCard(cont2.transform, bItem, new Vector2(boardColX[col], boardRowY[row]), font);
-            }
             cont2.SetActive(false);
 
-            // Container 3: 4 Finishers / Combat FX (2x2 grid)
-            GameObject cont3 = new GameObject("Category_Effects");
-            cont3.transform.SetParent(showcaseArea.transform, false);
+            // Container 3: Finishers / Combat FX (Vertical Scrollable, 4 visible at a time in 2x2 view)
+            GameObject cont3 = CreateVerticalCollectionScrollView(showcaseArea.transform, "Category_Effects", 3, font);
             _collectionCategoryContainers[3] = cont3;
-            RectTransform c3Rt = cont3.AddComponent<RectTransform>();
-            c3Rt.anchorMin = Vector2.zero;
-            c3Rt.anchorMax = Vector2.one;
-            c3Rt.offsetMin = Vector2.zero;
-            c3Rt.offsetMax = Vector2.zero;
-
-            List<CollectionItemData> fxItems = _allCollectionItems.FindAll(x => x.category == 3);
-            for (int i = 0; i < fxItems.Count; i++)
-            {
-                var fItem = fxItems[i];
-                int col = i % 2;
-                int row = i / 2;
-                CreateWideCollectionCard(cont3.transform, fItem, new Vector2(boardColX[col], boardRowY[row]), font);
-            }
             cont3.SetActive(false);
 
-            // Right Inspector Panel (Width 460, Height 630)
+            // Right Inspector Panel (Width 460, Height 630 - perfectly filling right side of parchment)
             BuildCollectionInspectorPanel(cardObj.transform, font);
+
+            // Navigation Left Chevron [ ◀ ] for Skin Carousel
+            _collectionChevronLeft = new GameObject("CollectionChevronLeft");
+            _collectionChevronLeft.transform.SetParent(cardObj.transform, false);
+            Image lChvImg = _collectionChevronLeft.AddComponent<Image>();
+            lChvImg.sprite = MedievalUIAssetLoader.GetSprite("btn_round_chevron_left");
+            lChvImg.type = Image.Type.Simple;
+            lChvImg.preserveAspect = true;
+            Button lChvBtn = _collectionChevronLeft.AddComponent<Button>();
+            lChvBtn.onClick.AddListener(() => SmoothScrollCollectionSkinsDelta(-0.50f));
+            _collectionChevronLeft.AddComponent<MenuButtonEffect>();
+            RectTransform lChvRt = _collectionChevronLeft.GetComponent<RectTransform>();
+            lChvRt.anchorMin = new Vector2(0f, 0.5f);
+            lChvRt.anchorMax = new Vector2(0f, 0.5f);
+            lChvRt.pivot = new Vector2(0f, 0.5f);
+            lChvRt.anchoredPosition = new Vector2(20f, -56f);
+            lChvRt.sizeDelta = new Vector2(48f, 48f);
+            _collectionChevronLeft.transform.SetAsLastSibling();
+
+            // Navigation Right Chevron [ ▶ ] for Skin Carousel
+            _collectionChevronRight = new GameObject("CollectionChevronRight");
+            _collectionChevronRight.transform.SetParent(cardObj.transform, false);
+            Image rChvImg = _collectionChevronRight.AddComponent<Image>();
+            rChvImg.sprite = MedievalUIAssetLoader.GetSprite("btn_round_chevron_right");
+            rChvImg.type = Image.Type.Simple;
+            rChvImg.preserveAspect = true;
+            Button rChvBtn = _collectionChevronRight.AddComponent<Button>();
+            rChvBtn.onClick.AddListener(() => SmoothScrollCollectionSkinsDelta(0.50f));
+            _collectionChevronRight.AddComponent<MenuButtonEffect>();
+            RectTransform rChvRt = _collectionChevronRight.GetComponent<RectTransform>();
+            rChvRt.anchorMin = new Vector2(0f, 0.5f);
+            rChvRt.anchorMax = new Vector2(0f, 0.5f);
+            rChvRt.pivot = new Vector2(1f, 0.5f);
+            rChvRt.anchoredPosition = new Vector2(990f, -56f);
+            rChvRt.sizeDelta = new Vector2(48f, 48f);
+            _collectionChevronRight.transform.SetAsLastSibling();
+
+            _collectionChevronLeft.SetActive(false);
+            _collectionChevronRight.SetActive(false);
 
             _collectionModal.SetActive(false);
             if (_allCollectionItems.Count > 0)
@@ -5833,28 +7132,28 @@ namespace MechChess.UI
             inspectObj.transform.SetParent(parent, false);
 
             RectTransform iRt = inspectObj.AddComponent<RectTransform>();
-            iRt.anchorMin = new Vector2(0.5f, 0.5f);
-            iRt.anchorMax = new Vector2(0.5f, 0.5f);
-            iRt.pivot = new Vector2(0.5f, 0.5f);
-            iRt.anchoredPosition = new Vector2(495f, -25f);
+            iRt.anchorMin = new Vector2(1f, 0.5f);
+            iRt.anchorMax = new Vector2(1f, 0.5f);
+            iRt.pivot = new Vector2(1f, 0.5f);
+            iRt.anchoredPosition = new Vector2(-82f, -56f);
             iRt.sizeDelta = new Vector2(460f, 630f);
 
             Image iBg = inspectObj.AddComponent<Image>();
-            iBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(460, 630, 20f, new Color(0.02f, 0.06f, 0.12f, 0.96f), ColCyanBorder, 2f);
+            iBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(460, 630, 20f, new Color(0.02f, 0.05f, 0.10f, 0.96f), new Color(0.85f, 0.70f, 0.35f, 0.90f), 2f);
             iBg.type = Image.Type.Sliced;
 
             // Inspector Header
-            CreateTextComp(inspectObj.transform, AegisLocalization.T("✦ CHI TIẾT BINH KHÍ ✦", "✦ ARMORY INSPECTOR ✦"), 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 280f), new Vector2(420f, 30f));
+            CreateTextComp(inspectObj.transform, AegisLocalization.T("✦ CHI TIẾT BINH KHÍ ✦", "✦ ARMORY INSPECTOR ✦"), 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 280f), new Vector2(420f, 28f));
 
-            // Artwork Preview Frame (Width 410, Height 230)
+            // Artwork Preview Frame (Width 420, Height 180)
             GameObject frameObj = new GameObject("PreviewFrame");
             frameObj.transform.SetParent(inspectObj.transform, false);
             Image frameBg = frameObj.AddComponent<Image>();
-            frameBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(410, 230, 14f, new Color(0.01f, 0.03f, 0.07f, 0.95f), ColMutedBorder, 1.2f);
+            frameBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(420, 180, 14f, new Color(0.01f, 0.03f, 0.07f, 0.95f), ColMutedBorder, 1.2f);
             frameBg.type = Image.Type.Sliced;
             RectTransform fRt = frameObj.GetComponent<RectTransform>();
-            fRt.anchoredPosition = new Vector2(0f, 145f);
-            fRt.sizeDelta = new Vector2(410f, 230f);
+            fRt.anchoredPosition = new Vector2(0f, 165f);
+            fRt.sizeDelta = new Vector2(420f, 180f);
 
             GameObject imgObj = new GameObject("Artwork");
             imgObj.transform.SetParent(frameObj.transform, false);
@@ -5867,69 +7166,143 @@ namespace MechChess.UI
             imgRt.offsetMax = new Vector2(-10f, -10f);
 
             // Title
-            _inspectTitle = CreateTextComp(inspectObj.transform, "Vật phẩm", 24, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 8f), new Vector2(420f, 30f));
+            _inspectTitle = CreateTextComp(inspectObj.transform, "Vật phẩm", 22, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 50f), new Vector2(420f, 30f));
             _inspectTitle.horizontalOverflow = HorizontalWrapMode.Wrap;
             _inspectTitle.resizeTextForBestFit = true;
-            _inspectTitle.resizeTextMinSize = 16;
-            _inspectTitle.resizeTextMaxSize = 24;
+            _inspectTitle.resizeTextMinSize = 15;
+            _inspectTitle.resizeTextMaxSize = 22;
 
             // Rarity & Type Subtitle Row
             GameObject tagRow = new GameObject("TagRow");
             tagRow.transform.SetParent(inspectObj.transform, false);
             RectTransform trRt = tagRow.AddComponent<RectTransform>();
-            trRt.anchoredPosition = new Vector2(0f, -22f);
-            trRt.sizeDelta = new Vector2(420f, 26f);
+            trRt.anchoredPosition = new Vector2(0f, 20f);
+            trRt.sizeDelta = new Vector2(420f, 24f);
 
-            _inspectRarity = CreateTextComp(tagRow.transform, "THẦN THOẠI", 16, FontStyle.Bold, ColCyanGlow, font, new Vector2(-110f, 0f), new Vector2(180f, 24f), TextAnchor.MiddleRight);
-            CreateTextComp(tagRow.transform, "•", 16, FontStyle.Bold, ColMutedBorder, font, Vector2.zero, new Vector2(20f, 24f), TextAnchor.MiddleCenter);
-            _inspectType = CreateTextComp(tagRow.transform, "Quân Cờ", 15, FontStyle.Normal, ColTextMuted, font, new Vector2(110f, 0f), new Vector2(180f, 24f), TextAnchor.MiddleLeft);
+            _inspectRarity = CreateTextComp(tagRow.transform, "THẦN THOẠI", 14, FontStyle.Bold, ColCyanGlow, font, new Vector2(-105f, 0f), new Vector2(190f, 22f), TextAnchor.MiddleRight);
+            CreateTextComp(tagRow.transform, "•", 14, FontStyle.Bold, ColMutedBorder, font, Vector2.zero, new Vector2(20f, 22f), TextAnchor.MiddleCenter);
+            _inspectType = CreateTextComp(tagRow.transform, "Quân Cờ", 13, FontStyle.Normal, ColTextMuted, font, new Vector2(105f, 0f), new Vector2(190f, 22f), TextAnchor.MiddleLeft);
 
-            // Lore / Description Box (Width 410, Height 95)
+            // Lore / Description Box (Width 420, Height 105 - text never spills out)
             GameObject descObj = new GameObject("DescBox");
             descObj.transform.SetParent(inspectObj.transform, false);
             Image descBg = descObj.AddComponent<Image>();
-            descBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(410, 95, 12f, new Color(0.04f, 0.08f, 0.15f, 0.85f), ColMutedBorder, 1f);
+            descBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(420, 105, 12f, new Color(0.04f, 0.08f, 0.15f, 0.90f), ColMutedBorder, 1f);
             descBg.type = Image.Type.Sliced;
             RectTransform dRt = descObj.GetComponent<RectTransform>();
-            dRt.anchoredPosition = new Vector2(0f, -95f);
-            dRt.sizeDelta = new Vector2(410f, 95f);
+            dRt.anchoredPosition = new Vector2(0f, -50f);
+            dRt.sizeDelta = new Vector2(420f, 105f);
 
-            _inspectDesc = CreateTextComp(descObj.transform, "Mô tả chiến thuật...", 14, FontStyle.Normal, ColTextWhite, font, Vector2.zero, new Vector2(380f, 75f), TextAnchor.UpperLeft);
+            _inspectDesc = CreateTextComp(descObj.transform, "Mô tả chiến thuật...", 13, FontStyle.Normal, ColTextWhite, font, Vector2.zero, new Vector2(396f, 85f), TextAnchor.UpperLeft);
             _inspectDesc.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _inspectDesc.verticalOverflow = VerticalWrapMode.Overflow;
-            _inspectDesc.lineSpacing = 1.2f;
+            _inspectDesc.verticalOverflow = VerticalWrapMode.Truncate;
+            _inspectDesc.resizeTextForBestFit = true;
+            _inspectDesc.resizeTextMinSize = 10;
+            _inspectDesc.resizeTextMaxSize = 13;
+            _inspectDesc.lineSpacing = 1.15f;
 
-            // Perks Box (Width 410, Height 85)
+            // Perks Box (Width 420, Height 105 - text never spills out)
             GameObject perksObj = new GameObject("PerksBox");
             perksObj.transform.SetParent(inspectObj.transform, false);
             Image perksBg = perksObj.AddComponent<Image>();
-            perksBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(410, 85, 12f, new Color(0.04f, 0.08f, 0.15f, 0.85f), ColMutedBorder, 1f);
+            perksBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(420, 105, 12f, new Color(0.04f, 0.08f, 0.15f, 0.90f), ColMutedBorder, 1f);
             perksBg.type = Image.Type.Sliced;
             RectTransform pkRt = perksObj.GetComponent<RectTransform>();
-            pkRt.anchoredPosition = new Vector2(0f, -195f);
-            pkRt.sizeDelta = new Vector2(410f, 85f);
+            pkRt.anchoredPosition = new Vector2(0f, -165f);
+            pkRt.sizeDelta = new Vector2(420f, 105f);
 
-            CreateTextComp(perksObj.transform, AegisLocalization.T("⚡ ĐẶC TÍNH CHIẾN THUẬT", "⚡ TACTICAL PERKS"), 14, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 24f), new Vector2(380f, 22f), TextAnchor.MiddleLeft);
-            _inspectPerks = CreateTextComp(perksObj.transform, "Hiệu ứng...", 13, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -10f), new Vector2(380f, 48f), TextAnchor.UpperLeft);
+            CreateTextComp(perksObj.transform, AegisLocalization.T("⚡ ĐẶC TÍNH CHIẾN THUẬT", "⚡ TACTICAL PERKS"), 13, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 34f), new Vector2(396f, 22f), TextAnchor.MiddleLeft);
+            _inspectPerks = CreateTextComp(perksObj.transform, "Hiệu ứng...", 12, FontStyle.Normal, ColTextMuted, font, new Vector2(0f, -12f), new Vector2(396f, 56f), TextAnchor.UpperLeft);
             _inspectPerks.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _inspectPerks.verticalOverflow = VerticalWrapMode.Overflow;
+            _inspectPerks.verticalOverflow = VerticalWrapMode.Truncate;
+            _inspectPerks.resizeTextForBestFit = true;
+            _inspectPerks.resizeTextMinSize = 9;
+            _inspectPerks.resizeTextMaxSize = 12;
             _inspectPerks.lineSpacing = 1.15f;
 
-            // Action CTA Button
+            // Action CTA Button (Width 420, Height 56)
             _inspectEquipBtnObj = new GameObject("BtnActionEquip");
             _inspectEquipBtnObj.transform.SetParent(inspectObj.transform, false);
             _inspectEquipBtnBg = _inspectEquipBtnObj.AddComponent<Image>();
-            _inspectEquipBtnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 50, 14f, ColGoldCta, ColGoldBorder, 2f);
+            _inspectEquipBtnBg.sprite = MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold")
+                                       ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.DarkGold);
             _inspectEquipBtnBg.type = Image.Type.Sliced;
+            _inspectEquipBtnBg.color = Color.white;
 
             _inspectEquipBtn = _inspectEquipBtnObj.AddComponent<Button>();
             _inspectEquipBtnObj.AddComponent<MenuButtonEffect>();
 
             RectTransform ebRt = _inspectEquipBtnObj.GetComponent<RectTransform>();
-            ebRt.anchoredPosition = new Vector2(0f, -270f);
-            ebRt.sizeDelta = new Vector2(380f, 50f);
+            ebRt.anchoredPosition = new Vector2(0f, -258f);
+            ebRt.sizeDelta = new Vector2(420f, 56f);
 
-            _inspectEquipBtnTxt = CreateTextComp(_inspectEquipBtnObj.transform, AegisLocalization.T("⚔️  TRANG BỊ NGAY", "⚔️  EQUIP NOW"), 20, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(360f, 34f));
+            _inspectEquipBtnTxt = CreateTextComp(_inspectEquipBtnObj.transform, AegisLocalization.T("🛒  XEM TRONG CỬA HÀNG", "🛒  VIEW IN SHOP"), 18, FontStyle.Bold, new Color(1.0f, 0.94f, 0.82f), font, Vector2.zero, new Vector2(390f, 36f));
+            MakeTextCrisp(_inspectEquipBtnTxt, new Color(0.12f, 0.06f, 0.02f, 0.95f));
+        }
+
+        private GameObject CreateVerticalCollectionScrollView(Transform parent, string name, int categoryIndex, Font font)
+        {
+            GameObject scrollObj = new GameObject(name);
+            scrollObj.transform.SetParent(parent, false);
+            RectTransform svRt = scrollObj.AddComponent<RectTransform>();
+            svRt.anchorMin = Vector2.zero;
+            svRt.anchorMax = Vector2.one;
+            svRt.offsetMin = Vector2.zero;
+            svRt.offsetMax = Vector2.zero;
+
+            Image maskImg = scrollObj.AddComponent<Image>();
+            maskImg.color = Color.clear;
+            maskImg.raycastTarget = true;
+
+            scrollObj.AddComponent<RectMask2D>();
+
+            ScrollRect sr = scrollObj.AddComponent<ScrollRect>();
+            sr.horizontal = false;
+            sr.vertical = true;
+            sr.movementType = ScrollRect.MovementType.Clamped;
+            sr.elasticity = 0.12f;
+            sr.inertia = true;
+            sr.decelerationRate = 0.135f;
+            sr.scrollSensitivity = 40f;
+
+            if (categoryIndex == 2) _collectionBoardsScrollRect = sr;
+            else if (categoryIndex == 3) _collectionEffectsScrollRect = sr;
+
+            GameObject contentObj = new GameObject("ScrollContent");
+            contentObj.transform.SetParent(scrollObj.transform, false);
+            RectTransform ctRt = contentObj.AddComponent<RectTransform>();
+            ctRt.anchorMin = new Vector2(0.5f, 1f);
+            ctRt.anchorMax = new Vector2(0.5f, 1f);
+            ctRt.pivot = new Vector2(0.5f, 1f);
+            ctRt.anchoredPosition = Vector2.zero;
+
+            sr.content = ctRt;
+            sr.viewport = svRt;
+
+            List<CollectionItemData> items = _allCollectionItems.FindAll(x => x.category == categoryIndex);
+            int count = items.Count;
+            int numRows = (count + 1) / 2;
+
+            float cardH = 295f;
+            float gapY = 15f;
+            float padTop = 10f;
+            float padBottom = 15f;
+
+            float totalH = padTop + numRows * cardH + (numRows > 1 ? (numRows - 1) * gapY : 0f) + padBottom;
+            ctRt.sizeDelta = new Vector2(930f, Mathf.Max(totalH, 630f));
+
+            float[] colX = { -228f, 228f };
+
+            for (int i = 0; i < count; i++)
+            {
+                var item = items[i];
+                int col = i % 2;
+                int row = i / 2;
+                float posY = -(padTop + row * (cardH + gapY) + cardH / 2f);
+                CreateWideCollectionCard(contentObj.transform, item, new Vector2(colX[col], posY), font);
+            }
+
+            return scrollObj;
         }
 
         private void CreatePieceCollectionCard(Transform parent, CollectionItemData item, Vector2 pos, Font font)
@@ -5939,7 +7312,7 @@ namespace MechChess.UI
             item.cardObj = card;
 
             Image bg = card.AddComponent<Image>();
-            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(290, 270, 16f, ColGlassFill, item.rarityColor, 1.5f);
+            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(285, 290, 16f, ColGlassFill, item.rarityColor, 1.5f);
             bg.type = Image.Type.Sliced;
             item.borderImg = bg;
 
@@ -5953,47 +7326,53 @@ namespace MechChess.UI
 
             RectTransform rt = card.GetComponent<RectTransform>();
             rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(290f, 270f);
+            rt.sizeDelta = new Vector2(285f, 290f);
 
-            // Piece Icon Token (Enlarged 90x90)
+            // Piece Icon Token
             GameObject tokenObj = new GameObject("Token");
             tokenObj.transform.SetParent(card.transform, false);
             Image tokenImg = tokenObj.AddComponent<Image>();
             tokenImg.sprite = GetCollectionItemSprite(item);
             tokenImg.preserveAspect = true;
             RectTransform trt = tokenObj.GetComponent<RectTransform>();
-            trt.anchoredPosition = new Vector2(0f, 48f);
-            trt.sizeDelta = new Vector2(96f, 96f);
+            trt.anchoredPosition = new Vector2(0f, 50f);
+            trt.sizeDelta = new Vector2(110f, 110f);
 
             // Title
-            CreateTextComp(card.transform, AegisLocalization.T(item.nameVi, item.nameEn), 22, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, -24f), new Vector2(270f, 28f));
+            var nameTxt = CreateTextComp(card.transform, AegisLocalization.T(item.nameVi, item.nameEn), 20, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, -24f), new Vector2(265f, 28f));
+            nameTxt.resizeTextForBestFit = true;
+            nameTxt.resizeTextMinSize = 14;
+            nameTxt.resizeTextMaxSize = 20;
 
             // Class / Rarity
-            CreateTextComp(card.transform, item.rarity, 14, FontStyle.Bold, item.rarityColor, font, new Vector2(0f, -50f), new Vector2(270f, 20f));
+            CreateTextComp(card.transform, item.rarity, 13, FontStyle.Bold, item.rarityColor, font, new Vector2(0f, -50f), new Vector2(265f, 22f));
 
             // Status Pill
             GameObject pill = new GameObject("StatusPill");
             pill.transform.SetParent(card.transform, false);
             Image pImg = pill.AddComponent<Image>();
-            pImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(190, 32, 10f, new Color(0.05f, 0.20f, 0.25f, 0.95f), ColCyanGlow, 1.2f);
+            pImg.sprite = MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold")
+                       ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.DarkGold);
             pImg.type = Image.Type.Sliced;
+            pImg.color = Color.white;
             item.statusBg = pImg;
             RectTransform prt = pill.GetComponent<RectTransform>();
-            prt.anchoredPosition = new Vector2(0f, -96f);
-            prt.sizeDelta = new Vector2(190f, 32f);
+            prt.anchoredPosition = new Vector2(0f, -95f);
+            prt.sizeDelta = new Vector2(170f, 36f);
 
-            Text st = CreateTextComp(pill.transform, AegisLocalization.T("✓ ĐANG DÙNG", "✓ EQUIPPED"), 15, FontStyle.Bold, ColCyanGlow, font, Vector2.zero, new Vector2(180f, 24f));
+            Text st = CreateTextComp(pill.transform, AegisLocalization.T("✓ ĐANG DÙNG", "✓ EQUIPPED"), 14, FontStyle.Bold, new Color(1.0f, 0.94f, 0.75f), font, Vector2.zero, new Vector2(160f, 26f));
+            MakeTextCrisp(st, new Color(0.12f, 0.06f, 0.02f, 0.95f));
             item.statusText = st;
         }
 
-        private void CreateSkinCollectionCard(Transform parent, CollectionItemData item, Vector2 pos, Font font)
+        private void CreateSkinCollectionCard(Transform parent, CollectionItemData item, Vector2 pos, float cardW, Font font)
         {
             GameObject card = new GameObject("Card_" + item.id);
             card.transform.SetParent(parent, false);
             item.cardObj = card;
 
             Image bg = card.AddComponent<Image>();
-            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(225, 590, 18f, ColGlassFill, item.rarityColor, 1.5f);
+            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)cardW, 590, 18f, ColGlassFill, item.rarityColor, 1.5f);
             bg.type = Image.Type.Sliced;
             item.borderImg = bg;
 
@@ -6006,41 +7385,51 @@ namespace MechChess.UI
             card.AddComponent<MenuButtonEffect>();
 
             RectTransform rt = card.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
             rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(225f, 590f);
+            rt.sizeDelta = new Vector2(cardW, 590f);
 
-            // Artwork
+            // Artwork Mech
             GameObject artObj = new GameObject("Artwork");
             artObj.transform.SetParent(card.transform, false);
             Image artImg = artObj.AddComponent<Image>();
             artImg.sprite = GetCollectionItemSprite(item);
             artImg.preserveAspect = false;
             RectTransform artRt = artObj.GetComponent<RectTransform>();
-            artRt.anchorMin = new Vector2(0.5f, 1f);
-            artRt.anchorMax = new Vector2(0.5f, 1f);
-            artRt.pivot = new Vector2(0.5f, 1f);
-            artRt.anchoredPosition = new Vector2(0f, -12f);
-            artRt.sizeDelta = new Vector2(205f, 390f);
+            artRt.anchorMin = new Vector2(0.5f, 0.5f);
+            artRt.anchorMax = new Vector2(0.5f, 0.5f);
+            artRt.pivot = new Vector2(0.5f, 0.5f);
+            artRt.anchoredPosition = new Vector2(0f, 85f);
+            artRt.sizeDelta = new Vector2(cardW - 20f, 370f);
 
             // Title
-            CreateTextComp(card.transform, AegisLocalization.T(item.nameVi, item.nameEn), 20, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, -145f), new Vector2(215f, 30f));
+            var nameTxt = CreateTextComp(card.transform, AegisLocalization.T(item.nameVi, item.nameEn), 20, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, -135f), new Vector2(cardW - 20f, 28f));
+            nameTxt.resizeTextForBestFit = true;
+            nameTxt.resizeTextMinSize = 14;
+            nameTxt.resizeTextMaxSize = 20;
 
             // Rarity Tag
-            CreateTextComp(card.transform, item.rarity, 14, FontStyle.Bold, item.rarityColor, font, new Vector2(0f, -180f), new Vector2(200f, 20f));
+            CreateTextComp(card.transform, item.rarity, 13, FontStyle.Bold, item.rarityColor, font, new Vector2(0f, -165f), new Vector2(cardW - 20f, 22f));
 
             // Status Pill
             GameObject pill = new GameObject("StatusPill");
             pill.transform.SetParent(card.transform, false);
             Image pImg = pill.AddComponent<Image>();
             bool isEq = IsCollectionItemEquipped(item);
-            pImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(190, 36, 10f, isEq ? new Color(0.05f, 0.20f, 0.25f, 0.95f) : new Color(0.08f, 0.14f, 0.20f, 0.90f), isEq ? ColCyanGlow : ColMutedBorder, 1.2f);
+            Color fillCol = isEq ? new Color(0.05f, 0.20f, 0.25f, 0.95f) : (item.isOwned ? new Color(0.08f, 0.14f, 0.20f, 0.90f) : new Color(0.18f, 0.06f, 0.06f, 0.90f));
+            Color borderCol = isEq ? ColCyanGlow : (item.isOwned ? ColMutedBorder : new Color(0.85f, 0.35f, 0.35f));
+            pImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)(cardW - 40f), 42, 10f, fillCol, borderCol, 1.2f);
             pImg.type = Image.Type.Sliced;
             item.statusBg = pImg;
             RectTransform prt = pill.GetComponent<RectTransform>();
-            prt.anchoredPosition = new Vector2(0f, -240f);
-            prt.sizeDelta = new Vector2(190f, 36f);
+            prt.anchoredPosition = new Vector2(0f, -220f);
+            prt.sizeDelta = new Vector2(cardW - 40f, 42f);
 
-            Text st = CreateTextComp(pill.transform, isEq ? AegisLocalization.T("✓ ĐANG DÙNG", "✓ EQUIPPED") : AegisLocalization.T("ĐÃ SỞ HỮU", "OWNED"), 15, FontStyle.Bold, isEq ? ColCyanGlow : ColTextWhite, font, Vector2.zero, new Vector2(180f, 26f));
+            string sTxt = isEq ? AegisLocalization.T("✓ ĐANG DÙNG", "✓ EQUIPPED") : (item.isOwned ? AegisLocalization.T("ĐÃ SỞ HỮU", "OWNED") : AegisLocalization.T("🔒 CHƯA MỞ", "🔒 LOCKED"));
+            Color tCol = isEq ? ColCyanGlow : (item.isOwned ? ColTextWhite : new Color(0.95f, 0.5f, 0.5f));
+            Text st = CreateTextComp(pill.transform, sTxt, 14, FontStyle.Bold, tCol, font, Vector2.zero, new Vector2(cardW - 44f, 28f));
             item.statusText = st;
         }
 
@@ -6051,7 +7440,7 @@ namespace MechChess.UI
             item.cardObj = card;
 
             Image bg = card.AddComponent<Image>();
-            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(460, 275, 16f, ColGlassFill, item.rarityColor, 1.5f);
+            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(445, 295, 16f, ColGlassFill, item.rarityColor, 1.5f);
             bg.type = Image.Type.Sliced;
             item.borderImg = bg;
 
@@ -6064,8 +7453,11 @@ namespace MechChess.UI
             card.AddComponent<MenuButtonEffect>();
 
             RectTransform rt = card.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(460f, 275f);
+            rt.sizeDelta = new Vector2(445f, 295f);
 
             // Preview Image
             GameObject artObj = new GameObject("Artwork");
@@ -6078,55 +7470,125 @@ namespace MechChess.UI
             artRt.anchorMax = new Vector2(0.5f, 1f);
             artRt.pivot = new Vector2(0.5f, 1f);
             artRt.anchoredPosition = new Vector2(0f, -10f);
-            artRt.sizeDelta = new Vector2(440f, 155f);
+            artRt.sizeDelta = new Vector2(425f, 165f);
 
             // Title
-            CreateTextComp(card.transform, AegisLocalization.T(item.nameVi, item.nameEn), 22, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, -48f), new Vector2(440f, 28f));
+            var nameTxt = CreateTextComp(card.transform, AegisLocalization.T(item.nameVi, item.nameEn), 18, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, -55f), new Vector2(420f, 26f));
+            nameTxt.resizeTextForBestFit = true;
+            nameTxt.resizeTextMinSize = 13;
+            nameTxt.resizeTextMaxSize = 18;
 
             // Rarity Tag
-            CreateTextComp(card.transform, item.rarity + " • " + AegisLocalization.T(item.typeVi, item.typeEn), 14, FontStyle.Bold, item.rarityColor, font, new Vector2(0f, -74f), new Vector2(440f, 20f));
+            CreateTextComp(card.transform, item.rarity + " • " + AegisLocalization.T(item.typeVi, item.typeEn), 13, FontStyle.Bold, item.rarityColor, font, new Vector2(0f, -80f), new Vector2(420f, 20f));
 
             // Status Pill
             GameObject pill = new GameObject("StatusPill");
             pill.transform.SetParent(card.transform, false);
             Image pImg = pill.AddComponent<Image>();
             bool isEq = IsCollectionItemEquipped(item);
-            Color fillCol = isEq ? new Color(0.05f, 0.20f, 0.25f, 0.95f) : (item.isOwned ? new Color(0.08f, 0.14f, 0.20f, 0.90f) : new Color(0.20f, 0.05f, 0.05f, 0.90f));
-            Color borderCol = isEq ? ColCyanGlow : (item.isOwned ? ColMutedBorder : new Color(0.8f, 0.3f, 0.3f));
-            pImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(210, 32, 10f, fillCol, borderCol, 1.2f);
+            Sprite pSprite = isEq
+                ? (MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold") ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.DarkGold))
+                : (item.isOwned
+                    ? (MedievalUIAssetLoader.GetSprite("btn_blank_parchment_gold") ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.GoldChampion))
+                    : (MedievalUIAssetLoader.GetSprite("btn_blank_black_banner") ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.BlackBanner)));
+            pImg.sprite = pSprite;
             pImg.type = Image.Type.Sliced;
+            pImg.color = Color.white;
             item.statusBg = pImg;
             RectTransform prt = pill.GetComponent<RectTransform>();
-            prt.anchoredPosition = new Vector2(0f, -112f);
-            prt.sizeDelta = new Vector2(210f, 32f);
+            prt.anchoredPosition = new Vector2(0f, -114f);
+            prt.sizeDelta = new Vector2(180f, 36f);
 
             string sTxt = isEq ? AegisLocalization.T("✓ ĐANG DÙNG", "✓ EQUIPPED") : (item.isOwned ? AegisLocalization.T("ĐÃ SỞ HỮU", "OWNED") : AegisLocalization.T("🔒 CHƯA MỞ", "🔒 LOCKED"));
-            Color tCol = isEq ? ColCyanGlow : (item.isOwned ? ColTextWhite : new Color(0.9f, 0.4f, 0.4f));
-            Text st = CreateTextComp(pill.transform, sTxt, 15, FontStyle.Bold, tCol, font, Vector2.zero, new Vector2(200f, 24f));
+            Color tCol = isEq ? new Color(1.0f, 0.94f, 0.75f) : (item.isOwned ? new Color(0.20f, 0.10f, 0.04f) : new Color(0.92f, 0.85f, 0.75f));
+            Text st = CreateTextComp(pill.transform, sTxt, 13, FontStyle.Bold, tCol, font, Vector2.zero, new Vector2(170f, 26f));
+            MakeTextCrisp(st, new Color(0.12f, 0.06f, 0.02f, 0.95f));
             item.statusText = st;
+        }
+
+        public void SmoothScrollCollectionSkinsDelta(float delta)
+        {
+            if (_collectionSkinsScrollRect == null) return;
+            float current = _collectionSkinsScrollRect.horizontalNormalizedPosition;
+            SmoothScrollCollectionSkins(Mathf.Clamp01(current + delta));
+        }
+
+        public void SmoothScrollCollectionSkins(float targetPos)
+        {
+            if (_collectionScrollCoroutine != null) StopCoroutine(_collectionScrollCoroutine);
+            _collectionScrollCoroutine = StartCoroutine(DoSmoothScrollCollectionSkins(targetPos));
+        }
+
+        private IEnumerator DoSmoothScrollCollectionSkins(float targetPos)
+        {
+            if (_collectionSkinsScrollRect == null) yield break;
+            AegisAudioManager.PlayTabSwitch();
+            float startPos = _collectionSkinsScrollRect.horizontalNormalizedPosition;
+            float elapsed = 0f;
+            float duration = 0.25f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float ease = 1f - Mathf.Pow(1f - t, 3f);
+                _collectionSkinsScrollRect.horizontalNormalizedPosition = Mathf.Lerp(startPos, targetPos, ease);
+                yield return null;
+            }
+            _collectionSkinsScrollRect.horizontalNormalizedPosition = targetPos;
+            _collectionScrollCoroutine = null;
         }
 
         private void SwitchCollectionTab(int tabIndex)
         {
             if (_selectedCollectionTab != tabIndex) AegisAudioManager.PlayTabSwitch();
             _selectedCollectionTab = tabIndex;
-            Sprite activeSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_active.png");
-            Sprite inactiveSprite = ArcaneAssetLoader.LoadArcaneSprite("shop_tab_inactive.png");
+            if (_collectionScrollCoroutine != null)
+            {
+                StopCoroutine(_collectionScrollCoroutine);
+                _collectionScrollCoroutine = null;
+            }
+
+            bool isSkinsTab = (tabIndex == 1);
+            if (_collectionChevronLeft != null) _collectionChevronLeft.SetActive(isSkinsTab);
+            if (_collectionChevronRight != null) _collectionChevronRight.SetActive(isSkinsTab);
+
+            if (isSkinsTab && _collectionSkinsScrollRect != null)
+            {
+                _collectionSkinsScrollRect.horizontalNormalizedPosition = 0f;
+            }
+            else if (tabIndex == 2 && _collectionBoardsScrollRect != null)
+            {
+                _collectionBoardsScrollRect.verticalNormalizedPosition = 1f;
+            }
+            else if (tabIndex == 3 && _collectionEffectsScrollRect != null)
+            {
+                _collectionEffectsScrollRect.verticalNormalizedPosition = 1f;
+            }
+
+            Sprite activeSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_active")
+                                ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_active");
+            Sprite inactiveSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_inactive")
+                                  ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_inactive");
 
             for (int i = 0; i < _collectionTabBgs.Length; i++)
             {
+                bool active = (i == tabIndex);
                 if (_collectionTabBgs[i] != null)
                 {
-                    _collectionTabBgs[i].sprite = (i == tabIndex) ? activeSprite : inactiveSprite;
+                    _collectionTabBgs[i].sprite = active ? activeSprite : inactiveSprite;
+                    _collectionTabBgs[i].type = Image.Type.Sliced;
                 }
                 if (_collectionTabTexts[i] != null)
                 {
-                    _collectionTabTexts[i].color = (i == tabIndex) ? ColCyanGlow : ColTextWhite;
-                    _collectionTabTexts[i].fontStyle = (i == tabIndex) ? FontStyle.Bold : FontStyle.Normal;
+                    _collectionTabTexts[i].color = active ? new Color(0.18f, 0.08f, 0.02f, 1f) : new Color(0.92f, 0.86f, 0.74f, 1f);
+                    _collectionTabTexts[i].fontSize = active ? 19 : 18;
+                    _collectionTabTexts[i].fontStyle = FontStyle.Bold;
+                    MakeTextCrisp(_collectionTabTexts[i], active ? new Color(1f, 0.90f, 0.60f, 0.85f) : new Color(0.10f, 0.05f, 0.02f, 0.95f));
                 }
                 if (_collectionCategoryContainers[i] != null)
                 {
-                    _collectionCategoryContainers[i].SetActive(i == tabIndex);
+                    _collectionCategoryContainers[i].SetActive(active);
                 }
             }
 
@@ -6171,30 +7633,41 @@ namespace MechChess.UI
                 if (equipped)
                 {
                     _inspectEquipBtnTxt.text = AegisLocalization.T("✓ ĐANG TRANG BỊ", "✓ EQUIPPED");
-                    _inspectEquipBtnTxt.color = ColCyanGlow;
-                    _inspectEquipBtnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 50, 14f, new Color(0.06f, 0.16f, 0.22f, 0.95f), ColCyanBorder, 2f);
+                    _inspectEquipBtnTxt.color = new Color(0.96f, 0.90f, 0.74f);
+                    _inspectEquipBtnBg.sprite = MedievalUIAssetLoader.GetSprite("btn_blank_black_banner")
+                                               ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodSmall);
+                    _inspectEquipBtnBg.type = Image.Type.Sliced;
+                    _inspectEquipBtnBg.color = new Color(0.85f, 0.80f, 0.70f, 0.85f);
                     _inspectEquipBtn.interactable = false;
                 }
                 else if (item.isOwned)
                 {
                     _inspectEquipBtnTxt.text = AegisLocalization.T("⚔️  TRANG BỊ NGAY", "⚔️  EQUIP NOW");
-                    _inspectEquipBtnTxt.color = ColDarkBtnText;
-                    _inspectEquipBtnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 50, 14f, ColGoldCta, ColGoldBorder, 2f);
+                    _inspectEquipBtnTxt.color = new Color(0.20f, 0.10f, 0.04f);
+                    _inspectEquipBtnBg.sprite = MedievalUIAssetLoader.GetSprite("btn_blank_parchment_gold")
+                                               ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.GoldChampion);
+                    _inspectEquipBtnBg.type = Image.Type.Sliced;
+                    _inspectEquipBtnBg.color = Color.white;
                     _inspectEquipBtn.interactable = true;
                     _inspectEquipBtn.onClick.AddListener(() => EquipCollectionItem(item));
                 }
                 else
                 {
                     _inspectEquipBtnTxt.text = AegisLocalization.T("🛒  XEM TRONG CỬA HÀNG", "🛒  VIEW IN SHOP");
-                    _inspectEquipBtnTxt.color = Color.white;
-                    _inspectEquipBtnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 50, 14f, new Color(0.20f, 0.12f, 0.05f, 0.95f), ColGoldBorder, 1.5f);
+                    _inspectEquipBtnTxt.color = new Color(1.0f, 0.94f, 0.82f);
+                    _inspectEquipBtnBg.sprite = MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold")
+                                               ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.DarkGold);
+                    _inspectEquipBtnBg.type = Image.Type.Sliced;
+                    _inspectEquipBtnBg.color = Color.white;
                     _inspectEquipBtn.interactable = true;
                     _inspectEquipBtn.onClick.AddListener(() =>
                     {
                         CloseModal(_collectionModal);
                         OpenShopModal();
+                        SwitchShopTab(item.category == 1 ? 0 : (item.category == 2 ? 1 : 2));
                     });
                 }
+                MakeTextCrisp(_inspectEquipBtnTxt, new Color(0.12f, 0.06f, 0.02f, 0.95f));
             }
         }
 
@@ -6221,6 +7694,21 @@ namespace MechChess.UI
         public void RefreshCollectionUI()
         {
             if (_collectionGoldTxt != null) _collectionGoldTxt.text = _currentGold.ToString();
+
+            // Refresh ownership status for all items
+            for (int i = 0; i < _allCollectionItems.Count; i++)
+            {
+                var itm = _allCollectionItems[i];
+                if (itm.id == "skin_classic_chess" || itm.category == 0)
+                {
+                    itm.isOwned = true;
+                }
+                else
+                {
+                    string cleanId = "item_" + System.Text.RegularExpressions.Regex.Replace((itm.nameVi ?? itm.nameEn).ToLower(), @"[^a-z0-9]", "_");
+                    itm.isOwned = AegisMech.UI.AegisPrefs.Owns(itm.id) || AegisMech.UI.AegisPrefs.Owns(cleanId);
+                }
+            }
 
             int total = _allCollectionItems.Count;
             int owned = 0;
@@ -6250,24 +7738,43 @@ namespace MechChess.UI
                 if (isEq)
                 {
                     itm.statusText.text = AegisLocalization.T("✓ ĐANG DÙNG", "✓ EQUIPPED");
-                    itm.statusText.color = ColCyanGlow;
-                    if (itm.statusBg != null) itm.statusBg.color = new Color(0.05f, 0.20f, 0.25f, 0.95f);
-                    if (itm.borderImg != null) itm.borderImg.color = ColCyanGlow;
+                    itm.statusText.color = new Color(1.0f, 0.94f, 0.75f);
+                    if (itm.statusBg != null)
+                    {
+                        itm.statusBg.sprite = MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold")
+                                           ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.DarkGold);
+                        itm.statusBg.type = Image.Type.Sliced;
+                        itm.statusBg.color = Color.white;
+                    }
+                    if (itm.borderImg != null) itm.borderImg.color = new Color(1f, 0.85f, 0.40f);
                 }
                 else if (itm.isOwned)
                 {
                     itm.statusText.text = AegisLocalization.T("ĐÃ SỞ HỮU", "OWNED");
-                    itm.statusText.color = ColTextWhite;
-                    if (itm.statusBg != null) itm.statusBg.color = new Color(0.08f, 0.14f, 0.20f, 0.90f);
+                    itm.statusText.color = new Color(0.20f, 0.10f, 0.04f);
+                    if (itm.statusBg != null)
+                    {
+                        itm.statusBg.sprite = MedievalUIAssetLoader.GetSprite("btn_blank_parchment_gold")
+                                           ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.GoldChampion);
+                        itm.statusBg.type = Image.Type.Sliced;
+                        itm.statusBg.color = Color.white;
+                    }
                     if (itm.borderImg != null) itm.borderImg.color = itm.rarityColor;
                 }
                 else
                 {
                     itm.statusText.text = AegisLocalization.T("🔒 CHƯA MỞ", "🔒 LOCKED");
-                    itm.statusText.color = new Color(0.9f, 0.4f, 0.4f);
-                    if (itm.statusBg != null) itm.statusBg.color = new Color(0.20f, 0.05f, 0.05f, 0.90f);
+                    itm.statusText.color = new Color(0.92f, 0.85f, 0.75f);
+                    if (itm.statusBg != null)
+                    {
+                        itm.statusBg.sprite = MedievalUIAssetLoader.GetSprite("btn_blank_black_banner")
+                                           ?? MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.BlackBanner);
+                        itm.statusBg.type = Image.Type.Sliced;
+                        itm.statusBg.color = Color.white;
+                    }
                     if (itm.borderImg != null) itm.borderImg.color = ColMutedBorder;
                 }
+                MakeTextCrisp(itm.statusText, new Color(0.12f, 0.06f, 0.02f, 0.95f));
             }
 
             if (_inspectedItem != null)
@@ -6277,7 +7784,7 @@ namespace MechChess.UI
         }
 
         // =========================================================================
-        // SCREEN 10: TẠM DỪNG (Pause Modal)
+        // SCREEN 10: TẠM DỪNG (Pause Modal - Royal Medieval Baroque Redesign)
         // =========================================================================
         private void BuildScreen10Pause(Transform parent, Font font)
         {
@@ -6287,21 +7794,111 @@ namespace MechChess.UI
             cardObj.transform.SetParent(_pauseModal.transform, false);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(540, 440, 24f, ColGlassFill, ColCyanBorder, 2f);
+            cardBg.sprite = MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ModalCrowned)
+                          ?? MedievalUIAssetLoader.GetSprite("frame_modal_crowned")
+                          ?? ArcaneAssetLoader.GetGlassBoxSprite(540, 460, 24f, ColGlassFill, ColGoldBorder, 2f);
             cardBg.type = Image.Type.Sliced;
+            cardBg.color = Color.white;
 
             RectTransform cRt = cardObj.GetComponent<RectTransform>();
             cRt.anchoredPosition = Vector2.zero;
-            cRt.sizeDelta = new Vector2(540f, 440f);
+            cRt.sizeDelta = new Vector2(540f, 500f);
+            cardObj.transform.localScale = new Vector3(1.41f, 1.63f, 1f);
 
-            CreateModalHeader(cardObj.transform, AegisLocalization.T("ĐÃ TẠM DỪNG", "PAUSED"), () => CloseModal(_pauseModal), font);
+            // 1 & 2: PauseTitle & DividerWings removed as per Scene design
 
-            // 3 Buttons: Tiếp tục, Thiết lập, Thoát về menu
-            CreateMenuActionButton(cardObj.transform, "BtnResume", AegisLocalization.T("▶  Tiếp tục", "▶  Resume"), new Vector2(0f, 50f), new Vector2(360f, 54f), ColCyanBorder, ColDarkBtnText, 20, () => CloseModal(_pauseModal), font);
-            CreateMenuActionButton(cardObj.transform, "BtnPauseSettings", AegisLocalization.T("⚙  Thiết lập", "⚙  Settings"), new Vector2(0f, -20f), new Vector2(360f, 54f), ColGlassFill, ColTextWhite, 18, OpenSettingsModal, font, ColCyanBorder, 1.2f);
-            CreateMenuActionButton(cardObj.transform, "BtnQuitToMenu", AegisLocalization.T("🚪  Thoát về menu", "🚪  Quit to Menu"), new Vector2(0f, -90f), new Vector2(360f, 54f), new Color(0.25f, 0.08f, 0.08f, 0.9f), new Color(1f, 0.45f, 0.45f), 18, ReturnToMainMenuFromPause, font, new Color(0.85f, 0.25f, 0.25f), 1.2f);
+            // 3. Right Royal Close Button [ Crossed Swords Gold ] (Enlarged 66x66)
+            CreateRoyalCloseButton(cardObj.transform, new Vector2(-38f, -89f), () => CloseModal(_pauseModal), 66f, "BtnPauseClose");
+
+            // 4. Three Royal Action Buttons (Tiếp tục, Thiết lập, Thoát về menu)
+            // Button 1: TIẾP TỤC (Radiant Gold / Dark Stone Plate)
+            CreateRoyalModalActionButton(cardObj.transform, "BtnResume",
+                "",
+                new Vector2(0f, 70f), new Vector2(380f, 110f),
+                "btn_pause_resume", Color.white, 19,
+                () => CloseModal(_pauseModal), font);
+
+            // Button 2: THIẾT LẬP (Royal Gear / Dark Stone Plate)
+            CreateRoyalModalActionButton(cardObj.transform, "BtnPauseSettings",
+                "",
+                new Vector2(0f, -44f), new Vector2(380f, 110f),
+                "btn_pause_settings", Color.white, 18,
+                OpenSettingsModal, font);
+
+            // Button 3: THOÁT VỀ MENU (Return Arrow / Dark Stone Plate)
+            CreateRoyalModalActionButton(cardObj.transform, "BtnQuitToMenu",
+                "",
+                new Vector2(0f, -158f), new Vector2(380f, 110f),
+                "btn_pause_menu", Color.white, 18,
+                ReturnToMainMenuFromPause, font);
 
             _pauseModal.SetActive(false);
+        }
+
+        private GameObject CreateRoyalModalActionButton(Transform parent, string name, string text, Vector2 pos, Vector2 size, string spriteName, Color textCol, int fontSize, Action onClick, Font font)
+        {
+            GameObject btnObj = new GameObject(name);
+            btnObj.transform.SetParent(parent, false);
+
+            Image img = btnObj.AddComponent<Image>();
+            Sprite sp = MedievalUIAssetLoader.GetSprite(spriteName) ?? MedievalUIAssetLoader.GetSprite("btn_wood_back");
+            if (sp != null)
+            {
+                img.sprite = sp;
+                img.type = (spriteName.StartsWith("btn_pause_") && spriteName != "btn_pause_blank") ? Image.Type.Simple : Image.Type.Sliced;
+                img.preserveAspect = true;
+                img.color = Color.white;
+            }
+            else
+            {
+                img.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)size.x, (int)size.y, 14f, new Color(0.24f, 0.16f, 0.10f, 0.95f), ColGoldBorder, 1.5f);
+                img.type = Image.Type.Sliced;
+            }
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                onClick?.Invoke();
+            });
+            btnObj.AddComponent<MenuButtonEffect>();
+
+            RectTransform rt = btnObj.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+
+            if (!string.IsNullOrEmpty(text))
+            {
+                // Centered crisp text with royal shadow
+                GameObject txtObj = new GameObject("Text");
+                txtObj.transform.SetParent(btnObj.transform, false);
+                Text t = txtObj.AddComponent<Text>();
+                t.text = text;
+                t.font = font;
+                t.fontSize = fontSize;
+                t.fontStyle = FontStyle.Bold;
+                t.alignment = TextAnchor.MiddleCenter;
+                t.color = textCol;
+                t.horizontalOverflow = HorizontalWrapMode.Overflow;
+                t.verticalOverflow = VerticalWrapMode.Overflow;
+                t.raycastTarget = false;
+                MakeTextCrisp(t);
+                Shadow sh = txtObj.AddComponent<Shadow>();
+                sh.effectColor = new Color(0.12f, 0.08f, 0.04f, 0.95f);
+                sh.effectDistance = new Vector2(1.2f, -1.2f);
+                RectTransform trt = txtObj.GetComponent<RectTransform>();
+                trt.anchorMin = Vector2.zero;
+                trt.anchorMax = Vector2.one;
+                trt.offsetMin = Vector2.zero;
+                trt.offsetMax = new Vector2(0f, 2f);
+            }
+
+            return btnObj;
         }
 
         public void ShowPauseModal()
@@ -6317,6 +7914,7 @@ namespace MechChess.UI
             if (_screenSplash != null) _screenSplash.SetActive(false);
             if (_pauseModal != null)
             {
+                _pauseModal.transform.SetAsLastSibling();
                 _pauseModal.SetActive(true);
                 AegisAudioManager.PlayModalOpen();
             }
@@ -6324,6 +7922,10 @@ namespace MechChess.UI
 
         private void ReturnToMainMenuFromPause()
         {
+            if (LichessBridge.Instance != null && LichessBridge.Instance.IsInLichessMatch)
+            {
+                LichessBridge.Instance.ResignMatch();
+            }
             if (MechChess.AR.HybridARController.Instance != null)
             {
                 MechChess.AR.HybridARController.Instance.TurnOffCamera();
@@ -6366,7 +7968,7 @@ namespace MechChess.UI
         {
             _resultScreenModal = CreateModalOverlay(parent, "Screen11_ResultScreenModal");
 
-            // Main Card (1020 x 610) with victory_screen_bg
+            // Main Card (1020 x 610) with epic chess cathedral background
             GameObject cardObj = new GameObject("ResultCard");
             cardObj.transform.SetParent(_resultScreenModal.transform, false);
 
@@ -6375,10 +7977,12 @@ namespace MechChess.UI
             cRt.sizeDelta = new Vector2(1020f, 610f);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            Sprite bgSprite = ArcaneAssetLoader.LoadArcaneSprite("victory_screen_bg.png");
+            Sprite bgSprite = MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.VictoryCathedral) ?? MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ModalCrowned);
             if (bgSprite != null)
             {
                 cardBg.sprite = bgSprite;
+                cardBg.type = Image.Type.Simple;
+                cardBg.color = Color.white;
             }
             else
             {
@@ -6386,48 +7990,8 @@ namespace MechChess.UI
             }
             cardBg.raycastTarget = true;
 
-            // Frame Border Overlay with Glowing Cyan Edge
-            GameObject frameBorder = new GameObject("FrameBorder");
-            frameBorder.transform.SetParent(cardObj.transform, false);
-            RectTransform fbRt = frameBorder.AddComponent<RectTransform>();
-            fbRt.anchorMin = Vector2.zero;
-            fbRt.anchorMax = Vector2.one;
-            fbRt.offsetMin = Vector2.zero;
-            fbRt.offsetMax = Vector2.zero;
-            Image fbImg = frameBorder.AddComponent<Image>();
-            fbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1020, 610, 22f, Color.clear, ColCyanBorder, 2.5f);
-            fbImg.type = Image.Type.Sliced;
-            fbImg.raycastTarget = false;
-
-            // Subtle Central Gradient Shadow under panels for contrast
-            GameObject shadowObj = new GameObject("CentralDimmer");
-            shadowObj.transform.SetParent(cardObj.transform, false);
-            RectTransform sRt = shadowObj.AddComponent<RectTransform>();
-            sRt.anchoredPosition = new Vector2(0f, -10f);
-            sRt.sizeDelta = new Vector2(560f, 540f);
-            Image sImg = shadowObj.AddComponent<Image>();
-            sImg.sprite = ArcaneAssetLoader.GetCircleSprite(256, new Color(0.01f, 0.03f, 0.08f, 0.65f), Color.clear, 0f);
-            sImg.raycastTarget = false;
-
-            // Heraldic Crest at Top-Right
-            GameObject crestObj = new GameObject("TopRightCrest");
-            crestObj.transform.SetParent(cardObj.transform, false);
-            Image crImg = crestObj.AddComponent<Image>();
-            Sprite crSprite = ArcaneAssetLoader.LoadArcaneSprite("arcane_crest.png");
-            if (crSprite != null) crImg.sprite = crSprite;
-            crImg.color = new Color(1f, 0.84f, 0.35f, 0.75f);
-            crImg.preserveAspect = true;
-            RectTransform crRt = crestObj.GetComponent<RectTransform>();
-            crRt.anchoredPosition = new Vector2(455f, 250f);
-            crRt.sizeDelta = new Vector2(36f, 36f);
-
-            // Close [✕] Button at Top-Right
-            GameObject closeBtn = new GameObject("BtnCloseResult");
-            closeBtn.transform.SetParent(cardObj.transform, false);
-            Image cbImg = closeBtn.AddComponent<Image>();
-            cbImg.sprite = ArcaneAssetLoader.GetCircleSprite(34, new Color(0.04f, 0.10f, 0.20f, 0.85f), ColCyanBorder, 1.2f);
-            Button cb = closeBtn.AddComponent<Button>();
-            cb.onClick.AddListener(() =>
+            // Close Button [ Crossed Swords Gold ] at Top-Right
+            GameObject resClose = CreateRoyalCloseButton(cardObj.transform, new Vector2(-39f, -42f), () =>
             {
                 CloseModal(_resultScreenModal);
                 if (_menuCanvasObj != null)
@@ -6436,143 +8000,141 @@ namespace MechChess.UI
                     if (c != null) c.sortingOrder = 90;
                 }
                 ShowMenu();
-            });
-            closeBtn.AddComponent<MenuButtonEffect>();
-            RectTransform cbrt = closeBtn.GetComponent<RectTransform>();
-            cbrt.anchoredPosition = new Vector2(475f, 270f);
-            cbrt.sizeDelta = new Vector2(34f, 34f);
-            CreateTextComp(closeBtn.transform, "✕", 20, FontStyle.Bold, ColTextWhite, font, Vector2.zero, new Vector2(34f, 34f));
+            }, 64f, "BtnCloseResult");
+            if (resClose != null) resClose.transform.localScale = new Vector3(1.23f, 1.23f, 1f);
 
-            // Crown + Rays Graphic
-            GameObject crownObj = new GameObject("CrownGraphic");
+            // 3-Star Rating Podial Graphic
+            GameObject starsObj = new GameObject("RatingStars");
+            starsObj.transform.SetParent(cardObj.transform, false);
+            RectTransform starsRt = starsObj.AddComponent<RectTransform>();
+            starsRt.anchoredPosition = new Vector2(0f, 262f);
+            starsRt.sizeDelta = new Vector2(160f, 48f);
+
+            float[] starXs = { -46f, 0f, 46f };
+            float[] starSizes = { 36f, 46f, 36f };
+            float[] starYs = { 0f, 4f, 0f };
+
+            for (int si = 0; si < 3; si++)
+            {
+                GameObject sObj = new GameObject("Star_" + si);
+                sObj.transform.SetParent(starsObj.transform, false);
+                Image starImg = sObj.AddComponent<Image>();
+                starImg.sprite = MedievalUIAssetLoader.GetIcon(MedievalIcon.StarFilled);
+                starImg.preserveAspect = true;
+                starImg.raycastTarget = false;
+                RectTransform srt = sObj.GetComponent<RectTransform>();
+                srt.anchoredPosition = new Vector2(starXs[si], starYs[si]);
+                srt.sizeDelta = new Vector2(starSizes[si], starSizes[si]);
+                _resultStarImgs[si] = starImg;
+            }
+
+            // Royal Golden Crown (Emblem top center)
+            GameObject crownObj = new GameObject("CrownVictory");
             crownObj.transform.SetParent(cardObj.transform, false);
-            RectTransform crownRt = crownObj.AddComponent<RectTransform>();
-            crownRt.anchoredPosition = new Vector2(0f, 246f);
-            crownRt.sizeDelta = new Vector2(160f, 34f);
-            CreateTextComp(crownObj.transform, "✦   👑   ✦", 28, FontStyle.Bold, new Color(1.0f, 0.88f, 0.40f, 0.95f), font, Vector2.zero, new Vector2(160f, 34f));
+            _resultCrownImg = crownObj.AddComponent<Image>();
+            _resultCrownImg.sprite = MedievalUIAssetLoader.GetIcon(MedievalIcon.CrownVictory);
+            _resultCrownImg.preserveAspect = true;
+            _resultCrownImg.raycastTarget = false;
+            RectTransform crRt = crownObj.GetComponent<RectTransform>();
+            crRt.anchoredPosition = new Vector2(0f, 218f);
+            crRt.sizeDelta = new Vector2(115f, 50f);
 
-            // Title: CHIẾN THẮNG / THẤT BẠI
+            // Left Laurel Branch (embracing Title)
+            GameObject llObj = new GameObject("LaurelLeft");
+            llObj.transform.SetParent(cardObj.transform, false);
+            _resultLaurelLeftImg = llObj.AddComponent<Image>();
+            _resultLaurelLeftImg.sprite = MedievalUIAssetLoader.GetIcon(MedievalIcon.LaurelLeft);
+            _resultLaurelLeftImg.preserveAspect = true;
+            _resultLaurelLeftImg.raycastTarget = false;
+            RectTransform llRt = llObj.GetComponent<RectTransform>();
+            llRt.anchoredPosition = new Vector2(-205f, 142f);
+            llRt.sizeDelta = new Vector2(70f, 122f);
+
+            // Right Laurel Branch (embracing Title)
+            GameObject lrObj = new GameObject("LaurelRight");
+            lrObj.transform.SetParent(cardObj.transform, false);
+            _resultLaurelRightImg = lrObj.AddComponent<Image>();
+            _resultLaurelRightImg.sprite = MedievalUIAssetLoader.GetIcon(MedievalIcon.LaurelRight);
+            _resultLaurelRightImg.preserveAspect = true;
+            _resultLaurelRightImg.raycastTarget = false;
+            RectTransform lrRt = lrObj.GetComponent<RectTransform>();
+            lrRt.anchoredPosition = new Vector2(205f, 142f);
+            lrRt.sizeDelta = new Vector2(70f, 122f);
+
+            // Title: "Chiến Thắng" / "Thất Bại" (Centered between Laurel Branches)
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(cardObj.transform, false);
             _resultTitleTxt = titleObj.AddComponent<Text>();
-            _resultTitleTxt.text = AegisLocalization.T("CHIẾN THẮNG", "VICTORY");
+            _resultTitleTxt.text = AegisLocalization.T("Chiến Thắng", "Victory");
             _resultTitleTxt.font = font;
-            _resultTitleTxt.fontSize = 44;
+            _resultTitleTxt.fontSize = 46;
             _resultTitleTxt.fontStyle = FontStyle.Bold;
             _resultTitleTxt.alignment = TextAnchor.MiddleCenter;
-            _resultTitleTxt.color = ColGoldBorder;
+            _resultTitleTxt.color = new Color(0.98f, 0.90f, 0.74f, 1f); // Antique golden ivory
             _resultTitleTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             _resultTitleTxt.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform tRt = titleObj.GetComponent<RectTransform>();
-            tRt.anchoredPosition = new Vector2(0f, 206f);
-            tRt.sizeDelta = new Vector2(500f, 48f);
+            tRt.anchoredPosition = new Vector2(0f, 148f);
+            tRt.sizeDelta = new Vector2(340f, 52f);
 
-            // Subtitle Reason: (e.g. Đối thủ hết thời gian! / Chiếu bí đối thủ!)
+            // Subtitle Reason: "Bạn đã chiến thắng!"
             GameObject reasonObj = new GameObject("ReasonText");
             reasonObj.transform.SetParent(cardObj.transform, false);
             _resultReasonTxt = reasonObj.AddComponent<Text>();
-            _resultReasonTxt.text = AegisLocalization.T("Đối thủ hết thời gian!", "Opponent ran out of time!");
+            _resultReasonTxt.text = AegisLocalization.T("Bạn đã chiến thắng!", "Victory is yours!");
             _resultReasonTxt.font = font;
             _resultReasonTxt.fontSize = 20;
-            _resultReasonTxt.fontStyle = FontStyle.Bold;
+            _resultReasonTxt.fontStyle = FontStyle.Normal;
             _resultReasonTxt.alignment = TextAnchor.MiddleCenter;
-            _resultReasonTxt.color = new Color(0.35f, 0.95f, 0.55f);
+            _resultReasonTxt.color = new Color(0.91f, 0.85f, 0.73f, 1f); // Warm ivory parchment
             _resultReasonTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             _resultReasonTxt.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform rRt = reasonObj.GetComponent<RectTransform>();
-            rRt.anchoredPosition = new Vector2(0f, 166f);
-            rRt.sizeDelta = new Vector2(620f, 30f);
+            rRt.anchoredPosition = new Vector2(0f, 100f);
+            rRt.sizeDelta = new Vector2(520f, 28f);
 
-            // Player Profile Badge (Avatar + Player001 + Elo +12)
-            GameObject profileBadge = new GameObject("PlayerBadge");
-            profileBadge.transform.SetParent(cardObj.transform, false);
-            Image pbImg = profileBadge.AddComponent<Image>();
-            pbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(320, 52, 26f, new Color(0.02f, 0.08f, 0.18f, 0.92f), ColCyanBorder, 1.4f);
-            pbImg.type = Image.Type.Sliced;
-            RectTransform pbRt = profileBadge.GetComponent<RectTransform>();
-            pbRt.anchoredPosition = new Vector2(0f, 110f);
-            pbRt.sizeDelta = new Vector2(320f, 52f);
+            // Ornate Golden Divider Rod
+            GameObject divObj = new GameObject("OrnateDivider");
+            divObj.transform.SetParent(cardObj.transform, false);
+            _resultDividerImg = divObj.AddComponent<Image>();
+            _resultDividerImg.sprite = MedievalUIAssetLoader.GetIcon(MedievalIcon.DividerOrnate);
+            _resultDividerImg.preserveAspect = true;
+            _resultDividerImg.raycastTarget = false;
+            RectTransform divRt = divObj.GetComponent<RectTransform>();
+            divRt.anchoredPosition = new Vector2(0f, 68f);
+            divRt.sizeDelta = new Vector2(500f, 22f);
 
-            // Circular Avatar with Cyan Ring
-            GameObject avObj = new GameObject("Avatar");
-            avObj.transform.SetParent(profileBadge.transform, false);
-            Image avImg = avObj.AddComponent<Image>();
-            avImg.sprite = AvatarCatalog.GetEquippedSprite();
-            avImg.preserveAspect = true;
-            AvatarCatalog.Bind(avImg);
-            RectTransform avRt = avObj.GetComponent<RectTransform>();
-            avRt.anchoredPosition = new Vector2(-118f, 0f);
-            avRt.sizeDelta = new Vector2(40f, 40f);
+            // Stats Container (3-Stripe Layout as shown in Reference Image)
+            GameObject statsContainer = new GameObject("StatsContainer");
+            statsContainer.transform.SetParent(cardObj.transform, false);
+            RectTransform scRt = statsContainer.AddComponent<RectTransform>();
+            scRt.anchoredPosition = new Vector2(0f, -30f);
+            scRt.sizeDelta = new Vector2(520f, 150f);
 
-            GameObject avRing = new GameObject("Ring");
-            avRing.transform.SetParent(avObj.transform, false);
-            Image ringImg = avRing.AddComponent<Image>();
-            ringImg.sprite = ArcaneAssetLoader.GetCircleSprite(42, Color.clear, ColCyanBorder, 1.5f);
-            RectTransform rrt = avRing.GetComponent<RectTransform>();
-            rrt.anchorMin = Vector2.zero;
-            rrt.anchorMax = Vector2.one;
-            rrt.offsetMin = Vector2.zero;
-            rrt.offsetMax = Vector2.zero;
+            _resultDurationTxt = CreateStatRow(statsContainer.transform, AegisLocalization.T("Thời gian", "Duration"), "02:15", 48f, font);
+            _resultMovesTxt = CreateStatRow(statsContainer.transform, AegisLocalization.T("Nước đi", "Moves"), "32", 0f, font);
+            _resultScoreTxt = CreateStatRow(statsContainer.transform, AegisLocalization.T("Thưởng", "Reward"), "+1,000", -48f, font, true);
 
-            // Player Name & Elo
-            string pName = "Player001";
-            if (UserAccountManager.Instance != null && UserAccountManager.Instance.IsLoggedIn)
+            // Left Button: "Quay lại" (Royal Shop-Tab Style: Dark Banner with Carved Gold Border)
+            CreateMedievalHexButton(cardObj.transform, "BtnReturn", AegisLocalization.T("Quay lại", "Return"),
+                MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_inactive") ?? MedievalUIAssetLoader.GetSprite("btn_blank_black_banner"),
+                new Vector2(-150f, -165f), new Vector2(250f, 62f),
+                new Color(0.92f, 0.86f, 0.74f, 1f), 20, () =>
             {
-                pName = UserAccountManager.Instance.CurrentUsername;
-            }
-            CreateTextComp(profileBadge.transform, pName, 20, FontStyle.Bold, ColTextWhite, font, new Vector2(10f, 9f), new Vector2(200f, 24f), TextAnchor.MiddleLeft);
-
-            GameObject eloObj = new GameObject("EloTxt");
-            eloObj.transform.SetParent(profileBadge.transform, false);
-            _resultEloTxt = eloObj.AddComponent<Text>();
-            _resultEloTxt.text = "<color=#00e676>Elo +12</color>";
-            _resultEloTxt.font = font;
-            _resultEloTxt.fontSize = 17;
-            _resultEloTxt.fontStyle = FontStyle.Bold;
-            _resultEloTxt.alignment = TextAnchor.MiddleLeft;
-            _resultEloTxt.supportRichText = true;
-            _resultEloTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
-            _resultEloTxt.verticalOverflow = VerticalWrapMode.Overflow;
-            RectTransform eloRt = eloObj.GetComponent<RectTransform>();
-            eloRt.anchoredPosition = new Vector2(10f, -11f);
-            eloRt.sizeDelta = new Vector2(200f, 22f);
-
-            // Match Stats Card ("Thống kê ván đấu")
-            GameObject statsCard = new GameObject("StatsCard");
-            statsCard.transform.SetParent(cardObj.transform, false);
-            Image scImg = statsCard.AddComponent<Image>();
-            scImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(460, 195, 16f, new Color(0.015f, 0.06f, 0.14f, 0.92f), new Color(0.0f, 0.65f, 0.95f, 0.85f), 1.5f);
-            scImg.type = Image.Type.Sliced;
-            RectTransform scRt = statsCard.GetComponent<RectTransform>();
-            scRt.anchoredPosition = new Vector2(0f, -38f);
-            scRt.sizeDelta = new Vector2(460f, 195f);
-
-            CreateTextComp(statsCard.transform, AegisLocalization.T("Thống kê ván đấu", "Match Summary"), 20, FontStyle.Bold, new Color(0.80f, 0.95f, 1.0f), font, new Vector2(0f, 66f), new Vector2(420f, 28f));
-
-            _resultMovesTxt = CreateStatRow(statsCard.transform, AegisLocalization.T("Nước đi", "Moves"), "42", 22f, font);
-            _resultDurationTxt = CreateStatRow(statsCard.transform, AegisLocalization.T("Thời gian", "Duration"), "08:36", -22f, font);
-            _resultScoreTxt = CreateStatRow(statsCard.transform, AegisLocalization.T("Mã trận", "Result"), "1 - 0", -66f, font);
-
-            // 3 Bottom Action Buttons: [Phân tích / Xem lại] [Chia sẻ] [Ván mới]
-            CreateMenuActionButton(cardObj.transform, "BtnReplay", AegisLocalization.T("🔍  Phân tích", "🔍  Review"), new Vector2(-175f, -220f), new Vector2(145f, 50f), new Color(0.02f, 0.10f, 0.22f, 0.95f), ColCyanGlow, 17, () =>
-            {
-                if (_lastFinishedMatch != null)
+                CloseModal(_resultScreenModal);
+                if (_menuCanvasObj != null)
                 {
-                    OpenGameReview(_lastFinishedMatch);
+                    Canvas c = _menuCanvasObj.GetComponent<Canvas>();
+                    if (c != null) c.sortingOrder = 90;
                 }
-                else
-                {
-                    ShowToast(AegisLocalization.T("Không có dữ liệu nước đi để xem lại!", "No move history available for review!"), ToastType.Warning);
-                }
-            }, font, ColCyanBorder, 1.4f);
-            
-            CreateMenuActionButton(cardObj.transform, "BtnShare", AegisLocalization.T("🔀  Chia sẻ", "🔀  Share"), new Vector2(0f, -220f), new Vector2(145f, 50f), new Color(0.02f, 0.10f, 0.22f, 0.95f), ColTextWhite, 17, () =>
-            {
-                GUIUtility.systemCopyBuffer = $"AegisMech Match: {_resultScoreTxt?.text} ({_resultMovesTxt?.text} moves, {_resultDurationTxt?.text})";
-                ShowToast(AegisLocalization.T("Đã sao chép liên kết trận đấu!", "Match link copied!"), ToastType.Success);
-            }, font, ColCyanBorder, 1.4f);
+                ShowMenu();
+            }, font);
 
-            CreateMenuActionButton(cardObj.transform, "BtnNewMatch", AegisLocalization.T("⚔  Ván mới", "⚔  New Match"), new Vector2(185f, -220f), new Vector2(165f, 50f), new Color(0.85f, 0.55f, 0.08f, 0.96f), ColDarkBtnText, 18, () =>
+            // Right Button: "Tiếp tục" (Royal Shop-Tab Style: Radiant Gold Banner)
+            CreateMedievalHexButton(cardObj.transform, "BtnContinue", AegisLocalization.T("Tiếp tục", "Continue"),
+                MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_active") ?? MedievalUIAssetLoader.GetSprite("btn_hex_gold_radiant"),
+                new Vector2(150f, -165f), new Vector2(250f, 62f),
+                new Color(0.18f, 0.08f, 0.02f, 1f), 20, () =>
             {
                 CloseModal(_resultScreenModal);
                 if (_menuCanvasObj != null)
@@ -6598,35 +8160,139 @@ namespace MechChess.UI
                         UIManager2D.Instance.SetHUDVisible(true);
                     }
                 }
-            }, font, ColGoldBorder, 2.0f);
+            }, font);
+
+            // Review Match Action: Elegant subtle link at bottom
+            GameObject revObj = new GameObject("BtnReviewLink");
+            revObj.transform.SetParent(cardObj.transform, false);
+            RectTransform revRt = revObj.AddComponent<RectTransform>();
+            revRt.anchoredPosition = new Vector2(0f, -225f);
+            revRt.sizeDelta = new Vector2(240f, 28f);
+
+            Button revBtn = revObj.AddComponent<Button>();
+            Text revTxt = revObj.AddComponent<Text>();
+            revTxt.text = AegisLocalization.T("🔍  Xem lại ván đấu", "🔍  Review Match");
+            revTxt.font = font;
+            revTxt.fontSize = 15;
+            revTxt.fontStyle = FontStyle.Bold;
+            revTxt.alignment = TextAnchor.MiddleCenter;
+            revTxt.color = new Color(0.82f, 0.70f, 0.50f, 0.90f);
+            revBtn.targetGraphic = revTxt;
+            ColorBlock rcb = revBtn.colors;
+            rcb.normalColor = Color.white;
+            rcb.highlightedColor = new Color(1.15f, 1.1f, 0.9f, 1f);
+            rcb.pressedColor = new Color(0.7f, 0.6f, 0.4f, 1f);
+            revBtn.colors = rcb;
+            revBtn.onClick.AddListener(() =>
+            {
+                if (_lastFinishedMatch != null)
+                {
+                    OpenGameReview(_lastFinishedMatch);
+                }
+                else
+                {
+                    ShowToast(AegisLocalization.T("Không có dữ liệu nước đi để xem lại!", "No move history available for review!"), ToastType.Warning);
+                }
+            });
+            revObj.AddComponent<MenuButtonEffect>();
 
             _resultScreenModal.SetActive(false);
         }
 
-        private Text CreateStatRow(Transform parent, string label, string val, float y, Font font)
+        private GameObject CreateMedievalHexButton(Transform parent, string name, string text, Sprite sprite, Vector2 pos, Vector2 size, Color textCol, int fontSize, Action onClick, Font font)
+        {
+            GameObject btnObj = new GameObject(name);
+            btnObj.transform.SetParent(parent, false);
+
+            RectTransform rt = btnObj.AddComponent<RectTransform>();
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+
+            Image bg = btnObj.AddComponent<Image>();
+            bg.sprite = sprite;
+            bool isBakedArt = sprite != null && (sprite.name.StartsWith("btn_pause_") || sprite.name.StartsWith("btn_wood_") || sprite.name == "btn_gold_start");
+            bg.type = isBakedArt ? Image.Type.Simple : Image.Type.Sliced;
+            bg.preserveAspect = isBakedArt;
+            bg.color = Color.white;
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = bg;
+            ColorBlock cb = btn.colors;
+            cb.normalColor = Color.white;
+            cb.highlightedColor = new Color(1.08f, 1.05f, 0.95f, 1f);
+            cb.pressedColor = new Color(0.85f, 0.82f, 0.78f, 1f);
+            cb.selectedColor = Color.white;
+            btn.colors = cb;
+            btn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                onClick?.Invoke();
+            });
+
+            btnObj.AddComponent<MenuButtonEffect>();
+
+            if (!isBakedArt && !string.IsNullOrEmpty(text))
+            {
+                GameObject txtObj = new GameObject("Text");
+                txtObj.transform.SetParent(btnObj.transform, false);
+                Text t = txtObj.AddComponent<Text>();
+                t.text = text;
+                t.font = font;
+                t.fontSize = fontSize;
+                t.fontStyle = FontStyle.Bold;
+                t.alignment = TextAnchor.MiddleCenter;
+                t.color = textCol;
+                t.horizontalOverflow = HorizontalWrapMode.Overflow;
+                t.verticalOverflow = VerticalWrapMode.Overflow;
+                MakeTextCrisp(t, (textCol.r < 0.5f) ? new Color(1f, 0.90f, 0.60f, 0.85f) : new Color(0.10f, 0.05f, 0.02f, 0.95f));
+
+                RectTransform trt = txtObj.GetComponent<RectTransform>();
+                trt.anchorMin = Vector2.zero;
+                trt.anchorMax = Vector2.one;
+                trt.offsetMin = Vector2.zero;
+                trt.offsetMax = Vector2.zero;
+            }
+
+            return btnObj;
+        }
+
+        private Text CreateStatRow(Transform parent, string label, string val, float y, Font font, bool isReward = false)
         {
             GameObject row = new GameObject("Row_" + label);
             row.transform.SetParent(parent, false);
             RectTransform rt = row.AddComponent<RectTransform>();
             rt.anchoredPosition = new Vector2(0f, y);
-            rt.sizeDelta = new Vector2(400f, 28f);
+            rt.sizeDelta = new Vector2(500f, 44f);
 
-            CreateTextComp(row.transform, label, 18, FontStyle.Normal, ColTextMuted, font, new Vector2(-110f, 0f), new Vector2(160f, 26f), TextAnchor.MiddleLeft);
+            Image rowBg = row.AddComponent<Image>();
+            Sprite stSprite = MedievalUIAssetLoader.GetSprite("row_stat_stripe");
+            if (stSprite != null)
+            {
+                rowBg.sprite = stSprite;
+                rowBg.type = Image.Type.Sliced;
+                rowBg.color = Color.white;
+            }
+            else
+            {
+                rowBg.color = new Color(0.08f, 0.05f, 0.04f, 0.55f);
+            }
+
+            CreateTextComp(row.transform, label, 19, FontStyle.Normal, new Color(0.86f, 0.78f, 0.67f, 1f), font, new Vector2(-120f, 0f), new Vector2(220f, 32f), TextAnchor.MiddleLeft);
 
             GameObject valObj = new GameObject("Val");
             valObj.transform.SetParent(row.transform, false);
             Text t = valObj.AddComponent<Text>();
             t.text = val;
             t.font = font;
-            t.fontSize = 20;
+            t.fontSize = isReward ? 23 : 21;
             t.fontStyle = FontStyle.Bold;
             t.alignment = TextAnchor.MiddleRight;
-            t.color = ColTextWhite;
+            t.color = isReward ? new Color(1.0f, 0.84f, 0.20f, 1f) : Color.white;
             t.horizontalOverflow = HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             RectTransform vrt = valObj.GetComponent<RectTransform>();
-            vrt.anchoredPosition = new Vector2(110f, 0f);
-            vrt.sizeDelta = new Vector2(160f, 26f);
+            vrt.anchoredPosition = new Vector2(120f, 0f);
+            vrt.sizeDelta = new Vector2(220f, 32f);
             return t;
         }
 
@@ -6671,7 +8337,7 @@ namespace MechChess.UI
             if (_screenSplash != null) _screenSplash.SetActive(false);
             CloseAllModals();
 
-            // 3. Populate dynamic text
+            // 3. Populate dynamic text & medieval victory elements
             if (_resultTitleTxt != null)
             {
                 if (isAborted)
@@ -6682,12 +8348,12 @@ namespace MechChess.UI
                 else if (isDraw)
                 {
                     _resultTitleTxt.text = AegisLocalization.T("HÒA CỜ", "MATCH DRAW");
-                    _resultTitleTxt.color = new Color(0.85f, 0.88f, 0.95f);
+                    _resultTitleTxt.color = new Color(0.88f, 0.90f, 0.95f);
                 }
                 else
                 {
-                    _resultTitleTxt.text = victory ? AegisLocalization.T("CHIẾN THẮNG", "VICTORY") : AegisLocalization.T("THẤT BẠI", "DEFEAT");
-                    _resultTitleTxt.color = victory ? ColGoldBorder : new Color(0.95f, 0.35f, 0.35f);
+                    _resultTitleTxt.text = victory ? AegisLocalization.T("Chiến Thắng", "Victory") : AegisLocalization.T("Thất Bại", "Defeat");
+                    _resultTitleTxt.color = victory ? new Color(0.98f, 0.90f, 0.74f, 1f) : new Color(0.95f, 0.35f, 0.35f);
                 }
             }
             if (_resultReasonTxt != null)
@@ -6699,8 +8365,8 @@ namespace MechChess.UI
                 }
                 else
                 {
-                    _resultReasonTxt.text = !string.IsNullOrEmpty(reason) ? reason : (isDraw ? AegisLocalization.T("Hòa cờ", "Draw") : (victory ? AegisLocalization.T("Chiến thắng!", "Victory!") : AegisLocalization.T("Thất bại!", "Defeat!")));
-                    _resultReasonTxt.color = isDraw ? new Color(0.85f, 0.90f, 1.0f) : (victory ? new Color(0.35f, 0.95f, 0.55f) : new Color(1.0f, 0.45f, 0.45f));
+                    _resultReasonTxt.text = !string.IsNullOrEmpty(reason) ? reason : (isDraw ? AegisLocalization.T("Hòa ván cờ!", "Match drawn!") : (victory ? AegisLocalization.T("Bạn đã chiến thắng!", "Victory is yours!") : AegisLocalization.T("Bạn đã thất bại!", "Defeat!")));
+                    _resultReasonTxt.color = isDraw ? new Color(0.85f, 0.90f, 1.0f) : (victory ? new Color(0.91f, 0.85f, 0.73f) : new Color(1.0f, 0.65f, 0.65f));
                 }
             }
             if (_resultMovesTxt != null) _resultMovesTxt.text = moves.ToString();
@@ -6712,7 +8378,7 @@ namespace MechChess.UI
             }
             if (_resultScoreTxt != null)
             {
-                _resultScoreTxt.text = isAborted ? "* - *" : (isDraw ? "½ - ½" : (victory ? "1 - 0" : "0 - 1"));
+                _resultScoreTxt.text = isAborted ? "+0" : (isDraw ? "+200" : (victory ? "+1,000" : "+50"));
             }
             if (_resultEloTxt != null)
             {
@@ -6724,6 +8390,26 @@ namespace MechChess.UI
                 else
                 {
                     _resultEloTxt.text = isDraw ? "<color=#80d8ff>Elo +0</color>" : (victory ? "<color=#00e676>Elo +8</color>" : "<color=#ff5252>Elo -8</color>");
+                }
+            }
+
+            // Tint Crown and Laurel Branches to reflect victory vs defeat
+            Color emblemTint = victory ? Color.white : (isDraw ? new Color(0.85f, 0.85f, 0.92f, 0.95f) : (isAborted ? new Color(0.75f, 0.60f, 0.45f, 0.9f) : new Color(0.65f, 0.50f, 0.45f, 0.9f)));
+            if (_resultCrownImg != null) _resultCrownImg.color = emblemTint;
+            if (_resultLaurelLeftImg != null) _resultLaurelLeftImg.color = emblemTint;
+            if (_resultLaurelRightImg != null) _resultLaurelRightImg.color = emblemTint;
+            if (_resultDividerImg != null) _resultDividerImg.color = Color.white;
+
+            // Dynamic 3-Star Rating based on match outcome
+            Sprite filledStar = MedievalUIAssetLoader.GetIcon(MedievalIcon.StarFilled);
+            Sprite emptyStar = MedievalUIAssetLoader.GetIcon(MedievalIcon.StarEmpty);
+            int starCount = isAborted ? 0 : (isDraw ? 1 : (victory ? 3 : 0));
+            for (int si = 0; si < 3; si++)
+            {
+                if (_resultStarImgs[si] != null)
+                {
+                    bool active = (starCount == 3) || (starCount == 1 && si == 1);
+                    _resultStarImgs[si].sprite = active ? filledStar : emptyStar;
                 }
             }
 
@@ -6899,7 +8585,7 @@ namespace MechChess.UI
                 CloseModal(_profileModal);
             });
 
-            // Centered Main Cyber Profile Card (1280 x 510) - Prominent, Big, Crisp
+            // Centered Main Cyber Profile Card (1380 x 740) - Spacious, Royal, High-Legibility
             GameObject cardObj = new GameObject("ProfileCard");
             cardObj.transform.SetParent(_profileModal.transform, false);
             RectTransform cRt = cardObj.AddComponent<RectTransform>();
@@ -6907,45 +8593,19 @@ namespace MechChess.UI
             cRt.anchorMax = new Vector2(0.5f, 0.5f);
             cRt.pivot = new Vector2(0.5f, 0.5f);
             cRt.anchoredPosition = Vector2.zero;
-            cRt.sizeDelta = new Vector2(1280f, 510f);
+            cRt.sizeDelta = new Vector2(1380f, 740f);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1280, 510, 22f, new Color(0.02f, 0.05f, 0.10f, 0.96f), ColCyanBorder, 2.5f);
+            cardBg.sprite = MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ModalCrowned) ?? ArcaneAssetLoader.GetGlassBoxSprite(1380, 740, 22f, new Color(0.02f, 0.05f, 0.10f, 0.96f), ColCyanBorder, 2.5f);
             cardBg.type = Image.Type.Sliced;
+            cardBg.color = Color.white;
             cardBg.raycastTarget = true; // Blocks click from closing modal when tapping inside
 
-            // Close Button [✕] at Top-Right
-            GameObject closeBtnObj = new GameObject("BtnClose");
-            closeBtnObj.transform.SetParent(cardObj.transform, false);
-            Image cbImg = closeBtnObj.AddComponent<Image>();
-            cbImg.sprite = ArcaneAssetLoader.GetCircleSprite(36, new Color(0.04f, 0.12f, 0.22f, 0.90f), ColCyanBorder, 1.5f);
-            Button cbBtn = closeBtnObj.AddComponent<Button>();
-            cbBtn.onClick.AddListener(() =>
+            // Close Button [ Crossed Swords Gold ] at Top-Right
+            GameObject resClose = CreateRoyalCloseButton(cardObj.transform, new Vector2(-39f, -42f), () =>
             {
                 CloseModal(_profileModal);
-            });
-            closeBtnObj.AddComponent<MenuButtonEffect>();
-            RectTransform cbRt = closeBtnObj.GetComponent<RectTransform>();
-            cbRt.anchorMin = new Vector2(1f, 1f);
-            cbRt.anchorMax = new Vector2(1f, 1f);
-            cbRt.pivot = new Vector2(1f, 1f);
-            cbRt.anchoredPosition = new Vector2(-16f, -16f);
-            cbRt.sizeDelta = new Vector2(36f, 36f);
-
-            GameObject cbTxtObj = new GameObject("Txt");
-            cbTxtObj.transform.SetParent(closeBtnObj.transform, false);
-            Text cbt = cbTxtObj.AddComponent<Text>();
-            cbt.text = "✕";
-            cbt.font = font;
-            cbt.fontSize = 20;
-            cbt.fontStyle = FontStyle.Bold;
-            cbt.alignment = TextAnchor.MiddleCenter;
-            cbt.color = ColCyanGlow;
-            RectTransform cbtrt = cbTxtObj.GetComponent<RectTransform>();
-            cbtrt.anchorMin = Vector2.zero;
-            cbtrt.anchorMax = Vector2.one;
-            cbtrt.offsetMin = Vector2.zero;
-            cbtrt.offsetMax = Vector2.zero;
+            }, 64f, "BtnClose");
 
             // =====================================================================
             // LEFT PANEL: Avatar + Info (Top) & Stats Table Card (Bottom)
@@ -6956,17 +8616,17 @@ namespace MechChess.UI
             lpRt.anchorMin = new Vector2(0.5f, 0.5f);
             lpRt.anchorMax = new Vector2(0.5f, 0.5f);
             lpRt.pivot = new Vector2(0.5f, 0.5f);
-            lpRt.anchoredPosition = new Vector2(-335f, 0f);
-            lpRt.sizeDelta = new Vector2(550f, 460f);
+            lpRt.anchoredPosition = new Vector2(-340f, -15f);
+            lpRt.sizeDelta = new Vector2(560f, 580f);
 
-            // Circular Avatar Frame with glowing cyan ring (96x96)
+            // Circular Avatar Frame with glowing cyan ring (104x104)
             GameObject avFrame = new GameObject("AvatarFrame");
             avFrame.transform.SetParent(leftPanel.transform, false);
             Image avFrameImg = avFrame.AddComponent<Image>();
-            avFrameImg.sprite = ArcaneAssetLoader.GetCircleSprite(96, new Color(0.04f, 0.12f, 0.22f, 0.95f), ColCyanGlow, 2.5f);
+            avFrameImg.sprite = ArcaneAssetLoader.GetCircleSprite(104, new Color(0.04f, 0.12f, 0.22f, 0.95f), ColCyanGlow, 2.5f);
             RectTransform afRt = avFrame.GetComponent<RectTransform>();
-            afRt.anchoredPosition = new Vector2(-215f, 160f);
-            afRt.sizeDelta = new Vector2(96f, 96f);
+            afRt.anchoredPosition = new Vector2(-200f, 200f);
+            afRt.sizeDelta = new Vector2(104f, 104f);
 
             // Inner Avatar Image
             GameObject avObj = new GameObject("AvatarImg");
@@ -6981,31 +8641,31 @@ namespace MechChess.UI
             avRt.anchorMax = new Vector2(0.5f, 0.5f);
             avRt.pivot = new Vector2(0.5f, 0.5f);
             avRt.anchoredPosition = Vector2.zero;
-            avRt.sizeDelta = new Vector2(84f, 84f);
+            avRt.sizeDelta = new Vector2(92f, 92f);
 
             // Username: "Player001" (Bold 30 White)
             string currentName = "Player001";
             if (UserAccountManager.Instance != null && !string.IsNullOrEmpty(UserAccountManager.Instance.CurrentUsername))
                 currentName = UserAccountManager.Instance.CurrentUsername;
-            _profileModalNameComp = CreateTextComp(leftPanel.transform, currentName, 30, FontStyle.Bold, ColTextWhite, font, new Vector2(-25f, 188f), new Vector2(260f, 38f), TextAnchor.MiddleLeft);
+            _profileModalNameComp = CreateTextComp(leftPanel.transform, currentName, 30, FontStyle.Bold, ColTextWhite, font, new Vector2(-20f, 225f), new Vector2(280f, 38f), TextAnchor.MiddleLeft);
 
             // Level: "Lv. 1" (Cyan 20 Bold)
-            _profileModalLevelComp = CreateTextComp(leftPanel.transform, "Lv. 1", 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(-25f, 154f), new Vector2(140f, 26f), TextAnchor.MiddleLeft);
+            _profileModalLevelComp = CreateTextComp(leftPanel.transform, "Lv. 1", 20, FontStyle.Bold, ColCyanGlow, font, new Vector2(-20f, 192f), new Vector2(140f, 26f), TextAnchor.MiddleLeft);
 
-            // EXP Progress Bar (Width 180px, height 16px)
+            // EXP Progress Bar (Width 200px, height 16px)
             GameObject expBarObj = new GameObject("ExpBarBg");
             expBarObj.transform.SetParent(leftPanel.transform, false);
             Image expBg = expBarObj.AddComponent<Image>();
-            expBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(180, 16, 8f, new Color(0.05f, 0.10f, 0.20f, 0.95f), new Color(0.10f, 0.35f, 0.55f, 0.8f), 1f);
+            expBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(200, 16, 8f, new Color(0.05f, 0.10f, 0.20f, 0.95f), new Color(0.10f, 0.35f, 0.55f, 0.8f), 1f);
             expBg.type = Image.Type.Sliced;
             RectTransform expRt = expBarObj.GetComponent<RectTransform>();
-            expRt.anchoredPosition = new Vector2(-30f, 124f);
-            expRt.sizeDelta = new Vector2(180f, 16f);
+            expRt.anchoredPosition = new Vector2(-20f, 160f);
+            expRt.sizeDelta = new Vector2(200f, 16f);
 
             GameObject expFillObj = new GameObject("ExpFill");
             expFillObj.transform.SetParent(expBarObj.transform, false);
             Image expFill = expFillObj.AddComponent<Image>();
-            expFill.sprite = ArcaneAssetLoader.GetGlassBoxSprite(115, 16, 8f, ColCyanGlow, ColCyanGlow, 0f);
+            expFill.sprite = ArcaneAssetLoader.GetGlassBoxSprite(120, 16, 8f, ColCyanGlow, ColCyanGlow, 0f);
             expFill.type = Image.Type.Sliced;
             _profileModalExpFillRt = expFillObj.GetComponent<RectTransform>();
             _profileModalExpFillRt.anchorMin = new Vector2(0f, 0.5f);
@@ -7014,19 +8674,19 @@ namespace MechChess.UI
             _profileModalExpFillRt.anchoredPosition = Vector2.zero;
             _profileModalExpFillRt.sizeDelta = new Vector2(0f, 16f);
 
-            _profileModalExpComp = CreateTextComp(leftPanel.transform, "0 / 100", 18, FontStyle.Bold, new Color(0.88f, 0.94f, 1.0f), font, new Vector2(120f, 124f), new Vector2(110f, 26f), TextAnchor.MiddleLeft);
+            _profileModalExpComp = CreateTextComp(leftPanel.transform, "0 / 100", 17, FontStyle.Bold, new Color(0.88f, 0.94f, 1.0f), font, new Vector2(140f, 160f), new Vector2(110f, 26f), TextAnchor.MiddleLeft);
 
             // ---------------------------------------------------------------------
-            // Stats Table Card (Lower Left - Matching Image 2)
+            // Stats Table Card (Lower Left - Matching Reference Design)
             // ---------------------------------------------------------------------
             GameObject statsCard = new GameObject("StatsCard");
             statsCard.transform.SetParent(leftPanel.transform, false);
             Image scBg = statsCard.AddComponent<Image>();
-            scBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(530, 260, 16f, new Color(0.02f, 0.06f, 0.12f, 0.94f), ColMutedBorder, 1.2f);
+            scBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(530, 270, 16f, new Color(0.02f, 0.06f, 0.12f, 0.94f), ColMutedBorder, 1.2f);
             scBg.type = Image.Type.Sliced;
             RectTransform scRt = statsCard.GetComponent<RectTransform>();
-            scRt.anchoredPosition = new Vector2(0f, -50f);
-            scRt.sizeDelta = new Vector2(530f, 260f);
+            scRt.anchoredPosition = new Vector2(0f, -15f);
+            scRt.sizeDelta = new Vector2(530f, 270f);
 
             // 3 Column Dividers
             float[] divX = { -130f, 0f, 130f };
@@ -7038,7 +8698,7 @@ namespace MechChess.UI
                 divImg.color = new Color(0.08f, 0.28f, 0.45f, 0.50f);
                 RectTransform drt = divObj.GetComponent<RectTransform>();
                 drt.anchoredPosition = new Vector2(divX[d], 0f);
-                drt.sizeDelta = new Vector2(1.5f, 200f);
+                drt.sizeDelta = new Vector2(1.5f, 210f);
             }
 
             // 1 Horizontal Divider
@@ -7047,7 +8707,7 @@ namespace MechChess.UI
             Image hDivImg = hDivObj.AddComponent<Image>();
             hDivImg.color = new Color(0.08f, 0.28f, 0.45f, 0.50f);
             RectTransform hdrt = hDivObj.GetComponent<RectTransform>();
-            hdrt.anchoredPosition = new Vector2(0f, -10f);
+            hdrt.anchoredPosition = new Vector2(0f, -8f);
             hdrt.sizeDelta = new Vector2(490f, 1.5f);
 
             // 4 Column Headers: Elo, Thắng, Thua, Hòa (Bold 21)
@@ -7060,7 +8720,7 @@ namespace MechChess.UI
             };
             for (int i = 0; i < 4; i++)
             {
-                CreateTextComp(statsCard.transform, statHeaders[i], 21, FontStyle.Bold, new Color(0.80f, 0.88f, 0.98f), font, new Vector2(colX[i], 78f), new Vector2(110f, 30f), TextAnchor.MiddleCenter);
+                CreateTextComp(statsCard.transform, statHeaders[i], 21, FontStyle.Bold, new Color(0.80f, 0.88f, 0.98f), font, new Vector2(colX[i], 82f), new Vector2(110f, 30f), TextAnchor.MiddleCenter);
             }
 
             // Row 1: Đấu Online (PvP) - Elo, Thắng, Thua, Hòa
@@ -7069,13 +8729,13 @@ namespace MechChess.UI
                 currentElo = UserAccountManager.Instance.CurrentElo;
 
             // Col 0: Elo + Subtitle "Đấu Online"
-            _profileModalEloComp = CreateTextComp(statsCard.transform, currentElo.ToString(), 30, FontStyle.Bold, ColGoldBorder, font, new Vector2(colX[0], 36f), new Vector2(110f, 32f), TextAnchor.MiddleCenter);
-            _profileModalSubPvpLabel = CreateTextComp(statsCard.transform, AegisLocalization.T("Đấu Online", "Online PvP"), 13, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[0], 12f), new Vector2(110f, 18f), TextAnchor.MiddleCenter);
+            _profileModalEloComp = CreateTextComp(statsCard.transform, currentElo.ToString(), 30, FontStyle.Bold, ColGoldBorder, font, new Vector2(colX[0], 38f), new Vector2(110f, 32f), TextAnchor.MiddleCenter);
+            _profileModalSubPvpLabel = CreateTextComp(statsCard.transform, AegisLocalization.T("Đấu Online", "Online PvP"), 13, FontStyle.Bold, ColCyanGlow, font, new Vector2(colX[0], 14f), new Vector2(110f, 18f), TextAnchor.MiddleCenter);
 
             // Col 1, 2, 3: Thắng, Thua, Hòa Online
-            _profileModalPvpWinsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], 26f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
-            _profileModalPvpLossesComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], 26f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
-            _profileModalPvpDrawsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], 26f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalPvpWinsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], 28f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalPvpLossesComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], 28f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalPvpDrawsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], 28f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
 
             _profileModalWinsComp = _profileModalPvpWinsComp;
             _profileModalLossesComp = _profileModalPvpLossesComp;
@@ -7091,23 +8751,23 @@ namespace MechChess.UI
             else rankCrestImg.color = ColCyanGlow;
             rankCrestImg.preserveAspect = true;
             RectTransform rcRt = rankCrestObj.GetComponent<RectTransform>();
-            rcRt.anchoredPosition = new Vector2(colX[0], -50f);
-            rcRt.sizeDelta = new Vector2(30f, 30f);
+            rcRt.anchoredPosition = new Vector2(colX[0], -48f);
+            rcRt.sizeDelta = new Vector2(32f, 32f);
 
-            _profileModalRankTierComp = CreateTextComp(statsCard.transform, AegisLocalization.T("Đấu Với Máy", "Vs Computer"), 13, FontStyle.Bold, new Color(0.80f, 0.88f, 0.98f), font, new Vector2(colX[0], -74f), new Vector2(110f, 18f), TextAnchor.MiddleCenter);
+            _profileModalRankTierComp = CreateTextComp(statsCard.transform, AegisLocalization.T("Đấu Với Máy", "Vs Computer"), 13, FontStyle.Bold, new Color(0.80f, 0.88f, 0.98f), font, new Vector2(colX[0], -72f), new Vector2(110f, 18f), TextAnchor.MiddleCenter);
 
             // Col 1, 2, 3: Thắng, Thua, Hòa Máy
-            _profileModalAiWinsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
-            _profileModalAiLossesComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
-            _profileModalAiDrawsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], -62f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalAiWinsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[1], -60f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalAiLossesComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[2], -60f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
+            _profileModalAiDrawsComp = CreateTextComp(statsCard.transform, "0", 26, FontStyle.Bold, ColTextWhite, font, new Vector2(colX[3], -60f), new Vector2(110f, 36f), TextAnchor.MiddleCenter);
 
             // Switch Account / Logout Button
-            CreateMenuActionButton(
+            _profileSwitchAccountBtnObj = CreateMenuActionButton(
                 leftPanel.transform,
                 "BtnSwitchAccount",
                 AegisLocalization.T("⇄  ĐỔI TÀI KHOẢN / ĐĂNG XUẤT", "⇄  SWITCH ACCOUNT / LOGOUT"),
-                new Vector2(0f, -200f),
-                new Vector2(380f, 44f),
+                new Vector2(0f, -220f),
+                new Vector2(400f, 48f),
                 new Color(0.10f, 0.18f, 0.30f, 0.95f),
                 ColCyanGlow,
                 16,
@@ -7126,7 +8786,7 @@ namespace MechChess.UI
             );
 
             // =====================================================================
-            // RIGHT PANEL: Sub-Tabs & Match History Card (Matching Image 2)
+            // RIGHT PANEL: Sub-Tabs & Match History / Achievements / Skin Cards
             // =====================================================================
             GameObject rightPanel = new GameObject("RightPanel");
             rightPanel.transform.SetParent(cardObj.transform, false);
@@ -7134,27 +8794,30 @@ namespace MechChess.UI
             rpRt.anchorMin = new Vector2(0.5f, 0.5f);
             rpRt.anchorMax = new Vector2(0.5f, 0.5f);
             rpRt.pivot = new Vector2(0.5f, 0.5f);
-            rpRt.anchoredPosition = new Vector2(305f, 0f);
-            rpRt.sizeDelta = new Vector2(620f, 460f);
+            rpRt.anchoredPosition = new Vector2(320f, -15f);
+            rpRt.sizeDelta = new Vector2(640f, 580f);
 
-            // Category Sub-Tabs: Lịch sử đấu (Active), Thành tích, Skin
+            // Category Sub-Tabs: Lịch sử đấu, Thành tích, Skin (Royal Golden Tab Styling)
             GameObject profileTabs = new GameObject("ProfileTabs");
             profileTabs.transform.SetParent(rightPanel.transform, false);
             RectTransform ptRt = profileTabs.AddComponent<RectTransform>();
-            ptRt.anchoredPosition = new Vector2(0f, 185f);
-            ptRt.sizeDelta = new Vector2(610f, 46f);
+            ptRt.anchoredPosition = new Vector2(0f, 245f);
+            ptRt.sizeDelta = new Vector2(620f, 52f);
 
             string[] pTabs = {
                 AegisLocalization.T("Lịch sử đấu", "Match History"),
                 AegisLocalization.T("Thành tích", "Achievements"),
                 AegisLocalization.T("Skin", "Skins")
             };
-            Sprite pTabActSp = ArcaneAssetLoader.LoadArcaneSprite("profile_tab_active.png");
-            if (pTabActSp == null) pTabActSp = ArcaneAssetLoader.GetGlassBoxSprite(190, 44, 14f, new Color(0.04f, 0.16f, 0.32f, 0.95f), ColCyanGlow, 2f);
-            Sprite pTabInactSp = ArcaneAssetLoader.LoadArcaneSprite("profile_tab_inactive.png");
+            Sprite pTabActSp = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_active")
+                               ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_active")
+                               ?? ArcaneAssetLoader.LoadArcaneSprite("profile_tab_active.png");
+            Sprite pTabInactSp = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_inactive")
+                                 ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_inactive")
+                                 ?? ArcaneAssetLoader.LoadArcaneSprite("profile_tab_inactive.png");
 
-            float[] tabX = { -195f, 15f, 210f };
-            float[] tabW = { 190f, 170f, 150f };
+            float[] tabX = { -205f, 0f, 205f };
+            float[] tabW = { 200f, 200f, 200f };
             for (int i = 0; i < 3; i++)
             {
                 int tabIdx = i;
@@ -7164,7 +8827,7 @@ namespace MechChess.UI
 
                 Image bg = tObj.AddComponent<Image>();
                 bg.sprite = active ? pTabActSp : pTabInactSp;
-                bg.type = Image.Type.Simple;
+                bg.type = Image.Type.Sliced;
                 _profileTabBgs[i] = bg;
 
                 Button btn = tObj.AddComponent<Button>();
@@ -7173,14 +8836,14 @@ namespace MechChess.UI
 
                 RectTransform rt = tObj.GetComponent<RectTransform>();
                 rt.anchoredPosition = new Vector2(tabX[i], 0f);
-                rt.sizeDelta = new Vector2(tabW[i], 44f);
+                rt.sizeDelta = new Vector2(tabW[i], 48f);
 
                 GameObject txtObj = new GameObject("Txt");
                 txtObj.transform.SetParent(tObj.transform, false);
                 Text txtComp = txtObj.AddComponent<Text>();
                 txtComp.text = pTabs[i];
                 txtComp.font = font;
-                txtComp.fontSize = 21;
+                txtComp.fontSize = 20;
                 txtComp.fontStyle = FontStyle.Bold;
                 txtComp.alignment = TextAnchor.MiddleCenter;
                 txtComp.color = active ? ColTextWhite : new Color(0.75f, 0.84f, 0.96f, 0.85f);
@@ -7199,14 +8862,14 @@ namespace MechChess.UI
             _profileTabContainers[0] = historyContainer;
             _matchHistoryRowsParent = historyContainer.transform;
             Image hcBg = historyContainer.AddComponent<Image>();
-            hcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(610, 360, 18f, new Color(0.02f, 0.05f, 0.10f, 0.94f), ColMutedBorder, 1.2f);
+            hcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(620, 470, 18f, new Color(0.02f, 0.05f, 0.10f, 0.94f), ColMutedBorder, 1.2f);
             hcBg.type = Image.Type.Sliced;
             RectTransform hcRt = historyContainer.GetComponent<RectTransform>();
-            hcRt.anchoredPosition = new Vector2(0f, -40f);
-            hcRt.sizeDelta = new Vector2(610f, 360f);
+            hcRt.anchoredPosition = new Vector2(0f, -20f);
+            hcRt.sizeDelta = new Vector2(620f, 470f);
 
             // Horizontal row dividers in Match History
-            float[] rowDivY = { 35f, -65f };
+            float[] rowDivY = { 60f, -60f };
             for (int rd = 0; rd < 2; rd++)
             {
                 GameObject rdivObj = new GameObject("RowDiv_" + rd);
@@ -7226,54 +8889,97 @@ namespace MechChess.UI
             achContainer.transform.SetParent(rightPanel.transform, false);
             _profileTabContainers[1] = achContainer;
             Image achBg = achContainer.AddComponent<Image>();
-            achBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(610, 360, 18f, new Color(0.02f, 0.05f, 0.10f, 0.94f), ColMutedBorder, 1.2f);
+            achBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(620, 470, 18f, new Color(0.02f, 0.05f, 0.10f, 0.94f), ColMutedBorder, 1.2f);
             achBg.type = Image.Type.Sliced;
             RectTransform achRt = achContainer.GetComponent<RectTransform>();
-            achRt.anchoredPosition = new Vector2(0f, -40f);
-            achRt.sizeDelta = new Vector2(610f, 360f);
+            achRt.anchoredPosition = new Vector2(0f, -20f);
+            achRt.sizeDelta = new Vector2(620f, 470f);
 
             string[] achTitles = {
                 AegisLocalization.T("Chiến Tướng Khởi Nguyên", "Genesis Knight"),
                 AegisLocalization.T("Đại Sư Đấu Máy", "AI Grandmaster"),
-                AegisLocalization.T("Bậc Thầy AR", "AR Pioneer")
+                AegisLocalization.T("Bậc Thầy AR", "AR Pioneer"),
+                AegisLocalization.T("Huyền Thoại Bất Bại", "Undefeated Legend")
             };
             string[] achProgress = {
                 AegisLocalization.T("100 / 100 (Đạt)", "100 / 100 (Done)"),
                 AegisLocalization.T("Hoàn thành", "Completed"),
-                "38 / 50"
+                "38 / 50",
+                "12 / 20"
             };
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
-                CreateTextComp(achContainer.transform, "🏆  " + achTitles[i], 21, FontStyle.Bold, ColTextWhite, font, new Vector2(-110f, 80f - i * 80f), new Vector2(350f, 34f), TextAnchor.MiddleLeft);
-                CreateTextComp(achContainer.transform, achProgress[i], 19, FontStyle.Bold, ColCyanGlow, font, new Vector2(190f, 80f - i * 80f), new Vector2(150f, 34f), TextAnchor.MiddleRight);
+                CreateTextComp(achContainer.transform, "🏆  " + achTitles[i], 21, FontStyle.Bold, ColTextWhite, font, new Vector2(-110f, 135f - i * 90f), new Vector2(350f, 34f), TextAnchor.MiddleLeft);
+                CreateTextComp(achContainer.transform, achProgress[i], 19, FontStyle.Bold, ColCyanGlow, font, new Vector2(190f, 135f - i * 90f), new Vector2(150f, 34f), TextAnchor.MiddleRight);
             }
             achContainer.SetActive(false);
 
-            // Tab 2 Content: Skin Collection
+            // Tab 2 Content: Interactive Skin Collection & Armory Chooser
             GameObject skinTabContainer = new GameObject("Tab2_Skins");
             skinTabContainer.transform.SetParent(rightPanel.transform, false);
             _profileTabContainers[2] = skinTabContainer;
             Image stkBg = skinTabContainer.AddComponent<Image>();
-            stkBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(610, 360, 18f, new Color(0.02f, 0.05f, 0.10f, 0.94f), ColMutedBorder, 1.2f);
+            stkBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(620, 470, 18f, new Color(0.02f, 0.05f, 0.10f, 0.94f), ColMutedBorder, 1.2f);
             stkBg.type = Image.Type.Sliced;
             RectTransform stkRt = skinTabContainer.GetComponent<RectTransform>();
-            stkRt.anchoredPosition = new Vector2(0f, -40f);
-            stkRt.sizeDelta = new Vector2(610f, 360f);
+            stkRt.anchoredPosition = new Vector2(0f, -20f);
+            stkRt.sizeDelta = new Vector2(620f, 470f);
 
-            string[] ownedSkins = {
-                AegisLocalization.T("Knight of Light (Đang dùng)", "Knight of Light (Equipped)"),
-                AegisLocalization.T("Dark Legion (Đã sở hữu)", "Dark Legion (Owned)"),
-                AegisLocalization.T("Arcane Paladin (Đã sở hữu)", "Arcane Paladin (Owned)")
-            };
-            for (int i = 0; i < 3; i++)
-            {
-                CreateTextComp(skinTabContainer.transform, "🛡  " + ownedSkins[i], 21, FontStyle.Bold, ColTextWhite, font, new Vector2(-110f, 80f - i * 80f), new Vector2(370f, 34f), TextAnchor.MiddleLeft);
-            }
+            // Scroll View for Skins
+            GameObject skinScrollObj = new GameObject("SkinsScrollView");
+            skinScrollObj.transform.SetParent(skinTabContainer.transform, false);
+            RectTransform ssRt = skinScrollObj.AddComponent<RectTransform>();
+            ssRt.anchorMin = new Vector2(0.5f, 0.5f);
+            ssRt.anchorMax = new Vector2(0.5f, 0.5f);
+            ssRt.pivot = new Vector2(0.5f, 0.5f);
+            ssRt.anchoredPosition = new Vector2(0f, 32f);
+            ssRt.sizeDelta = new Vector2(590f, 370f);
 
+            Image ssImg = skinScrollObj.AddComponent<Image>();
+            ssImg.color = Color.clear;
+            ssImg.raycastTarget = true;
+            skinScrollObj.AddComponent<RectMask2D>();
+
+            ScrollRect skinSr = skinScrollObj.AddComponent<ScrollRect>();
+            skinSr.horizontal = false;
+            skinSr.vertical = true;
+            skinSr.movementType = ScrollRect.MovementType.Clamped;
+            skinSr.scrollSensitivity = 25f;
+
+            GameObject skinContentObj = new GameObject("SkinsContent");
+            skinContentObj.transform.SetParent(skinScrollObj.transform, false);
+            RectTransform scContentRt = skinContentObj.AddComponent<RectTransform>();
+            scContentRt.anchorMin = new Vector2(0f, 1f);
+            scContentRt.anchorMax = new Vector2(1f, 1f);
+            scContentRt.pivot = new Vector2(0.5f, 1f);
+            scContentRt.anchoredPosition = Vector2.zero;
+            scContentRt.sizeDelta = new Vector2(0f, 300f);
+
+            VerticalLayoutGroup vlg = skinContentObj.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 8f;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            vlg.padding = new RectOffset(4, 4, 6, 6);
+
+            ContentSizeFitter csf = skinContentObj.AddComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            skinSr.content = scContentRt;
+            skinSr.viewport = ssRt;
+            _profileSkinsScrollContent = scContentRt;
+
+            // Populate skin cards initially
+            PopulateProfileSkinsUI(font);
+
+            // Bottom Full Collection Button
             GameObject openColBtnObj = new GameObject("BtnOpenFullCollection");
             openColBtnObj.transform.SetParent(skinTabContainer.transform, false);
             Image ocBg = openColBtnObj.AddComponent<Image>();
-            ocBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(380, 46, 12f, ColGoldCta, ColGoldBorder, 1.5f);
+            ocBg.sprite = MedievalUIAssetLoader.GetSprite("btn_blank_parchment_gold")
+                          ?? ArcaneAssetLoader.GetGlassBoxSprite(420, 46, 12f, ColGoldCta, ColGoldBorder, 1.5f);
             ocBg.type = Image.Type.Sliced;
             Button ocBtn = openColBtnObj.AddComponent<Button>();
             ocBtn.onClick.AddListener(() =>
@@ -7283,9 +8989,9 @@ namespace MechChess.UI
             });
             openColBtnObj.AddComponent<MenuButtonEffect>();
             RectTransform ocRt = openColBtnObj.GetComponent<RectTransform>();
-            ocRt.anchoredPosition = new Vector2(0f, -130f);
-            ocRt.sizeDelta = new Vector2(380f, 46f);
-            CreateTextComp(openColBtnObj.transform, AegisLocalization.T("🛡️  MỞ KHO BỘ SƯU TẬP TOÀN DIỆN", "🛡️  OPEN FULL COLLECTION"), 18, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(360f, 30f));
+            ocRt.anchoredPosition = new Vector2(0f, -195f);
+            ocRt.sizeDelta = new Vector2(420f, 46f);
+            CreateTextComp(openColBtnObj.transform, AegisLocalization.T("🛡️  MỞ KHO BỘ SƯU TẬP TOÀN DIỆN", "🛡️  OPEN FULL COLLECTION"), 18, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(400f, 30f));
 
             skinTabContainer.SetActive(false);
 
@@ -7296,8 +9002,12 @@ namespace MechChess.UI
         {
             if (_selectedProfileTab != tabIndex) AegisAudioManager.PlayTabSwitch();
             _selectedProfileTab = tabIndex;
-            Sprite activeSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_tab_active.png");
-            Sprite inactiveSprite = ArcaneAssetLoader.LoadArcaneSprite("profile_tab_inactive.png");
+            Sprite activeSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_active")
+                                  ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_active")
+                                  ?? ArcaneAssetLoader.LoadArcaneSprite("profile_tab_active.png");
+            Sprite inactiveSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_inactive")
+                                    ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_inactive")
+                                    ?? ArcaneAssetLoader.LoadArcaneSprite("profile_tab_inactive.png");
 
             for (int i = 0; i < _profileTabBgs.Length; i++)
             {
@@ -7309,7 +9019,7 @@ namespace MechChess.UI
                 {
                     _profileTabTexts[i].color = (i == tabIndex) ? ColTextWhite : new Color(0.75f, 0.84f, 0.96f, 0.85f);
                     _profileTabTexts[i].fontStyle = FontStyle.Bold;
-                    _profileTabTexts[i].fontSize = 21;
+                    _profileTabTexts[i].fontSize = 20;
                 }
                 if (_profileTabContainers[i] != null)
                 {
@@ -7321,16 +9031,172 @@ namespace MechChess.UI
             {
                 LoadDynamicMatchHistory();
             }
+            else if (tabIndex == 2)
+            {
+                PopulateProfileSkinsUI();
+            }
+        }
+
+        private void PopulateProfileSkinsUI(Font font = null)
+        {
+            if (_profileSkinsScrollContent == null) return;
+            if (font == null) font = GetDefaultFont();
+
+            if (_allCollectionItems.Count == 0)
+            {
+                InitializeCollectionData();
+            }
+            RefreshCollectionUI();
+
+            // Clear previous items
+            for (int i = _profileSkinsScrollContent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(_profileSkinsScrollContent.GetChild(i).gameObject);
+            }
+
+            List<CollectionItemData> skins = _allCollectionItems.FindAll(x => x.category == 1);
+            if (skins == null || skins.Count == 0) return;
+
+            Sprite cardBgSp = ArcaneAssetLoader.GetGlassBoxSprite(570, 72, 12f, new Color(0.03f, 0.07f, 0.14f, 0.95f), ColCyanBorder, 1.2f);
+            Sprite activeBtnSp = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_active")
+                                 ?? ArcaneAssetLoader.GetGlassBoxSprite(140, 36, 8f, ColGoldCta, ColGoldBorder, 1.5f);
+            Sprite inactiveBtnSp = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_inactive")
+                                   ?? ArcaneAssetLoader.GetGlassBoxSprite(140, 36, 8f, new Color(0.10f, 0.20f, 0.35f, 0.95f), ColCyanGlow, 1.2f);
+
+            foreach (var item in skins)
+            {
+                if (item == null) continue;
+                bool isEquipped = IsCollectionItemEquipped(item);
+
+                GameObject cardObj = new GameObject("SkinCard_" + item.id);
+                cardObj.transform.SetParent(_profileSkinsScrollContent, false);
+
+                Image bg = cardObj.AddComponent<Image>();
+                bg.sprite = cardBgSp;
+                bg.type = Image.Type.Sliced;
+                bg.color = Color.white;
+
+                LayoutElement le = cardObj.AddComponent<LayoutElement>();
+                le.minHeight = 72f;
+                le.preferredHeight = 72f;
+                le.flexibleWidth = 1f;
+
+                // Left: Icon Frame & Sprite
+                GameObject iconFrame = new GameObject("IconFrame");
+                iconFrame.transform.SetParent(cardObj.transform, false);
+                Image frameImg = iconFrame.AddComponent<Image>();
+                frameImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(56, 56, 8f, new Color(0.02f, 0.05f, 0.10f, 0.9f), item.rarityColor, 1.2f);
+                frameImg.type = Image.Type.Sliced;
+                RectTransform ifRt = iconFrame.GetComponent<RectTransform>();
+                ifRt.anchorMin = new Vector2(0f, 0.5f);
+                ifRt.anchorMax = new Vector2(0f, 0.5f);
+                ifRt.pivot = new Vector2(0f, 0.5f);
+                ifRt.anchoredPosition = new Vector2(10f, 0f);
+                ifRt.sizeDelta = new Vector2(56f, 56f);
+
+                GameObject iconArt = new GameObject("IconArt");
+                iconArt.transform.SetParent(iconFrame.transform, false);
+                Image artImg = iconArt.AddComponent<Image>();
+                artImg.sprite = GetCollectionItemSprite(item);
+                artImg.preserveAspect = true;
+                RectTransform iaRt = iconArt.GetComponent<RectTransform>();
+                iaRt.anchorMin = new Vector2(0.5f, 0.5f);
+                iaRt.anchorMax = new Vector2(0.5f, 0.5f);
+                iaRt.pivot = new Vector2(0.5f, 0.5f);
+                iaRt.anchoredPosition = Vector2.zero;
+                iaRt.sizeDelta = new Vector2(48f, 48f);
+
+                // Middle: Name & Rarity
+                GameObject textBlock = new GameObject("TextBlock");
+                textBlock.transform.SetParent(cardObj.transform, false);
+                RectTransform tbRt = textBlock.AddComponent<RectTransform>();
+                tbRt.anchorMin = new Vector2(0f, 0.5f);
+                tbRt.anchorMax = new Vector2(1f, 0.5f);
+                tbRt.pivot = new Vector2(0f, 0.5f);
+                tbRt.anchoredPosition = new Vector2(76f, 0f);
+                tbRt.sizeDelta = new Vector2(-235f, 54f);
+
+                Text titleTxt = CreateTextComp(textBlock.transform, AegisLocalization.T(item.nameVi, item.nameEn), 18, FontStyle.Bold, ColTextWhite, font, new Vector2(0f, 12f), new Vector2(300f, 26f), TextAnchor.MiddleLeft);
+                titleTxt.rectTransform.anchorMin = new Vector2(0f, 0.5f);
+                titleTxt.rectTransform.anchorMax = new Vector2(1f, 0.5f);
+                titleTxt.rectTransform.pivot = new Vector2(0f, 0.5f);
+                titleTxt.rectTransform.anchoredPosition = new Vector2(0f, 12f);
+                titleTxt.rectTransform.sizeDelta = new Vector2(0f, 26f);
+
+                Text subTxt = CreateTextComp(textBlock.transform, item.rarity + "  •  " + AegisLocalization.T(item.typeVi, item.typeEn), 13, FontStyle.Bold, item.rarityColor, font, new Vector2(0f, -12f), new Vector2(300f, 22f), TextAnchor.MiddleLeft);
+                subTxt.rectTransform.anchorMin = new Vector2(0f, 0.5f);
+                subTxt.rectTransform.anchorMax = new Vector2(1f, 0.5f);
+                subTxt.rectTransform.pivot = new Vector2(0f, 0.5f);
+                subTxt.rectTransform.anchoredPosition = new Vector2(0f, -12f);
+                subTxt.rectTransform.sizeDelta = new Vector2(0f, 22f);
+
+                // Right: Action Button or Equipped Badge
+                GameObject actionObj = new GameObject("ActionSlot");
+                actionObj.transform.SetParent(cardObj.transform, false);
+                RectTransform actRt = actionObj.AddComponent<RectTransform>();
+                actRt.anchorMin = new Vector2(1f, 0.5f);
+                actRt.anchorMax = new Vector2(1f, 0.5f);
+                actRt.pivot = new Vector2(1f, 0.5f);
+                actRt.anchoredPosition = new Vector2(-12f, 0f);
+                actRt.sizeDelta = new Vector2(142f, 38f);
+
+                Image actBg = actionObj.AddComponent<Image>();
+                actBg.type = Image.Type.Sliced;
+
+                if (isEquipped)
+                {
+                    actBg.sprite = activeBtnSp;
+                    actBg.color = Color.white;
+                    CreateTextComp(actionObj.transform, AegisLocalization.T("✦ ĐANG DÙNG ✦", "✦ EQUIPPED ✦"), 14, FontStyle.Bold, ColDarkBtnText, font, Vector2.zero, new Vector2(138f, 32f));
+                }
+                else if (item.isOwned)
+                {
+                    actBg.sprite = inactiveBtnSp;
+                    actBg.color = Color.white;
+                    Button btn = actionObj.AddComponent<Button>();
+                    actionObj.AddComponent<MenuButtonEffect>();
+
+                    var currentItem = item;
+                    btn.onClick.AddListener(() =>
+                    {
+                        PlayerPrefs.SetString(currentItem.prefsKey, currentItem.nameVi);
+                        PlayerPrefs.Save();
+                        AegisAudioManager.PlayButtonClick();
+                        ShowToast(AegisLocalization.T($"Đã trang bị {currentItem.nameVi}!", $"Equipped {currentItem.nameEn}!"), ToastType.Success);
+                        PopulateProfileSkinsUI(font);
+                    });
+
+                    CreateTextComp(actionObj.transform, AegisLocalization.T("TRANG BỊ", "EQUIP"), 15, FontStyle.Bold, ColTextWhite, font, Vector2.zero, new Vector2(138f, 32f));
+                }
+                else
+                {
+                    actBg.sprite = inactiveBtnSp;
+                    actBg.color = new Color(0.5f, 0.5f, 0.5f, 0.6f);
+                    Button btn = actionObj.AddComponent<Button>();
+                    actionObj.AddComponent<MenuButtonEffect>();
+
+                    btn.onClick.AddListener(() =>
+                    {
+                        CloseModal(_profileModal);
+                        OpenShopModal();
+                    });
+
+                    CreateTextComp(actionObj.transform, AegisLocalization.T("MUA TẠI SHOP", "SHOP"), 14, FontStyle.Bold, new Color(0.85f, 0.85f, 0.85f), font, Vector2.zero, new Vector2(138f, 32f));
+                }
+            }
         }
 
         public void ShowProfileDetailsModal()
         {
             if (_profileModal != null)
             {
+                CloseAllModals();
                 _profileModal.SetActive(true);
                 AegisAudioManager.PlayModalOpen();
+                if (_profileSwitchAccountBtnObj != null) _profileSwitchAccountBtnObj.SetActive(true);
                 UpdateUserProfileUI();
                 LoadDynamicMatchHistory();
+                PopulateProfileSkinsUI();
                 if (UserAccountManager.Instance != null && UserAccountManager.Instance.IsLoggedIn)
                 {
                     UserAccountManager.Instance.FetchProfile((ok, prof) =>
@@ -7339,6 +9205,32 @@ namespace MechChess.UI
                     });
                 }
             }
+        }
+
+        public void ShowOtherPlayerProfile(string playerName, int elo, Sprite avatar = null)
+        {
+            if (_profileModal == null) return;
+            CloseAllModals();
+            _profileModal.SetActive(true);
+            AegisAudioManager.PlayModalOpen();
+
+            if (_profileSwitchAccountBtnObj != null) _profileSwitchAccountBtnObj.SetActive(false);
+
+            if (_profileModalNameComp != null) _profileModalNameComp.text = playerName;
+            int estLevel = Mathf.Max(1, elo / 250);
+            if (_profileModalLevelComp != null) _profileModalLevelComp.text = $"Lv. {estLevel}";
+            if (_profileModalEloComp != null) _profileModalEloComp.text = elo.ToString();
+
+            int estWins = Mathf.Max(2, (elo - 400) / 35);
+            int estLosses = Mathf.Max(1, estWins / 2);
+            int estDraws = Mathf.Max(0, estWins / 8);
+
+            if (_profileModalPvpWinsComp != null) _profileModalPvpWinsComp.text = estWins.ToString();
+            if (_profileModalPvpLossesComp != null) _profileModalPvpLossesComp.text = estLosses.ToString();
+            if (_profileModalPvpDrawsComp != null) _profileModalPvpDrawsComp.text = estDraws.ToString();
+
+            if (_profileModalExpComp != null) _profileModalExpComp.text = AegisLocalization.T("Kỳ Thủ Trực Tuyến", "Online Master");
+            if (_profileModalExpFillRt != null) _profileModalExpFillRt.sizeDelta = new Vector2(180f, 16f);
         }
 
         public void OpenProfileModal()
@@ -7353,34 +9245,93 @@ namespace MechChess.UI
         {
             _learnScreenModal = CreateModalOverlay(parent, "Screen13_LearnModal");
 
+            // 1. Grand Royal Crowned Card Frame (1400 x 780)
             GameObject cardObj = new GameObject("LearnCard");
             cardObj.transform.SetParent(_learnScreenModal.transform, false);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(1280, 720, 28f, ColGlassFill, ColCyanBorder, 2f);
-            cardBg.type = Image.Type.Sliced;
+            cardBg.sprite = MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ModalCrowned) 
+                          ?? MedievalUIAssetLoader.GetSprite("frame_modal_crowned")
+                          ?? ArcaneAssetLoader.GetGlassBoxSprite(1400, 780, 28f, ColGlassFill, ColCyanBorder, 2f);
+            cardBg.type = Image.Type.Simple;
+            cardBg.preserveAspect = false;
+            cardBg.color = Color.white;
 
             RectTransform cRt = cardObj.GetComponent<RectTransform>();
+            cRt.anchorMin = new Vector2(0.5f, 0.5f);
+            cRt.anchorMax = new Vector2(0.5f, 0.5f);
+            cRt.pivot = new Vector2(0.5f, 0.5f);
             cRt.anchoredPosition = Vector2.zero;
-            cRt.sizeDelta = new Vector2(1280f, 720f);
+            cRt.sizeDelta = new Vector2(1400f, 780f);
 
-            CreateModalHeader(cardObj.transform, AegisLocalization.T("<  KHAI CUỘC - Phòng thủ Sicilian", "<  OPENING - Sicilian Defense"), () => _learnScreenModal.SetActive(false), font);
+            // Royal Close Button [ Crossed Swords / Wood Close ] (Top-Right, Prominent 64x64)
+            CreateRoyalCloseButton(cardObj.transform, new Vector2(-28f, -24f), () => _learnScreenModal.SetActive(false), 64f, "BtnCloseLearn");
 
-            // Left: Lessons List
+            // Centered Title Banner (Royal Parchment Banner safely below the Crown arch)
+            GameObject titleBannerObj = new GameObject("HeaderTitleBanner");
+            titleBannerObj.transform.SetParent(cardObj.transform, false);
+            RectTransform tbRt = titleBannerObj.AddComponent<RectTransform>();
+            tbRt.anchorMin = new Vector2(0.5f, 1f);
+            tbRt.anchorMax = new Vector2(0.5f, 1f);
+            tbRt.pivot = new Vector2(0.5f, 1f);
+            tbRt.anchoredPosition = new Vector2(0f, -80f);
+            tbRt.sizeDelta = new Vector2(460f, 68f);
+
+            Image tbImg = titleBannerObj.AddComponent<Image>();
+            tbImg.sprite = MedievalUIAssetLoader.GetSprite("banner_parchment_title")
+                        ?? MedievalUIAssetLoader.GetSprite("parchment_box_clean");
+            tbImg.type = Image.Type.Simple;
+            tbImg.preserveAspect = true;
+
+            GameObject titleTxtObj = new GameObject("TitleText");
+            titleTxtObj.transform.SetParent(titleBannerObj.transform, false);
+            Text titleTxt = titleTxtObj.AddComponent<Text>();
+            titleTxt.text = AegisLocalization.T("KHAI CUỘC - PHÒNG THỦ SICILIAN", "OPENING - SICILIAN DEFENSE");
+            titleTxt.font = font;
+            titleTxt.fontSize = 20;
+            titleTxt.fontStyle = FontStyle.Bold;
+            titleTxt.alignment = TextAnchor.MiddleCenter;
+            titleTxt.color = new Color(0.24f, 0.12f, 0.05f); // Deep antique imperial chestnut
+            MakeTextCrisp(titleTxt, new Color(1.0f, 0.94f, 0.70f, 0.85f));
+            RectTransform ttRt = titleTxtObj.GetComponent<RectTransform>();
+            ttRt.anchorMin = Vector2.zero;
+            ttRt.anchorMax = Vector2.one;
+            ttRt.offsetMin = new Vector2(24f, 4f);
+            ttRt.offsetMax = new Vector2(-24f, -4f);
+
+            // ---------------------------------------------------------------------
+            // 2. Left Column: Lessons List (Medieval Wood & Gothic Gold Cards)
+            // ---------------------------------------------------------------------
             GameObject lessonsCol = new GameObject("LessonsColumn");
             lessonsCol.transform.SetParent(cardObj.transform, false);
             RectTransform lcRt = lessonsCol.AddComponent<RectTransform>();
             lcRt.anchorMin = new Vector2(0f, 0.5f);
             lcRt.anchorMax = new Vector2(0f, 0.5f);
             lcRt.pivot = new Vector2(0f, 0.5f);
-            lcRt.anchoredPosition = new Vector2(50f, -20f);
-            lcRt.sizeDelta = new Vector2(300f, 480f);
+            lcRt.anchoredPosition = new Vector2(60f, -35f);
+            lcRt.sizeDelta = new Vector2(295f, 480f);
+
+            // Column Header
+            GameObject colHdrObj = new GameObject("ColHeader");
+            colHdrObj.transform.SetParent(lessonsCol.transform, false);
+            Text chTxt = colHdrObj.AddComponent<Text>();
+            chTxt.text = AegisLocalization.T("📜  DANH SÁCH BÀI HỌC", "📜  LESSONS LIST");
+            chTxt.font = font;
+            chTxt.fontSize = 17;
+            chTxt.fontStyle = FontStyle.Bold;
+            chTxt.alignment = TextAnchor.MiddleCenter;
+            chTxt.color = new Color(0.96f, 0.88f, 0.65f);
+            MakeTextCrisp(chTxt, new Color(0.12f, 0.06f, 0.02f, 0.95f));
+            RectTransform chRt = colHdrObj.GetComponent<RectTransform>();
+            chRt.anchoredPosition = new Vector2(0f, 190f);
+            chRt.sizeDelta = new Vector2(290f, 32f);
 
             string[] lessons = {
-                AegisLocalization.T("📘  Bài 1: Giới thiệu", "📘  Lesson 1: Intro"),
-                AegisLocalization.T("📘  Bài 2: Các biến thể chính", "📘  Lesson 2: Main Lines"),
-                AegisLocalization.T("📘  Bài 3: Luyện tập", "📘  Lesson 3: Practice")
+                AegisLocalization.T("Bài 1: Giới thiệu Sicilian", "Lesson 1: Sicilian Intro"),
+                AegisLocalization.T("Bài 2: Các biến thể chính", "Lesson 2: Main Variations"),
+                AegisLocalization.T("Bài 3: Luyện tập đối kháng", "Lesson 3: Practice Drills")
             };
+
             for (int i = 0; i < 3; i++)
             {
                 bool active = (i == 1);
@@ -7388,8 +9339,12 @@ namespace MechChess.UI
                 lObj.transform.SetParent(lessonsCol.transform, false);
 
                 Image bg = lObj.AddComponent<Image>();
-                bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(280, 56, 16f, active ? ColGlassActive : ColGlassFill, active ? ColCyanBorder : ColMutedBorder, active ? 2f : 1.2f);
-                bg.type = Image.Type.Sliced;
+                Sprite btnSp = active
+                    ? (MedievalUIAssetLoader.GetSprite("btn_gothic_gold_blank") ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold"))
+                    : (MedievalUIAssetLoader.GetSprite("btn_wood_blank_1") ?? MedievalUIAssetLoader.GetSprite("btn_wood_blank_2"));
+                bg.sprite = btnSp;
+                bg.type = Image.Type.Simple;
+                bg.preserveAspect = true;
 
                 Button btn = lObj.AddComponent<Button>();
                 string lesName = lessons[i];
@@ -7397,37 +9352,119 @@ namespace MechChess.UI
                 lObj.AddComponent<MenuButtonEffect>();
 
                 RectTransform rt = lObj.GetComponent<RectTransform>();
-                rt.anchoredPosition = new Vector2(0f, 120f - i * 75f);
-                rt.sizeDelta = new Vector2(280f, 56f);
+                rt.anchoredPosition = new Vector2(0f, 110f - i * 85f);
+                rt.sizeDelta = new Vector2(285f, 66f);
 
-                CreateTextComp(lObj.transform, lessons[i], 14, active ? FontStyle.Bold : FontStyle.Normal, active ? ColCyanGlow : ColTextWhite, font, Vector2.zero, new Vector2(260f, 30f));
+                GameObject lTxtObj = new GameObject("Text");
+                lTxtObj.transform.SetParent(lObj.transform, false);
+                Text lTxt = lTxtObj.AddComponent<Text>();
+                lTxt.text = lessons[i];
+                lTxt.font = font;
+                lTxt.fontSize = 15;
+                lTxt.fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
+                lTxt.alignment = TextAnchor.MiddleCenter;
+                lTxt.color = active ? new Color(1.0f, 0.95f, 0.80f) : new Color(0.92f, 0.86f, 0.76f);
+                lTxt.resizeTextForBestFit = true;
+                lTxt.resizeTextMinSize = 12;
+                lTxt.resizeTextMaxSize = 15;
+                MakeTextCrisp(lTxt, new Color(0.12f, 0.06f, 0.02f, 0.95f));
+
+                RectTransform ltRt = lTxtObj.GetComponent<RectTransform>();
+                ltRt.anchorMin = Vector2.zero;
+                ltRt.anchorMax = Vector2.one;
+                ltRt.offsetMin = new Vector2(16f, 4f);
+                ltRt.offsetMax = new Vector2(-16f, -4f);
             }
 
-            // Center: 2D Sicilian Board Diagram
-            GameObject boardObj = new GameObject("SicilianBoard");
-            boardObj.transform.SetParent(cardObj.transform, false);
-            Image bImg = boardObj.AddComponent<Image>();
-            bImg.sprite = ArcaneAssetLoader.GetSicilianDefenseDiagram(380);
-            RectTransform bRt = boardObj.GetComponent<RectTransform>();
-            bRt.anchoredPosition = new Vector2(20f, -20f);
-            bRt.sizeDelta = new Vector2(380f, 380f);
+            // ---------------------------------------------------------------------
+            // 3. Center: 2D Sicilian Board Diagram (Enlarged to 450x450 with Royal Border)
+            // ---------------------------------------------------------------------
+            GameObject boardContainer = new GameObject("BoardContainer");
+            boardContainer.transform.SetParent(cardObj.transform, false);
+            RectTransform bcRt = boardContainer.AddComponent<RectTransform>();
+            bcRt.anchorMin = new Vector2(0.5f, 0.5f);
+            bcRt.anchorMax = new Vector2(0.5f, 0.5f);
+            bcRt.pivot = new Vector2(0.5f, 0.5f);
+            bcRt.anchoredPosition = new Vector2(15f, -35f);
+            bcRt.sizeDelta = new Vector2(460f, 480f);
 
-            // Right: Najdorf Explanation Card + [Xem tiếp]
+            GameObject boardObj = new GameObject("SicilianBoard");
+            boardObj.transform.SetParent(boardContainer.transform, false);
+            Image bImg = boardObj.AddComponent<Image>();
+            bImg.sprite = ArcaneAssetLoader.GetSicilianDefenseDiagram(440);
+            bImg.preserveAspect = true;
+            RectTransform bRt = boardObj.GetComponent<RectTransform>();
+            bRt.anchoredPosition = new Vector2(0f, 15f);
+            bRt.sizeDelta = new Vector2(440f, 440f);
+
+            // Subtitle below board
+            GameObject bSubObj = new GameObject("BoardSubtitle");
+            bSubObj.transform.SetParent(boardContainer.transform, false);
+            Text bSubTxt = bSubObj.AddComponent<Text>();
+            bSubTxt.text = AegisLocalization.T("Biến thể Najdorf (5...a6) • Nước đi then chốt", "Najdorf Variation (5...a6) • Key Move");
+            bSubTxt.font = font;
+            bSubTxt.fontSize = 15;
+            bSubTxt.fontStyle = FontStyle.Bold;
+            bSubTxt.alignment = TextAnchor.MiddleCenter;
+            bSubTxt.color = new Color(0.96f, 0.90f, 0.74f);
+            MakeTextCrisp(bSubTxt, new Color(0.12f, 0.06f, 0.02f, 0.95f));
+            RectTransform bsRt = bSubObj.GetComponent<RectTransform>();
+            bsRt.anchoredPosition = new Vector2(0f, -225f);
+            bsRt.sizeDelta = new Vector2(440f, 30f);
+
+            // ---------------------------------------------------------------------
+            // 4. Right: Najdorf Explanation Parchment Card (High-Contrast Scribe Ink)
+            // ---------------------------------------------------------------------
             GameObject descCard = new GameObject("DescCard");
             descCard.transform.SetParent(cardObj.transform, false);
             Image dcBg = descCard.AddComponent<Image>();
-            dcBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(450, 480, 20f, new Color(0.06f, 0.12f, 0.22f, 0.95f), ColCyanBorder, 1.5f);
-            dcBg.type = Image.Type.Sliced;
-            descCard.AddComponent<RectMask2D>();
+            dcBg.sprite = MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ParchmentCardMid) 
+                        ?? ArcaneAssetLoader.GetGlassBoxSprite(440, 500, 20f, new Color(0.06f, 0.12f, 0.22f, 0.95f), ColCyanBorder, 1.5f);
+            dcBg.type = Image.Type.Simple;
+            dcBg.preserveAspect = false;
+
             RectTransform dcRt = descCard.GetComponent<RectTransform>() ?? descCard.AddComponent<RectTransform>();
             dcRt.anchorMin = new Vector2(1f, 0.5f);
             dcRt.anchorMax = new Vector2(1f, 0.5f);
             dcRt.pivot = new Vector2(1f, 0.5f);
-            dcRt.anchoredPosition = new Vector2(-40f, -20f);
-            dcRt.sizeDelta = new Vector2(450f, 480f);
+            dcRt.anchoredPosition = new Vector2(-55f, -35f);
+            dcRt.sizeDelta = new Vector2(430f, 500f);
 
-            CreateTextComp(descCard.transform, AegisLocalization.T("Biến thể Najdorf", "Najdorf Variation"), 22, FontStyle.Bold, ColCyanGlow, font, new Vector2(0f, 180f), new Vector2(380f, 36f));
+            // Title: Deep Antique Royal Chestnut Ink (High Contrast, Bold, Elegant)
+            GameObject dTitleObj = new GameObject("CardTitle");
+            dTitleObj.transform.SetParent(descCard.transform, false);
+            Text dt = dTitleObj.AddComponent<Text>();
+            dt.text = AegisLocalization.T("Biến thể Najdorf", "Najdorf Variation");
+            dt.font = font;
+            dt.fontSize = 24;
+            dt.fontStyle = FontStyle.Bold;
+            dt.alignment = TextAnchor.MiddleCenter;
+            dt.color = new Color(0.24f, 0.12f, 0.05f); // Deep dark chestnut ink
+            MakeTextCrisp(dt, new Color(1.0f, 0.94f, 0.70f, 0.85f));
+            RectTransform dtRt = dTitleObj.GetComponent<RectTransform>();
+            dtRt.anchoredPosition = new Vector2(0f, 195f);
+            dtRt.sizeDelta = new Vector2(380f, 36f);
 
+            // Ornate Divider
+            GameObject dDivObj = new GameObject("CardDivider");
+            dDivObj.transform.SetParent(descCard.transform, false);
+            Image dDivImg = dDivObj.AddComponent<Image>();
+            Sprite divSp = MedievalUIAssetLoader.GetSprite("divider_ornate_gold")
+                        ?? MedievalUIAssetLoader.GetSprite("divider_gold_filigree_360");
+            if (divSp != null)
+            {
+                dDivImg.sprite = divSp;
+                dDivImg.preserveAspect = true;
+            }
+            else
+            {
+                dDivImg.color = new Color(0.65f, 0.45f, 0.20f, 0.45f);
+            }
+            RectTransform ddRt = dDivObj.GetComponent<RectTransform>();
+            ddRt.anchoredPosition = new Vector2(0f, 165f);
+            ddRt.sizeDelta = new Vector2(340f, 14f);
+
+            // Body: Dark Scribe Charcoal Ink (100% Readable on Parchment)
             GameObject bodyTxtObj = new GameObject("Body");
             bodyTxtObj.transform.SetParent(descCard.transform, false);
             Text bt = bodyTxtObj.AddComponent<Text>();
@@ -7435,29 +9472,66 @@ namespace MechChess.UI
                 "Đây là một trong những biến thể phổ biến và mạnh mẽ nhất của Phòng thủ Sicilian.\n\nĐặc trưng bởi nước đi 5...a6, ngăn chặn ô b5 của Trắng và chuẩn bị triển khai phản công cánh Hậu đầy uy lực.",
                 "One of the most popular and sharp variations of the Sicilian Defense.\n\nCharacterized by 5...a6, denying the b5 square to White and preparing powerful queenside counter-play.");
             bt.font = font;
-            bt.fontSize = 15;
+            bt.fontSize = 16;
             bt.lineSpacing = 1.35f;
             bt.alignment = TextAnchor.UpperLeft;
-            bt.color = new Color(0.85f, 0.92f, 1.0f);
+            bt.color = new Color(0.18f, 0.12f, 0.07f); // Deep antique charcoal scribe ink
             bt.horizontalOverflow = HorizontalWrapMode.Wrap;
             bt.verticalOverflow = VerticalWrapMode.Truncate;
-            RectTransform btRt = bodyTxtObj.GetComponent<RectTransform>() ?? bodyTxtObj.AddComponent<RectTransform>();
+            RectTransform btRt = bodyTxtObj.GetComponent<RectTransform>();
             btRt.anchorMin = new Vector2(0.5f, 0.5f);
             btRt.anchorMax = new Vector2(0.5f, 0.5f);
             btRt.pivot = new Vector2(0.5f, 0.5f);
-            btRt.anchoredPosition = new Vector2(0f, 25f);
-            btRt.sizeDelta = new Vector2(370f, 210f);
+            btRt.anchoredPosition = new Vector2(0f, 35f);
+            btRt.sizeDelta = new Vector2(360f, 210f);
 
-            // [Xem tiếp] Button
-            CreateMenuActionButton(descCard.transform, "BtnNextLesson", AegisLocalization.T("Xem tiếp  ❯", "Continue  ❯"), new Vector2(0f, -170f), new Vector2(390f, 52f), ColGoldCta, ColDarkBtnText, 16, () => ShowToast(AegisLocalization.T("Đã hoàn thành bài học 2!", "Lesson 2 completed!"), ToastType.Success), font, ColGoldBorder, 1.5f);
+            // [Xem tiếp ❯] Action Button (Gothic Gold CTA)
+            GameObject nextBtnObj = new GameObject("BtnNextLesson");
+            nextBtnObj.transform.SetParent(descCard.transform, false);
+            Image nbBg = nextBtnObj.AddComponent<Image>();
+            nbBg.sprite = MedievalUIAssetLoader.GetSprite("btn_gothic_gold_blank") 
+                        ?? MedievalUIAssetLoader.GetSprite("btn_blank_dark_gold");
+            nbBg.type = Image.Type.Simple;
+            nbBg.preserveAspect = true;
+
+            Button nbBtn = nextBtnObj.AddComponent<Button>();
+            nbBtn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                ShowToast(AegisLocalization.T("Đã hoàn thành bài học 2!", "Lesson 2 completed!"), ToastType.Success);
+            });
+            nextBtnObj.AddComponent<MenuButtonEffect>();
+
+            RectTransform nbRt = nextBtnObj.GetComponent<RectTransform>();
+            nbRt.anchoredPosition = new Vector2(0f, -185f);
+            nbRt.sizeDelta = new Vector2(350f, 56f);
+
+            GameObject nbTxtObj = new GameObject("Text");
+            nbTxtObj.transform.SetParent(nextBtnObj.transform, false);
+            Text nbTxt = nbTxtObj.AddComponent<Text>();
+            nbTxt.text = AegisLocalization.T("Xem tiếp  ❯", "Continue  ❯");
+            nbTxt.font = font;
+            nbTxt.fontSize = 17;
+            nbTxt.fontStyle = FontStyle.Bold;
+            nbTxt.alignment = TextAnchor.MiddleCenter;
+            nbTxt.color = new Color(1.0f, 0.95f, 0.80f);
+            MakeTextCrisp(nbTxt, new Color(0.12f, 0.06f, 0.02f, 0.95f));
+            RectTransform nbtRt = nbTxtObj.GetComponent<RectTransform>();
+            nbtRt.anchorMin = Vector2.zero;
+            nbtRt.anchorMax = Vector2.one;
+            nbtRt.offsetMin = new Vector2(16f, 4f);
+            nbtRt.offsetMax = new Vector2(-16f, -4f);
 
             _learnScreenModal.SetActive(false);
         }
 
         public void OpenLearnScreen()
         {
+            CloseAllModals();
+            if (!_isInGameMatch) EnsureBaseScreenActive();
             if (_learnScreenModal != null)
             {
+                _learnScreenModal.transform.SetAsLastSibling();
                 _learnScreenModal.SetActive(true);
                 AegisAudioManager.PlayModalOpen();
             }
@@ -7474,53 +9548,164 @@ namespace MechChess.UI
             cardObj.transform.SetParent(_confirmDialogModal.transform, false);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(520, 280, 24f, ColGlassFill, ColCyanBorder, 2f);
-            cardBg.type = Image.Type.Sliced;
+            cardBg.sprite = MedievalUIAssetLoader.GetFrameSprite(MedievalFrameStyle.ModalCrowned)
+                          ?? MedievalUIAssetLoader.GetSprite("frame_shop_collection_1520")
+                          ?? ArcaneAssetLoader.GetGlassBoxSprite(760, 460, 24f, ColGlassFill, ColCyanBorder, 2f);
+            cardBg.type = Image.Type.Simple;
+            cardBg.preserveAspect = false;
+            cardBg.color = Color.white;
 
             RectTransform cRt = cardObj.GetComponent<RectTransform>();
+            cRt.anchorMin = new Vector2(0.5f, 0.5f);
+            cRt.anchorMax = new Vector2(0.5f, 0.5f);
+            cRt.pivot = new Vector2(0.5f, 0.5f);
             cRt.anchoredPosition = Vector2.zero;
-            cRt.sizeDelta = new Vector2(520f, 280f);
+            cRt.sizeDelta = new Vector2(760f, 460f);
 
-            // Title
+            // Close Button [ Crossed Swords Gold ] (Top-Right, Enlarged 64x64)
+            CreateRoyalCloseButton(cardObj.transform, new Vector2(-20f, -20f), () =>
+            {
+                _confirmDialogModal.SetActive(false);
+            }, 64f, "BtnClose");
+
+            // Title (Rich Antique Ink safely below the Royal Crown arch)
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(cardObj.transform, false);
             _confirmTitleTxt = titleObj.AddComponent<Text>();
-            _confirmTitleTxt.text = AegisLocalization.T("Thông báo", "Notice");
+            _confirmTitleTxt.text = AegisLocalization.T("THOÁT TRÒ CHƠI", "EXIT GAME");
             _confirmTitleTxt.font = font;
-            _confirmTitleTxt.fontSize = 28;
+            _confirmTitleTxt.fontSize = 32;
             _confirmTitleTxt.fontStyle = FontStyle.Bold;
             _confirmTitleTxt.alignment = TextAnchor.MiddleCenter;
-            _confirmTitleTxt.color = ColTextWhite;
+            _confirmTitleTxt.color = new Color(0.24f, 0.14f, 0.06f, 1f); // Deep Antique Scribe Ink
             _confirmTitleTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             _confirmTitleTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_confirmTitleTxt, new Color(1f, 0.92f, 0.65f, 0.8f));
             RectTransform tRt = titleObj.GetComponent<RectTransform>();
-            tRt.anchoredPosition = new Vector2(0f, 85f);
-            tRt.sizeDelta = new Vector2(460f, 38f);
+            tRt.anchorMin = new Vector2(0.5f, 0.5f);
+            tRt.anchorMax = new Vector2(0.5f, 0.5f);
+            tRt.pivot = new Vector2(0.5f, 0.5f);
+            tRt.anchoredPosition = new Vector2(0f, 48f);
+            tRt.sizeDelta = new Vector2(580f, 42f);
 
-            // Body
+            // Decorative Filigree Divider below Title
+            GameObject divObj = new GameObject("TitleDivider");
+            divObj.transform.SetParent(cardObj.transform, false);
+            Image divImg = divObj.AddComponent<Image>();
+            Sprite divSp = MedievalUIAssetLoader.GetSprite("divider_gold_filigree_360")
+                        ?? MedievalUIAssetLoader.GetSprite("ornament_crest_line");
+            if (divSp != null)
+            {
+                divImg.sprite = divSp;
+                divImg.preserveAspect = true;
+            }
+            else
+            {
+                divImg.color = new Color(0.72f, 0.55f, 0.28f, 0.45f);
+            }
+            RectTransform divRt = divObj.GetComponent<RectTransform>();
+            divRt.anchorMin = new Vector2(0.5f, 0.5f);
+            divRt.anchorMax = new Vector2(0.5f, 0.5f);
+            divRt.pivot = new Vector2(0.5f, 0.5f);
+            divRt.anchoredPosition = new Vector2(0f, 18f);
+            divRt.sizeDelta = new Vector2(380f, 16f);
+
+            // Body Message
             GameObject bodyObj = new GameObject("Body");
             bodyObj.transform.SetParent(cardObj.transform, false);
             _confirmBodyTxt = bodyObj.AddComponent<Text>();
-            _confirmBodyTxt.text = AegisLocalization.T("Bạn có muốn thoát trò chơi?", "Are you sure you want to exit the game?");
+            _confirmBodyTxt.text = AegisLocalization.T("Bạn có muốn thoát khỏi trò chơi?", "Are you sure you want to exit the game?");
             _confirmBodyTxt.font = font;
-            _confirmBodyTxt.fontSize = 22;
+            _confirmBodyTxt.fontSize = 24;
+            _confirmBodyTxt.fontStyle = FontStyle.Bold;
             _confirmBodyTxt.alignment = TextAnchor.MiddleCenter;
-            _confirmBodyTxt.color = new Color(0.85f, 0.92f, 1.0f);
+            _confirmBodyTxt.color = new Color(0.28f, 0.18f, 0.10f, 1f); // Antique Walnut Ink on Parchment
             _confirmBodyTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             _confirmBodyTxt.verticalOverflow = VerticalWrapMode.Overflow;
+            MakeTextCrisp(_confirmBodyTxt);
             RectTransform bRt = bodyObj.GetComponent<RectTransform>();
-            bRt.anchoredPosition = new Vector2(0f, 20f);
-            bRt.sizeDelta = new Vector2(460f, 60f);
+            bRt.anchorMin = new Vector2(0.5f, 0.5f);
+            bRt.anchorMax = new Vector2(0.5f, 0.5f);
+            bRt.pivot = new Vector2(0.5f, 0.5f);
+            bRt.anchoredPosition = new Vector2(0f, -32f);
+            bRt.sizeDelta = new Vector2(620f, 68f);
 
-            // Cancel Button
-            CreateMenuActionButton(cardObj.transform, "BtnCancel", AegisLocalization.T("Hủy", "Cancel"), new Vector2(-115f, -70f), new Vector2(180f, 52f), ColGlassFill, ColTextMuted, 20, () => _confirmDialogModal.SetActive(false), font, ColMutedBorder, 1.2f);
-
-            // Confirm Button
-            CreateMenuActionButton(cardObj.transform, "BtnConfirm", AegisLocalization.T("Xác nhận", "Confirm"), new Vector2(115f, -70f), new Vector2(180f, 52f), ColCyanBorder, ColDarkBtnText, 20, () =>
+            // Cancel Button [ HỦY ] (Royal Wood / Walnut Button)
+            GameObject cancelBtnObj = new GameObject("BtnCancel");
+            cancelBtnObj.transform.SetParent(cardObj.transform, false);
+            Image cancelImg = cancelBtnObj.AddComponent<Image>();
+            cancelImg.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodSmall)
+                            ?? MedievalUIAssetLoader.GetSprite("btn_blank_black_banner");
+            cancelImg.type = Image.Type.Sliced;
+            Button cancelBtn = cancelBtnObj.AddComponent<Button>();
+            cancelBtn.onClick.AddListener(() =>
             {
+                AegisAudioManager.PlayButtonClick();
+                _confirmDialogModal.SetActive(false);
+            });
+            cancelBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform cancelRt = cancelBtnObj.GetComponent<RectTransform>();
+            cancelRt.anchorMin = new Vector2(0.5f, 0.5f);
+            cancelRt.anchorMax = new Vector2(0.5f, 0.5f);
+            cancelRt.pivot = new Vector2(0.5f, 0.5f);
+            cancelRt.anchoredPosition = new Vector2(-135f, -112f);
+            cancelRt.sizeDelta = new Vector2(215f, 56f);
+
+            GameObject cTxtObj = new GameObject("Txt");
+            cTxtObj.transform.SetParent(cancelBtnObj.transform, false);
+            Text cTxt = cTxtObj.AddComponent<Text>();
+            cTxt.text = AegisLocalization.T("HỦY", "CANCEL");
+            cTxt.font = font;
+            cTxt.fontSize = 22;
+            cTxt.fontStyle = FontStyle.Bold;
+            cTxt.alignment = TextAnchor.MiddleCenter;
+            cTxt.color = new Color(0.96f, 0.90f, 0.78f, 1f); // Warm parchment text
+            cTxt.raycastTarget = false;
+            MakeTextCrisp(cTxt, new Color(0.10f, 0.05f, 0.02f, 0.95f));
+            RectTransform cTxtRt = cTxtObj.GetComponent<RectTransform>();
+            cTxtRt.anchorMin = Vector2.zero;
+            cTxtRt.anchorMax = Vector2.one;
+            cTxtRt.offsetMin = Vector2.zero;
+            cTxtRt.offsetMax = Vector2.zero;
+
+            // Confirm Button [ XÁC NHẬN ] (Radiant Hex Gold Champion Button)
+            GameObject confirmBtnObj = new GameObject("BtnConfirm");
+            confirmBtnObj.transform.SetParent(cardObj.transform, false);
+            Image confirmImg = confirmBtnObj.AddComponent<Image>();
+            confirmImg.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.GoldChampion)
+                             ?? MedievalUIAssetLoader.GetSprite("btn_hex_gold_radiant");
+            confirmImg.type = Image.Type.Sliced;
+            Button confirmBtn = confirmBtnObj.AddComponent<Button>();
+            confirmBtn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
                 _confirmDialogModal.SetActive(false);
                 _onConfirmAction?.Invoke();
-            }, font, Color.white, 1.5f);
+            });
+            confirmBtnObj.AddComponent<MenuButtonEffect>();
+            RectTransform confirmRt = confirmBtnObj.GetComponent<RectTransform>();
+            confirmRt.anchorMin = new Vector2(0.5f, 0.5f);
+            confirmRt.anchorMax = new Vector2(0.5f, 0.5f);
+            confirmRt.pivot = new Vector2(0.5f, 0.5f);
+            confirmRt.anchoredPosition = new Vector2(135f, -112f);
+            confirmRt.sizeDelta = new Vector2(215f, 56f);
+
+            GameObject cfTxtObj = new GameObject("Txt");
+            cfTxtObj.transform.SetParent(confirmBtnObj.transform, false);
+            Text cfTxt = cfTxtObj.AddComponent<Text>();
+            cfTxt.text = AegisLocalization.T("XÁC NHẬN", "CONFIRM");
+            cfTxt.font = font;
+            cfTxt.fontSize = 22;
+            cfTxt.fontStyle = FontStyle.Bold;
+            cfTxt.alignment = TextAnchor.MiddleCenter;
+            cfTxt.color = new Color(0.20f, 0.09f, 0.03f, 1f); // Deep imperial brown on bright radiant gold
+            cfTxt.raycastTarget = false;
+            MakeTextCrisp(cfTxt, new Color(1f, 0.92f, 0.65f, 0.85f));
+            RectTransform cfTxtRt = cfTxtObj.GetComponent<RectTransform>();
+            cfTxtRt.anchorMin = Vector2.zero;
+            cfTxtRt.anchorMax = Vector2.one;
+            cfTxtRt.offsetMin = Vector2.zero;
+            cfTxtRt.offsetMax = Vector2.zero;
 
             _confirmDialogModal.SetActive(false);
         }
@@ -10289,7 +12474,7 @@ namespace MechChess.UI
             return t;
         }
 
-        private void CreateMenuActionButton(Transform parent, string name, string text, Vector2 pos, Vector2 size, Color fill, Color textCol, int fontSize, Action onClick, Font font, Color? border = null, float borderWidth = 1.2f)
+        private GameObject CreateMenuActionButton(Transform parent, string name, string text, Vector2 pos, Vector2 size, Color fill, Color textCol, int fontSize, Action onClick, Font font, Color? border = null, float borderWidth = 1.2f)
         {
             GameObject btnObj = new GameObject(name);
             btnObj.transform.SetParent(parent, false);
@@ -10325,6 +12510,7 @@ namespace MechChess.UI
             trt.anchorMax = Vector2.one;
             trt.offsetMin = Vector2.zero;
             trt.offsetMax = Vector2.zero;
+        return btnObj;
         }
 
         private InputField CreateInputField(Transform parent, string name, string placeholder, Vector2 pos, Vector2 size, Font font, bool isPassword = false)
@@ -10387,6 +12573,37 @@ namespace MechChess.UI
             return inputField;
         }
 
+#if UNITY_EDITOR
+        [ContextMenu("▶ Hiện toàn bộ UI lên Scene (Edit Mode)")]
+        public void EditorBuildUIInScene()
+        {
+            var oldCanvas = transform.Find("ArcaneMenuCanvas");
+            if (oldCanvas != null) DestroyImmediate(oldCanvas.gameObject);
+
+            MedievalUIAssetLoader.ClearCache();
+            AegisLocalization.LoadSavedLanguage();
+            BuildAllScreens(false);
+
+            if (_screenSplash != null) _screenSplash.SetActive(false);
+            if (_screenMainMenu != null) _screenMainMenu.SetActive(true);
+
+            UnityEditor.EditorUtility.SetDirty(gameObject);
+            Debug.Log("<color=#00FF99>[Aegis UI Builder] Đã dựng toàn bộ giao diện MainMenu2D lên Scene thành công!</color>");
+        }
+
+        [ContextMenu("✕ Xóa toàn bộ UI khỏi Scene")]
+        public void EditorClearUI()
+        {
+            var oldCanvas = transform.Find("ArcaneMenuCanvas");
+            if (oldCanvas != null)
+            {
+                DestroyImmediate(oldCanvas.gameObject);
+                UnityEditor.EditorUtility.SetDirty(gameObject);
+                Debug.Log("<color=#FF9900>[Aegis UI Builder] Đã xóa toàn bộ UI Canvas khỏi Scene.</color>");
+            }
+        }
+#endif
+
         private static Font GetDefaultFont()
         {
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -10394,5 +12611,56 @@ namespace MechChess.UI
             if (font == null) font = Font.CreateDynamicFontFromOSFont(new[] { "Arial", "Segoe UI", "Tahoma" }, 16);
             return font;
         }
+    
+                private GameObject CreateRoyalCloseButton(Transform parent, Vector2 anchoredPos, UnityEngine.Events.UnityAction onClickAction, float size = 66f, string name = "BtnClose", Vector2? anchor = null, Vector2? pivot = null)
+        {
+            GameObject closeBtnObj = new GameObject(name);
+            closeBtnObj.transform.SetParent(parent, false);
+            closeBtnObj.transform.SetAsLastSibling();
+
+            Image cbImg = closeBtnObj.AddComponent<Image>();
+            cbImg.sprite = MedievalUIAssetLoader.GetSprite("btn_royal_close_swords")
+                          ?? MedievalUIAssetLoader.GetSprite("icon_crossed_swords_x")
+                          ?? MedievalUIAssetLoader.GetIcon(MedievalIcon.Close);
+            cbImg.type = Image.Type.Simple;
+            cbImg.preserveAspect = true;
+            cbImg.color = Color.white;
+
+            Button cbBtn = closeBtnObj.AddComponent<Button>();
+            cbBtn.targetGraphic = cbImg;
+            cbBtn.onClick.AddListener(() =>
+            {
+                AegisAudioManager.PlayButtonClick();
+                onClickAction?.Invoke();
+            });
+            closeBtnObj.AddComponent<MenuButtonEffect>();
+
+            Vector2 a = anchor.HasValue ? anchor.Value : new Vector2(1f, 1f);
+            Vector2 p = pivot.HasValue ? pivot.Value : new Vector2(0.5f, 0.5f);
+
+            RectTransform cbRt = closeBtnObj.GetComponent<RectTransform>();
+            cbRt.anchorMin = a;
+            cbRt.anchorMax = a;
+            cbRt.pivot = p;
+            cbRt.anchoredPosition = anchoredPos;
+            cbRt.sizeDelta = new Vector2(size, size);
+            return closeBtnObj;
+        }
+
+        
+
+        
+
+        private void OpenMailboxModal()
+        {
+            if (_mailboxModal != null)
+            {
+                CloseAllModals();
+                _mailboxModal.SetActive(true);
+                _mailboxModal.transform.SetAsLastSibling();
+                AegisAudioManager.PlayModalOpen();
+            }
+        }
+
     }
 }

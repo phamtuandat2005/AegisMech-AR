@@ -72,6 +72,24 @@ namespace MechChess.AR
         private GameObject _backgroundQuad;
         private Material _webcamQuadMat;
         private int _arDisplayMode = 0; // 0 = Fullscreen AR Reality, 1 = PIP Scanner, 2 = Arcane Realm Studio
+        private GameObject _cachedArenaEnvironment = null;
+
+        private GameObject GetArenaEnvironment()
+        {
+            if (_cachedArenaEnvironment != null) return _cachedArenaEnvironment;
+            _cachedArenaEnvironment = GameObject.Find("SpiritBlossom_ArenaEnvironment");
+            if (_cachedArenaEnvironment == null)
+            {
+                var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+                foreach (var r in roots)
+                {
+                    if (r.name == "SpiritBlossom_ArenaEnvironment") { _cachedArenaEnvironment = r; break; }
+                    Transform child = r.transform.Find("SpiritBlossom_ArenaEnvironment");
+                    if (child != null) { _cachedArenaEnvironment = child.gameObject; break; }
+                }
+            }
+            return _cachedArenaEnvironment;
+        }
 
         // F10 & F12 UI references
         private GameObject _pipContainer;
@@ -135,22 +153,20 @@ namespace MechChess.AR
                 if (_guidanceOverlay != null) _guidanceOverlay.SetActive(false);
                 StopWebcam();
                 _arDisplayMode = 2;
+                GameObject arena = GetArenaEnvironment();
+                if (arena != null) arena.SetActive(true);
+                Camera cam = Camera.main;
+                if (cam != null)
+                {
+                    cam.clearFlags = CameraClearFlags.SolidColor;
+                    cam.backgroundColor = new Color(0.18f, 0.58f, 0.65f);
+                }
             }
             else
             {
-                if (_arDisplayMode == 0 || _arDisplayMode == 1)
-                {
-                    StartWebcam();
-                    if (_arCanvas != null) _arCanvas.gameObject.SetActive(true);
-                    if (_backgroundQuad != null) _backgroundQuad.SetActive(_arDisplayMode == 0);
-                }
-                else
-                {
-                    // Pure Studio 3D Arena: No camera hardware needed!
-                    StopWebcam();
-                    if (_arCanvas != null) _arCanvas.gameObject.SetActive(false);
-                    if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
-                }
+                _isGuidanceMinimized = false;
+                if (_arDisplayMode == 2) _arDisplayMode = 0;
+                ApplyDisplayMode(_arDisplayMode);
             }
         }
 
@@ -221,13 +237,13 @@ namespace MechChess.AR
             guideRt.anchorMax = new Vector2(0.5f, 1f);
             guideRt.pivot = new Vector2(0.5f, 1f);
             guideRt.anchoredPosition = new Vector2(0, -90);
-            guideRt.sizeDelta = new Vector2(1300, 58);
+            guideRt.sizeDelta = new Vector2(1560, 58);
 
             // Guidance step instruction text
             GameObject guideTxtObj = new GameObject("InstructionText");
             guideTxtObj.transform.SetParent(_guidanceOverlay.transform, false);
             Text guideTxt = guideTxtObj.AddComponent<Text>();
-            guideTxt.text = "💡 HƯỚNG DẪN AR: 1. Quét camera quanh mặt bàn | 2. Chạm màn hình để chỉnh vị trí | 3. Chạm quân cờ để di chuyển";
+            guideTxt.text = "💡 HƯỚNG DẪN AR: 1. Quét camera quanh bàn | 2. Dùng nút cỡ để phóng to/thu nhỏ | 3. Chạm quân cờ để xuất chiến";
             guideTxt.font = defaultFont;
             guideTxt.fontSize = 15;
             guideTxt.fontStyle = FontStyle.Bold;
@@ -254,20 +270,26 @@ namespace MechChess.AR
             scaleLblRt.anchorMin = new Vector2(1f, 0.5f);
             scaleLblRt.anchorMax = new Vector2(1f, 0.5f);
             scaleLblRt.pivot = new Vector2(1f, 0.5f);
-            scaleLblRt.anchoredPosition = new Vector2(-285, 0);
-            scaleLblRt.sizeDelta = new Vector2(100, 40);
+            scaleLblRt.anchoredPosition = new Vector2(-460, 0);
+            scaleLblRt.sizeDelta = new Vector2(90, 40);
 
             // Scale Button: 80% (Nhỏ)
-            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale80", "80%", new Vector2(-225, 0), new Vector2(68, 38), () => SetBoardScale(0.80f), defaultFont);
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale80", "80%", new Vector2(-388, 0), new Vector2(62, 38), () => SetBoardScale(0.80f), defaultFont);
 
             // Scale Button: 100% (Chuẩn)
-            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale100", "100%", new Vector2(-150, 0), new Vector2(72, 38), () => SetBoardScale(1.00f), defaultFont);
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale100", "100%", new Vector2(-318, 0), new Vector2(62, 38), () => SetBoardScale(1.00f), defaultFont);
 
             // Scale Button: 130% (Lớn)
-            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale130", "130%", new Vector2(-72, 0), new Vector2(72, 38), () => SetBoardScale(1.30f), defaultFont);
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnScale130", "130%", new Vector2(-248, 0), new Vector2(62, 38), () => SetBoardScale(1.30f), defaultFont);
+
+            // Reset Position Button
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnResetPos", "🎯 Đặt lại", new Vector2(-155, 0), new Vector2(85, 38), () => ResetBoardPosition(), defaultFont);
+
+            // Cycle AR Mode Button
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnCycleMode", "🔄 Đổi AR", new Vector2(-60, 0), new Vector2(85, 38), () => ToggleARMode(), defaultFont);
 
             // Close / Minimize guidance button
-            CreateARQuickButton(_guidanceOverlay.transform, "BtnCloseGuide", "✕", new Vector2(-15, 0), new Vector2(38, 38), () =>
+            CreateARQuickButton(_guidanceOverlay.transform, "BtnCloseGuide", "✕", new Vector2(-15, 0), new Vector2(36, 38), () =>
             {
                 _isGuidanceMinimized = true;
                 _guidanceOverlay.SetActive(false);
@@ -441,38 +463,84 @@ namespace MechChess.AR
             ApplyDisplayMode(_arDisplayMode);
         }
 
+        public void ResetBoardPosition()
+        {
+            if (chessboardRoot != null)
+            {
+                chessboardRoot.localPosition = Vector3.zero;
+                chessboardRoot.localRotation = Quaternion.identity;
+                chessboardRoot.localScale = Vector3.one * currentScaleMultiplier;
+            }
+            if (UIManager2D.Instance != null)
+            {
+                UIManager2D.Instance.RecordMove(AegisLocalization.T("[AR] Đã căn chỉnh bàn cờ về vị trí chuẩn!", "[AR] Reset chessboard to standard position!"));
+            }
+        }
+
         public void ApplyDisplayMode(int mode)
         {
             _arDisplayMode = mode;
             if (_arDisplayMode == 0) // Fullscreen AR Reality (Real room background behind board)
             {
                 StartWebcam();
+                GameObject arena = GetArenaEnvironment();
+                if (arena != null) arena.SetActive(false);
+
+                Camera cam = Camera.main;
+                if (cam != null)
+                {
+                    cam.clearFlags = CameraClearFlags.SolidColor;
+                    cam.backgroundColor = Color.black;
+                }
+
                 if (_backgroundQuad != null) _backgroundQuad.SetActive(true);
                 if (_pipContainer != null) _pipContainer.SetActive(false);
-                if (_guidanceOverlay != null) _guidanceOverlay.SetActive(!_isGuidanceMinimized);
+                _isGuidanceMinimized = false;
+                if (_guidanceOverlay != null) _guidanceOverlay.SetActive(true);
                 if (_arCanvas != null) _arCanvas.gameObject.SetActive(true);
                 if (chessboardRoot != null)
                 {
                     chessboardRoot.localScale = Vector3.one * currentScaleMultiplier;
                 }
-                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Fullscreen Reality (Room Background) ON");
+                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove(AegisLocalization.T("[CHẾ ĐỘ AR] Không Gian Thực Tế Toàn Màn Hình (Webcam) BẬT", "[AR MODE] Fullscreen Reality (Webcam) ON"));
             }
             else if (_arDisplayMode == 1) // Corner PIP Tactical Scanner
             {
                 StartWebcam();
+                GameObject arena = GetArenaEnvironment();
+                if (arena != null) arena.SetActive(true);
+
+                Camera cam = Camera.main;
+                if (cam != null)
+                {
+                    cam.clearFlags = CameraClearFlags.SolidColor;
+                    cam.backgroundColor = new Color(0.18f, 0.58f, 0.65f);
+                }
+
                 if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
                 if (_pipContainer != null) _pipContainer.SetActive(true);
-                if (_guidanceOverlay != null) _guidanceOverlay.SetActive(!_isGuidanceMinimized);
+                _isGuidanceMinimized = false;
+                if (_guidanceOverlay != null) _guidanceOverlay.SetActive(true);
                 if (_arCanvas != null) _arCanvas.gameObject.SetActive(true);
                 if (chessboardRoot != null)
                 {
                     chessboardRoot.localScale = Vector3.one;
                 }
-                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[AR MODE] Corner PIP Scanner Viewport ON");
+                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove(AegisLocalization.T("[CHẾ ĐỘ AR] Quét Thẻ Bài Góc Màn Hình (PIP) BẬT", "[AR MODE] Corner PIP Scanner ON"));
             }
             else // Arcane Realm Studio Arena (Mode 2) - Camera turned off
             {
                 StopWebcam();
+                GameObject arena = GetArenaEnvironment();
+                if (arena != null) arena.SetActive(true);
+
+                Camera cam = Camera.main;
+                if (cam != null)
+                {
+                    cam.clearFlags = CameraClearFlags.SolidColor;
+                    cam.backgroundColor = new Color(0.18f, 0.58f, 0.65f);
+                }
+
                 if (_backgroundQuad != null) _backgroundQuad.SetActive(false);
                 if (_pipContainer != null) _pipContainer.SetActive(false);
                 if (_guidanceOverlay != null) _guidanceOverlay.SetActive(false);
@@ -483,7 +551,7 @@ namespace MechChess.AR
                     chessboardRoot.localPosition = Vector3.zero;
                     chessboardRoot.localRotation = Quaternion.identity;
                 }
-                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove("[CHẾ ĐỘ AR] Cung Điện Huyền Thuật (Arcane Realm Studio) ON");
+                if (UIManager2D.Instance != null) UIManager2D.Instance.RecordMove(AegisLocalization.T("[CHẾ ĐỘ AR] Cung Điện Huyền Thuật (Studio 3D) BẬT", "[AR MODE] Arcane Studio 3D ON"));
             }
         }
 

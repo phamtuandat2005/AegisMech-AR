@@ -20,6 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy and install python dependencies
 COPY requirements.txt .
+# ARG below forces cache invalidation when requirements change
+ARG CACHE_BUST=20261126
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code

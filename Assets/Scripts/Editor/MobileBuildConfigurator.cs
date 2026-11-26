@@ -3,6 +3,8 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using MechChess.Chess3D;
 using MechChess.UI;
 using MechChess.Combat2D;
@@ -116,6 +118,8 @@ namespace MechChess.Editor
                 controller = new GameObject("GameController");
             }
 
+            GameObjectUtility.RemoveMonoBehavioursWithMissingScript(controller);
+
             // Ensure all central systems are attached
             if (controller.GetComponent<MainMenu2D>() == null) controller.AddComponent<MainMenu2D>();
             if (controller.GetComponent<ChessBoard3DManager>() == null) controller.AddComponent<ChessBoard3DManager>();
@@ -125,6 +129,22 @@ namespace MechChess.Editor
             if (controller.GetComponent<AdafruitIOCloudConnector>() == null) controller.AddComponent<AdafruitIOCloudConnector>();
             if (controller.GetComponent<UserAccountManager>() == null) controller.AddComponent<UserAccountManager>();
             if (controller.GetComponent<OnlineMultiplayerManager>() == null) controller.AddComponent<OnlineMultiplayerManager>();
+            if (controller.GetComponent<MechChess.Multiplayer.LichessBridge>() == null) controller.AddComponent<MechChess.Multiplayer.LichessBridge>();
+
+            // Setup EventSystem with New Input System
+            EventSystem es = Object.FindObjectOfType<EventSystem>();
+            if (es == null)
+            {
+                GameObject esObj = new GameObject("EventSystem");
+                es = esObj.AddComponent<EventSystem>();
+                esObj.AddComponent<InputSystemUIInputModule>();
+            }
+            else
+            {
+                var legacy = es.GetComponent<StandaloneInputModule>();
+                if (legacy != null) Object.DestroyImmediate(legacy);
+                if (es.GetComponent<InputSystemUIInputModule>() == null) es.gameObject.AddComponent<InputSystemUIInputModule>();
+            }
 
             // Setup Main Camera Orbit
             Camera cam = Camera.main;
@@ -133,7 +153,9 @@ namespace MechChess.Editor
                 cam.gameObject.AddComponent<MobileTouchInput>();
             }
 
-            Debug.Log("[MechChess Build] Scene setup complete: GameController and all 5 Subsystems linked.");
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
+
+            Debug.Log("[MechChess Build] Scene setup complete: GameController and all subsystems linked.");
             if (!Application.isBatchMode)
             {
                 EditorUtility.DisplayDialog("Scene Setup Complete", "GameController and all 5 Subsystems (3D Chess, 2D HUD, 2D Physics Combat, AR Controller, Adafruit IO, Mobile Touch) have been linked in the scene!", "OK");

@@ -42,6 +42,14 @@ namespace MechChess.UI
                 return resSprite;
             }
 
+            Texture2D resTex = Resources.Load<Texture2D>("Textures/ArcaneUI/" + resName);
+            if (resTex != null)
+            {
+                Sprite s = Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+                _spriteCache[fileName] = s;
+                return s;
+            }
+
             // 2. Direct File load from Assets/Resources/Textures/ArcaneUI/
             string fullPath = Path.Combine(Application.dataPath, "Resources", "Textures", "ArcaneUI", fileName);
             if (!fileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
@@ -977,7 +985,44 @@ namespace MechChess.UI
             tex.wrapMode = TextureWrapMode.Clamp;
             tex.filterMode = FilterMode.Bilinear;
 
-            // Dark Fantasy Medieval Color Palette
+            // Try to load authentic Medieval 2D Chessboard asset
+            Sprite baseBoardSprite = MedievalUIAssetLoader.GetSprite("frame_board_2d");
+            Texture2D baseBoardTex = (baseBoardSprite != null) ? baseBoardSprite.texture : null;
+
+            // Safe memory access check: if Texture is not marked readable in Unity asset importer, load bytes directly from disk
+            if (baseBoardTex != null && !baseBoardTex.isReadable)
+            {
+                try
+                {
+                    string diskPath1 = Path.Combine(Application.dataPath, "Resources", "Textures", "MedievalUI", "frame_board_2d.png");
+                    string diskPath2 = Path.Combine(Application.dataPath, "..", "Assets", "Resources", "Textures", "MedievalUI", "frame_board_2d.png");
+                    string fullPath = File.Exists(diskPath1) ? diskPath1 : (File.Exists(diskPath2) ? diskPath2 : null);
+
+                    if (!string.IsNullOrEmpty(fullPath))
+                    {
+                        byte[] bytes = File.ReadAllBytes(fullPath);
+                        Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                        if (diskTex.LoadImage(bytes))
+                        {
+                            diskTex.wrapMode = TextureWrapMode.Clamp;
+                            diskTex.filterMode = FilterMode.Bilinear;
+                            baseBoardTex = diskTex;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[ArcaneAssetLoader] Could not load frame_board_2d from disk: {ex.Message}");
+                }
+            }
+
+            bool hasBaseBoard = (baseBoardTex != null && baseBoardTex.isReadable);
+
+            int boardStart = hasBaseBoard ? Mathf.RoundToInt(ss * 0.050f) : 0;
+            int boardSpan = hasBaseBoard ? Mathf.RoundToInt(ss * 0.900f) : ss;
+            int squarePx = boardSpan / 8;
+
+            // Dark Fantasy Medieval Color Palette (fallback & highlight colors)
             Color lightSquare = new Color(0.851f, 0.784f, 0.635f, 1f); // #D9C8A2 Ivory Parchment / Marble
             Color darkSquare = new Color(0.090f, 0.137f, 0.176f, 1f);  // #17232D Midnight Slate Stone
             Color colSelected = new Color(0.725f, 0.604f, 0.380f, 1f); // #B99A61 Radiant Antique Gold
@@ -987,22 +1032,49 @@ namespace MechChess.UI
             Color colGrid = new Color(0.350f, 0.280f, 0.200f, 0.85f);  // #47352B Antique Bronze Carved Filigree
 
             Color[] colors = new Color[ss * ss];
-            int squarePx = ss / 8;
 
             for (int y = 0; y < ss; y++)
             {
-                int rank = y / squarePx;
-                int innerY = y % squarePx;
-                float normY = (innerY + 0.5f) / squarePx;
+                float normV = (float)y / Mathf.Max(1, ss - 1);
+                bool inBoardY = y >= boardStart && y < boardStart + 8 * squarePx;
+                int rank = inBoardY ? (y - boardStart) / squarePx : -1;
+                int innerY = inBoardY ? (y - boardStart) % squarePx : 0;
+                float normY = inBoardY ? (innerY + 0.5f) / squarePx : 0.5f;
 
                 for (int x = 0; x < ss; x++)
                 {
-                    int file = x / squarePx;
-                    int innerX = x % squarePx;
-                    float normX = (innerX + 0.5f) / squarePx;
+                    float normU = (float)x / Mathf.Max(1, ss - 1);
+                    bool inBoardX = x >= boardStart && x < boardStart + 8 * squarePx;
+                    int file = inBoardX ? (x - boardStart) / squarePx : -1;
+                    int innerX = inBoardX ? (x - boardStart) % squarePx : 0;
+                    float normX = inBoardX ? (innerX + 0.5f) / squarePx : 0.5f;
 
-                    bool isLight = (file + rank) % 2 != 0;
-                    Color sqColor = isLight ? lightSquare : darkSquare;
+                    Color sqColor;
+                    if (hasBaseBoard)
+                    {
+                        try
+                        {
+                            sqColor = baseBoardTex.GetPixelBilinear(normU, normV);
+                        }
+                        catch
+                        {
+                            hasBaseBoard = false;
+                            bool isLight = (file + rank) % 2 != 0;
+                            sqColor = isLight ? lightSquare : darkSquare;
+                        }
+
+                        if (hasBaseBoard && (!inBoardX || !inBoardY))
+                        {
+                            colors[y * ss + x] = sqColor;
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        bool isLight = (file + rank) % 2 != 0;
+                        sqColor = isLight ? lightSquare : darkSquare;
+                    }
+
                     Vector2Int coord = new Vector2Int(file, rank);
 
                     // Check tile highlight category
@@ -1056,18 +1128,21 @@ namespace MechChess.UI
                         }
                     }
 
-                    // Grid border lines - carved antique bronze filigree
-                    bool isBorderX = (innerX == 0) || (innerX == squarePx - 1);
-                    bool isBorderY = (innerY == 0) || (innerY == squarePx - 1);
-                    if (isBorderX || isBorderY)
+                    if (!hasBaseBoard)
                     {
-                        sqColor = Color.Lerp(sqColor, colGrid, 0.65f);
-                    }
+                        // Grid border lines - carved antique bronze filigree
+                        bool isBorderX = (innerX == 0) || (innerX == squarePx - 1);
+                        bool isBorderY = (innerY == 0) || (innerY == squarePx - 1);
+                        if (isBorderX || isBorderY)
+                        {
+                            sqColor = Color.Lerp(sqColor, colGrid, 0.65f);
+                        }
 
-                    // Outer perimeter frame
-                    if (x < 2 || x >= ss - 2 || y < 2 || y >= ss - 2)
-                    {
-                        sqColor = colSelected;
+                        // Outer perimeter frame
+                        if (x < 2 || x >= ss - 2 || y < 2 || y >= ss - 2)
+                        {
+                            sqColor = colSelected;
+                        }
                     }
 
                     colors[y * ss + x] = sqColor;
@@ -1077,7 +1152,7 @@ namespace MechChess.UI
             // Blit chess pieces directly into the chessboard texture
             if (pieces != null && pieces.Count > 0)
             {
-                int piecePx = (int)(squarePx * 0.86f);
+                int piecePx = (int)(squarePx * 0.84f);
                 int marginX = (squarePx - piecePx) / 2;
                 int marginY = (squarePx - piecePx) / 2;
 
@@ -1088,10 +1163,10 @@ namespace MechChess.UI
 
                     PieceType pType = GetPieceTypeFromSymbol(p.symbol);
                     Texture2D pTex = GetChessPiece2DTexture(pType, p.isWhite, piecePx);
-                    if (pTex == null) continue;
+                    if (pTex == null || !pTex.isReadable) continue;
 
-                    int originX = p.file * squarePx + marginX;
-                    int originY = p.rank * squarePx + marginY;
+                    int originX = boardStart + p.file * squarePx + marginX;
+                    int originY = boardStart + p.rank * squarePx + marginY;
 
                     for (int py = 0; py < piecePx; py++)
                     {

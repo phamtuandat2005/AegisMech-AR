@@ -52,6 +52,27 @@ namespace MechChess.Multiplayer
         public int rating = 1500;
     }
 
+    [Serializable]
+    public class LichessAccountProfile
+    {
+        public string id;
+        public string username;
+        public LichessAccountPerfs perfs;
+    }
+
+    [Serializable]
+    public class LichessAccountPerfs
+    {
+        public LichessPerfItem rapid;
+        public LichessPerfItem blitz;
+    }
+
+    [Serializable]
+    public class LichessPerfItem
+    {
+        public int rating = 1500;
+    }
+
     /// <summary>
     /// Lichess Online Bridge for AegisMech AR:
     /// Seamlessly connects the 3D Mech AR board to Lichess.org via the official Lichess Board API.
@@ -77,6 +98,12 @@ namespace MechChess.Multiplayer
         public bool IsMyTurn { get; private set; } = true;
         public int LastMoveCount => _lastMoveCount;
 
+        [Header("Linked Account")]
+        public string LinkedUsername { get; private set; } = "";
+        public int LinkedElo { get; private set; } = 1500;
+        public bool IsProfileLoaded { get; private set; } = false;
+        public event Action<bool, string, int> OnAccountProfileUpdated; // success, username, elo
+
         public event Action<string, int, bool> OnGameStarted; // oppName, oppElo, isWhite
         public event Action<string, string> OnOpponentMoved;   // uciMove, san
         public event Action<string, int, int, string> OnGameEnded; // result ("win"/"loss"/"draw"), eloChange, goldGained, endReason
@@ -96,22 +123,25 @@ namespace MechChess.Multiplayer
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
 
-                if (!HasToken)
+                try
                 {
-                    try
+                    string localPath = Path.Combine(Application.dataPath, "..", ".env.local");
+                    if (File.Exists(localPath))
                     {
-                        string localPath = Path.Combine(Application.dataPath, "..", ".env.local");
-                        if (File.Exists(localPath))
+                        string t = File.ReadAllText(localPath).Trim();
+                        if (!string.IsNullOrEmpty(t) && t.StartsWith("lip_"))
                         {
-                            string t = File.ReadAllText(localPath).Trim();
-                            if (!string.IsNullOrEmpty(t) && t.StartsWith("lip_"))
-                            {
-                                SaveToken(t);
-                                Debug.Log("[Lichess] Local token successfully initialized.");
-                            }
+                            SaveToken(t);
+                            Debug.Log("[Lichess] Local token successfully synced from .env.local.");
                         }
                     }
-                    catch { }
+                }
+                catch { }
+
+                // Fetch linked account profile if token exists
+                if (HasToken)
+                {
+                    FetchAccountProfile();
                 }
             }
             else
@@ -122,6 +152,21 @@ namespace MechChess.Multiplayer
 
         public string GetSavedToken()
         {
+            // Check .env.local first (allows developer/player local override)
+            try
+            {
+                string localPath = Path.Combine(Application.dataPath, "..", ".env.local");
+                if (File.Exists(localPath))
+                {
+                    string t = File.ReadAllText(localPath).Trim();
+                    if (!string.IsNullOrEmpty(t) && t.StartsWith("lip_"))
+                    {
+                        return t;
+                    }
+                }
+            }
+            catch { }
+
             string enc = PlayerPrefs.GetString(PrefsKeyLichessToken, "");
             if (!string.IsNullOrEmpty(enc))
             {
@@ -151,21 +196,6 @@ namespace MechChess.Multiplayer
                 return legacy;
             }
 
-            // Check .env.local as environment fallback
-            try
-            {
-                string localPath = Path.Combine(Application.dataPath, "..", ".env.local");
-                if (File.Exists(localPath))
-                {
-                    string t = File.ReadAllText(localPath).Trim();
-                    if (!string.IsNullOrEmpty(t) && t.StartsWith("lip_"))
-                    {
-                        return t;
-                    }
-                }
-            }
-            catch { }
-
             return "";
         }
 
@@ -174,33 +204,170 @@ namespace MechChess.Multiplayer
             string clean = (token ?? "").Trim();
             if (string.IsNullOrEmpty(clean))
             {
-                PlayerPrefs.DeleteKey(PrefsKeyLichessToken);
-                PlayerPrefs.DeleteKey(PrefsKeyLichessTokenLegacy);
+                ClearSavedToken();
+                return;
             }
-            else
+
+            byte[] plainBytes = Encoding.UTF8.GetBytes(clean);
+            byte[] cipherBytes = new byte[plainBytes.Length];
+            for (int i = 0; i < plainBytes.Length; i++)
             {
-                byte[] plainBytes = Encoding.UTF8.GetBytes(clean);
-                byte[] cipherBytes = new byte[plainBytes.Length];
-                for (int i = 0; i < plainBytes.Length; i++)
-                {
-                    cipherBytes[i] = (byte)(plainBytes[i] ^ ObfKey[i % ObfKey.Length]);
-                }
-                PlayerPrefs.SetString(PrefsKeyLichessToken, Convert.ToBase64String(cipherBytes));
-                PlayerPrefs.DeleteKey(PrefsKeyLichessTokenLegacy);
+                cipherBytes[i] = (byte)(plainBytes[i] ^ ObfKey[i % ObfKey.Length]);
             }
+            PlayerPrefs.SetString(PrefsKeyLichessToken, Convert.ToBase64String(cipherBytes));
+            PlayerPrefs.DeleteKey(PrefsKeyLichessTokenLegacy);
             PlayerPrefs.Save();
+
+            // Refresh linked profile
+            FetchAccountProfile();
+        }
+
+        public void ClearSavedToken()
+        {
+            PlayerPrefs.DeleteKey(PrefsKeyLichessToken);
+            PlayerPrefs.DeleteKey(PrefsKeyLichessTokenLegacy);
+            PlayerPrefs.Save();
+            LinkedUsername = "";
+            LinkedElo = 1500;
+            IsProfileLoaded = false;
+            OnAccountProfileUpdated?.Invoke(false, "", 1500);
+        }
+
+        public void FetchAccountProfile(Action<bool, string, int> onComplete = null)
+        {
+            string token = GetSavedToken();
+            if (string.IsNullOrEmpty(token))
+            {
+                LinkedUsername = "";
+                LinkedElo = 1500;
+                IsProfileLoaded = false;
+                onComplete?.Invoke(false, "", 1500);
+                return;
+            }
+
+            StartCoroutine(FetchAccountProfileRoutine(token, onComplete));
+        }
+
+        private IEnumerator FetchAccountProfileRoutine(string token, Action<bool, string, int> onComplete)
+        {
+            string url = $"{LichessApiBase}/account";
+            using (UnityWebRequest req = UnityWebRequest.Get(url))
+            {
+                req.SetRequestHeader("Authorization", "Bearer " + token);
+                req.timeout = 6;
+                yield return req.SendWebRequest();
+
+                if (req.result == UnityWebRequest.Result.Success)
+                {
+                    try
+                    {
+                        string json = req.downloadHandler.text;
+                        var profile = JsonUtility.FromJson<LichessAccountProfile>(json);
+                        if (profile != null)
+                        {
+                            LinkedUsername = !string.IsNullOrEmpty(profile.username) ? profile.username : profile.id;
+                            if (profile.perfs != null && profile.perfs.rapid != null && profile.perfs.rapid.rating > 0)
+                            {
+                                LinkedElo = profile.perfs.rapid.rating;
+                            }
+                            else if (profile.perfs != null && profile.perfs.blitz != null && profile.perfs.blitz.rating > 0)
+                            {
+                                LinkedElo = profile.perfs.blitz.rating;
+                            }
+                            IsProfileLoaded = true;
+                            Debug.Log($"[Lichess] Profile fetched: {LinkedUsername} (Elo: {LinkedElo})");
+                            OnAccountProfileUpdated?.Invoke(true, LinkedUsername, LinkedElo);
+                            onComplete?.Invoke(true, LinkedUsername, LinkedElo);
+                            yield break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"[Lichess] Error parsing profile: {ex.Message}");
+                    }
+                }
+
+                onComplete?.Invoke(false, "", 1500);
+            }
         }
 
         public bool HasToken => !string.IsNullOrEmpty(GetSavedToken());
 
+        /// <summary>
+        /// Resigns the active Lichess game cleanly.
+        /// Calling Resign NEVER results in a ban or cooldown from Lichess (unlike Aborting or Abandoning).
+        /// </summary>
+        public void ResignMatch(Action<bool> onComplete = null)
+        {
+            if (!IsInLichessMatch || string.IsNullOrEmpty(ActiveGameId))
+            {
+                onComplete?.Invoke(false);
+                return;
+            }
+
+            string gid = ActiveGameId;
+            StartCoroutine(ResignMatchRoutine(gid, onComplete));
+        }
+
+        private IEnumerator ResignMatchRoutine(string gameId, Action<bool> onComplete)
+        {
+            string token = GetSavedToken();
+            string url = $"{LichessApiBase}/board/game/{gameId}/resign";
+
+            using (UnityWebRequest req = UnityWebRequest.PostWwwForm(url, ""))
+            {
+                if (!string.IsNullOrEmpty(token))
+                {
+                    req.SetRequestHeader("Authorization", "Bearer " + token);
+                }
+                req.timeout = 5;
+                yield return req.SendWebRequest();
+
+                bool ok = (req.result == UnityWebRequest.Result.Success);
+                Debug.Log($"[Lichess] Resign sent for game {gameId}: {ok} ({req.responseCode})");
+
+                EndGameSession("loss", "resigned");
+                onComplete?.Invoke(ok);
+            }
+        }
+
         public void CancelMatch()
         {
-            IsInLichessMatch = false;
-            ActiveGameId = "";
+            // If already inside an active game, resign cleanly so Lichess does not flag account for abandonment!
+            if (IsInLichessMatch && !string.IsNullOrEmpty(ActiveGameId))
+            {
+                ResignMatch();
+                return;
+            }
+
             StopAllCoroutines();
             _pollGameCoroutine = null;
             _streamCoroutine = null;
             _seekHttpCoroutine = null;
+            IsInLichessMatch = false;
+            ActiveGameId = "";
+        }
+
+        private void OnApplicationQuit()
+        {
+            if (IsInLichessMatch && !string.IsNullOrEmpty(ActiveGameId))
+            {
+                try
+                {
+                    string token = GetSavedToken();
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        string url = $"{LichessApiBase}/board/game/{ActiveGameId}/resign";
+                        var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(url);
+                        req.Method = "POST";
+                        req.Headers["Authorization"] = "Bearer " + token;
+                        req.ContentLength = 0;
+                        req.Timeout = 1500;
+                        using (var resp = req.GetResponse()) { }
+                    }
+                }
+                catch { }
+            }
         }
 
         /// <summary>

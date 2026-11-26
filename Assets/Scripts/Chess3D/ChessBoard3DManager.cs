@@ -245,10 +245,12 @@ namespace MechChess.Chess3D
             BuildProceduralBoard();
             SpawnAllPieces();
 
-            // Keep the 3D chessboard active so the arena and board are visible as backdrop or match
+            // Keep the 3D chessboard hidden while the player is on Splash Screen or Main Menu!
+            // The 3D arena will be activated automatically when MainMenu2D.HideMenu() launches a match.
             if (BoardRootContainer != null)
             {
-                BoardRootContainer.gameObject.SetActive(true);
+                bool inMatch = (MainMenu2D.Instance != null && MainMenu2D.Instance.IsInGameMatch);
+                BoardRootContainer.gameObject.SetActive(inMatch);
             }
 
             // Link UI Manager Callbacks
@@ -550,6 +552,16 @@ namespace MechChess.Chess3D
 
             if (BoardRootContainer == null)
             {
+                // Purge any stray legacy containers serialized in scene
+                var strayContainers = GameObject.FindObjectsOfType<GameObject>();
+                foreach (var go in strayContainers)
+                {
+                    if (go != null && go.name == "ChessBoard_WorldContainer")
+                    {
+                        SafeDestroy(go);
+                    }
+                }
+
                 GameObject container = new GameObject("ChessBoard_WorldContainer");
                 container.transform.position = Vector3.zero;
                 container.transform.rotation = Quaternion.identity;
@@ -686,6 +698,19 @@ namespace MechChess.Chess3D
                 BoardRootContainer = container.transform;
             }
 
+            // Safeguard: Purge any stray piece roots or old pre-baked pieces in scene to prevent piece overlap
+            var strayObjects = GameObject.FindObjectsOfType<GameObject>();
+            foreach (var go in strayObjects)
+            {
+                if (go != null && (go.name == "MechPiecesRoot" || go.name.EndsWith("_Mech") || go.name.EndsWith("_Classic")))
+                {
+                    if (_piecesRoot == null || go != _piecesRoot.gameObject)
+                    {
+                        SafeDestroy(go);
+                    }
+                }
+            }
+
             if (_piecesRoot != null) SafeDestroy(_piecesRoot.gameObject);
             _piecesRoot = new GameObject("MechPiecesRoot").transform;
             _piecesRoot.SetParent(BoardRootContainer, false);
@@ -729,14 +754,25 @@ namespace MechChess.Chess3D
             GameObject pieceObj = ProceduralMechFactory.CreateMechPiece(type, color, _piecesRoot);
             pieceObj.transform.localPosition = GetWorldPosition(file, rank);
 
-            // Rotate Black pieces 180 degrees to face White
-            if (color == PieceColor.Black)
+            // Configure orientation: Opposing forces face each other directly.
+            // 3D models naturally face +Z forward in their local space.
+            // For Knights (whose model head faces local -X): In standard chess aesthetics, Knights must face inward
+            // towards the center of the board ("quay vô trong tâm bàn cờ"):
+            // - Queenside (file < 4, e.g. b-file): Rotate 180 deg so head points +X (inward towards center).
+            // - Kingside (file >= 4, e.g. g-file): Keep 0 deg so head points -X (inward towards center).
+            Quaternion pieceOrientation;
+            if (type == PieceType.Knight)
             {
-                Quaternion rot180 = Quaternion.Euler(0, 180f, 0);
-                pieceObj.transform.localRotation = rot180;
-                MechPieceAnimator anim = pieceObj.GetComponent<MechPieceAnimator>();
-                if (anim != null) anim.SetBaseOrientation(rot180);
+                pieceOrientation = (file < 4) ? Quaternion.Euler(0, 180f, 0) : Quaternion.identity;
             }
+            else
+            {
+                pieceOrientation = (color == PieceColor.Black) ? Quaternion.Euler(0, 180f, 0) : Quaternion.identity;
+            }
+
+            pieceObj.transform.localRotation = pieceOrientation;
+            MechPieceAnimator anim = pieceObj.GetComponent<MechPieceAnimator>();
+            if (anim != null) anim.SetBaseOrientation(pieceOrientation);
 
             ChessPiece3D piece = pieceObj.AddComponent<ChessPiece3D>();
             piece.Setup(type, color, file, rank);
@@ -832,7 +868,7 @@ namespace MechChess.Chess3D
 
         public void DeselectPiece()
         {
-            if (_selectedPiece != null && _selectedPiece.Animator != null)
+            if (_selectedPiece != null && _selectedPiece && _selectedPiece.Animator != null)
             {
                 _selectedPiece.Animator.SetSelected(false);
             }
@@ -843,12 +879,12 @@ namespace MechChess.Chess3D
 
         public void SelectPiece(ChessPiece3D piece)
         {
-            if (isGameOver || piece == null) return;
+            if (isGameOver || piece == null || !piece) return;
             if (_isBusyAnimating) SkipActiveAnimation();
             if (piece.pieceColor != currentTurn) return;
 
             // Deselect previous piece if any
-            if (_selectedPiece != null && _selectedPiece.Animator != null)
+            if (_selectedPiece != null && _selectedPiece && _selectedPiece.Animator != null)
             {
                 _selectedPiece.Animator.SetSelected(false);
             }
@@ -1008,6 +1044,10 @@ namespace MechChess.Chess3D
             // Capture resolution with In-Place 3D Combat Clash (Bypasses 2D minigame modal)
             if (captured != null)
             {
+                // Immediately clear reference in boardPieces array so nothing queries a piece being destroyed
+                if (isEnPassant) boardPieces[targetFile, startRank] = null;
+                else boardPieces[targetFile, targetRank] = null;
+
                 // Immediately mark captured piece and disable its colliders so it stops receiving raycasts
                 captured.isCaptured = true;
                 Collider[] capCols = captured.GetComponentsInChildren<Collider>();
@@ -1032,24 +1072,34 @@ namespace MechChess.Chess3D
                     _isBusyAnimating = true;
                     _busyAnimStartTime = Time.time;
                     _animatingPiece = piece;
+                    Vector3 defenderPos = captured.transform.position;
 
-                    float moveDuration = 0.40f;
-                    piece.Animator.AnimateMoveTo(targetPos, moveDuration, onComplete: () =>
-                    {
-                        try
+                    piece.Animator.AnimateAttackAndCapture(
+                        defenderPos,
+                        captured.Animator,
+                        onImpact: () =>
                         {
-                            FinalizeCaptureAndMove(piece, startFile, startRank, targetFile, targetRank, captured, isEnPassant, isCastling, historyRecord, moveNotation, promoteTo, skipPieceMoveAnim: true);
-                        }
-                        catch (Exception ex)
+                            // Trigger defender disintegration & explosion on sword slash impact
+                            if (captured.Animator != null) captured.Animator.PlayCaptureDestruction();
+                            else captured.gameObject.SetActive(false);
+                        },
+                        onComplete: () =>
                         {
-                            Debug.LogError($"[ChessBoard3D] Error in FinalizeCaptureAndMove: {ex}");
+                            try
+                            {
+                                FinalizeCaptureAndMove(piece, startFile, startRank, targetFile, targetRank, captured, isEnPassant, isCastling, historyRecord, moveNotation, promoteTo, skipPieceMoveAnim: true);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.LogError($"[ChessBoard3D] Error in FinalizeCaptureAndMove: {ex}");
+                            }
+                            finally
+                            {
+                                _isBusyAnimating = false;
+                                _animatingPiece = null;
+                            }
                         }
-                        finally
-                        {
-                            _isBusyAnimating = false;
-                            _animatingPiece = null;
-                        }
-                    });
+                    );
                 }
                 else
                 {
@@ -1090,6 +1140,13 @@ namespace MechChess.Chess3D
             piece.file = targetFile;
             piece.rank = targetRank;
             piece.hasMoved = true;
+
+            // Maintain inward-facing orientation for Knights as they traverse the board
+            if (piece.pieceType == PieceType.Knight && piece.Animator != null)
+            {
+                Quaternion updatedRot = (targetFile < 4) ? Quaternion.Euler(0, 180f, 0) : Quaternion.identity;
+                piece.Animator.SetBaseOrientation(updatedRot);
+            }
 
             // Handle Castling Rook Relocation
             if (isCastling)
@@ -1754,7 +1811,7 @@ namespace MechChess.Chess3D
         {
             foreach (var p in boardPieces)
             {
-                if (p != null && p.pieceColor == color && p.pieceType == PieceType.King)
+                if (p != null && p && p.pieceColor == color && p.pieceType == PieceType.King)
                     return p;
             }
             return null;
@@ -1835,6 +1892,11 @@ namespace MechChess.Chess3D
         // =========================================================================
         public void Resign(PieceColor resigningColor)
         {
+            if (MechChess.Multiplayer.LichessBridge.Instance != null && MechChess.Multiplayer.LichessBridge.Instance.IsInLichessMatch)
+            {
+                MechChess.Multiplayer.LichessBridge.Instance.ResignMatch();
+            }
+
             if (isGameOver) return;
             isGameOver = true;
 
@@ -1889,6 +1951,12 @@ namespace MechChess.Chess3D
             record.piece.rank = record.fromR;
             record.piece.hasMoved = record.pieceHadMoved;
             record.piece.transform.localPosition = GetWorldPosition(record.fromF, record.fromR);
+
+            if (record.piece != null && record.piece.pieceType == PieceType.Knight && record.piece.Animator != null)
+            {
+                Quaternion revertRot = (record.fromF < 4) ? Quaternion.Euler(0, 180f, 0) : Quaternion.identity;
+                record.piece.Animator.SetBaseOrientation(revertRot);
+            }
 
             // 2. If it was a promotion, revert back to Pawn
             if (record.wasPromotion)
