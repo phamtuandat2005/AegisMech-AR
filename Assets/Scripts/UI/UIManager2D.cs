@@ -785,18 +785,13 @@ namespace MechChess.UI
             // 1. TOP HEADER: Floating Hex-Pill Clocks & Profiles (Enlarged Epic Royal Scale)
             // =========================================================================
 
-<<<<<<< HEAD
             // --- A. Left Wing: Player Profile (Enlarged Epic Royal Scale) ---
-=======
-            // --- A. Left Wing: Player Profile ---
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             GameObject playerProfile = new GameObject("PlayerProfile");
             playerProfile.transform.SetParent(_standardHudRoot.transform, false);
             RectTransform ppRt = playerProfile.AddComponent<RectTransform>();
             ppRt.anchorMin = new Vector2(0f, 1f);
             ppRt.anchorMax = new Vector2(0f, 1f);
             ppRt.pivot = new Vector2(0f, 1f);
-<<<<<<< HEAD
             ppRt.anchoredPosition = new Vector2(28f, -16f);
             ppRt.sizeDelta = new Vector2(520f, 160f);
 
@@ -806,26 +801,12 @@ namespace MechChess.UI
             Image pAvFrameImg = pAvFrame.AddComponent<Image>();
             pAvFrameImg.sprite = MedievalUIAssetLoader.GetSprite("avatar_frame_gold") ?? ArcaneAssetLoader.GetCircleSprite(154, new Color(0.090f, 0.137f, 0.176f, 0.95f), new Color(0.725f, 0.604f, 0.380f), 4f);
             pAvFrameImg.color = Color.white;
-=======
-            ppRt.anchoredPosition = new Vector2(24f, -14f);
-            ppRt.sizeDelta = new Vector2(360f, 100f);
-
-            // Circular Avatar Frame with Gilded Antique Gold Rim
-            GameObject pAvFrame = new GameObject("PlayerAvatarFrame");
-            pAvFrame.transform.SetParent(playerProfile.transform, false);
-            Image pAvFrameImg = pAvFrame.AddComponent<Image>();
-            pAvFrameImg.sprite = ArcaneAssetLoader.GetCircleSprite(96, new Color(0.090f, 0.137f, 0.176f, 0.95f), new Color(0.725f, 0.604f, 0.380f), 3.0f);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             RectTransform pafRt = pAvFrame.GetComponent<RectTransform>();
             pafRt.anchorMin = new Vector2(0f, 0.5f);
             pafRt.anchorMax = new Vector2(0f, 0.5f);
             pafRt.pivot = new Vector2(0f, 0.5f);
             pafRt.anchoredPosition = new Vector2(0f, 0f);
-<<<<<<< HEAD
             pafRt.sizeDelta = new Vector2(154f, 154f);
-=======
-            pafRt.sizeDelta = new Vector2(96f, 96f);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
 
             // Inner Avatar Image
             GameObject avObj = new GameObject("AvatarImg");
@@ -839,15 +820,9 @@ namespace MechChess.UI
             avRt.anchorMax = new Vector2(0.5f, 0.5f);
             avRt.pivot = new Vector2(0.5f, 0.5f);
             avRt.anchoredPosition = Vector2.zero;
-<<<<<<< HEAD
             avRt.sizeDelta = new Vector2(136f, 136f);
 
             // Player Name & Level (Grand Royal Font Scales)
-=======
-            avRt.sizeDelta = new Vector2(84f, 84f);
-
-            // Player Name & Level
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             string pName = "Player001";
             string pLevel = "Lv. 5";
             if (MechChess.Multiplayer.UserAccountManager.Instance != null && !string.IsNullOrEmpty(MechChess.Multiplayer.UserAccountManager.Instance.CurrentUsername))
@@ -855,50 +830,30 @@ namespace MechChess.UI
                 pName = MechChess.Multiplayer.UserAccountManager.Instance.CurrentUsername;
             }
 
-<<<<<<< HEAD
             _playerNameText = CreateText(playerProfile.transform, "PlayerName", pName, 44, TextAnchor.MiddleLeft, Vector2.zero, new Vector2(340f, 52f), new Color(0.96f, 0.94f, 0.88f), defaultFont, true);
-=======
-            _playerNameText = CreateText(playerProfile.transform, "PlayerName", pName, 28, TextAnchor.MiddleLeft, Vector2.zero, new Vector2(240f, 36f), new Color(0.96f, 0.94f, 0.88f), defaultFont, true);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             RectTransform pntRt = _playerNameText.rectTransform;
             pntRt.anchorMin = new Vector2(0f, 0.5f);
             pntRt.anchorMax = new Vector2(0f, 0.5f);
             pntRt.pivot = new Vector2(0f, 0.5f);
-<<<<<<< HEAD
             pntRt.anchoredPosition = new Vector2(170f, 26f);
 
             _playerLevelText = CreateText(playerProfile.transform, "PlayerLevel", pLevel, 30, TextAnchor.MiddleLeft, Vector2.zero, new Vector2(260f, 38f), new Color(1f, 0.88f, 0.48f), defaultFont, true);
-=======
-            pntRt.anchoredPosition = new Vector2(112f, 16f);
-
-            _playerLevelText = CreateText(playerProfile.transform, "PlayerLevel", pLevel, 20, TextAnchor.MiddleLeft, Vector2.zero, new Vector2(180f, 26f), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             RectTransform pltRt = _playerLevelText.rectTransform;
             pltRt.anchorMin = new Vector2(0f, 0.5f);
             pltRt.anchorMax = new Vector2(0f, 0.5f);
             pltRt.pivot = new Vector2(0f, 0.5f);
-<<<<<<< HEAD
             pltRt.anchoredPosition = new Vector2(170f, -24f);
 
             // Sleek Antique Gold Accent Bar under Level
             CreateCyberUnderline(playerProfile.transform, "PlayerUnderline", new Vector2(170f, -48f), new Vector2(160f, 6f), new Color(0.85f, 0.70f, 0.40f, 0.95f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
 
             // --- B. Center Wing: Match Clocks & VS (Grand Tournament Scale) ---
-=======
-            pltRt.anchoredPosition = new Vector2(112f, -16f);
-
-            // Sleek Antique Gold Accent Bar under Level
-            CreateCyberUnderline(playerProfile.transform, "PlayerUnderline", new Vector2(112f, -30f), new Vector2(100f, 4f), new Color(0.725f, 0.604f, 0.380f, 0.95f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
-
-            // --- B. Center Wing: Match Clocks & VS ---
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             GameObject centerGroup = new GameObject("CenterMatchClocks");
             centerGroup.transform.SetParent(_standardHudRoot.transform, false);
             RectTransform cgRt = centerGroup.AddComponent<RectTransform>();
             cgRt.anchorMin = new Vector2(0.5f, 1f);
             cgRt.anchorMax = new Vector2(0.5f, 1f);
             cgRt.pivot = new Vector2(0.5f, 1f);
-<<<<<<< HEAD
             cgRt.anchoredPosition = new Vector2(0f, -16f);
             cgRt.sizeDelta = new Vector2(880f, 140f);
 
@@ -939,37 +894,12 @@ namespace MechChess.UI
             _firstMoveWarningText = CreateText(centerGroup.transform, "FirstMoveWarning", AegisLocalization.T("⏱️ LƯỢT ĐẦU: 60s", "⏱️ 1ST MOVE: 60s"), 26, TextAnchor.MiddleCenter, new Vector2(0f, -108f), new Vector2(800f, 38f), new Color(1f, 0.65f, 0.25f), defaultFont, true);
 
             // --- C. Right Wing: AI / Opponent Profile (Enlarged Epic Royal Scale) ---
-=======
-            cgRt.anchoredPosition = new Vector2(0f, -14f);
-            cgRt.sizeDelta = new Vector2(600f, 84f);
-
-            // 1. White Player Timer Pill (Pointing Left `〔`)
-            GameObject whiteTimerCapsule = CreatePanel(centerGroup.transform, "WhiteTimerCapsule", new Vector2(-135f, 0f), new Vector2(230f, 66f), CyberButtonColor.Cyan);
-            CreateText(whiteTimerCapsule.transform, "ChevronLeft", "〔", 30, TextAnchor.MiddleCenter, new Vector2(-80f, 0f), new Vector2(36f, 50f), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
-            _whiteTimerText = CreateText(whiteTimerCapsule.transform, "WhiteTimer", "09:45", 40, TextAnchor.MiddleCenter, new Vector2(12f, 0f), new Vector2(170f, 56f), Color.white, defaultFont, true);
-
-            // 2. Center VS Badge
-            CreateText(centerGroup.transform, "VS_Badge", "VS", 36, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(60f, 50f), new Color(0.92f, 0.82f, 0.60f), defaultFont, true);
-
-            // 3. Black AI / Player 2 Timer Pill (Pointing Right `〕`)
-            GameObject blackTimerCapsule = CreatePanel(centerGroup.transform, "BlackTimerCapsule", new Vector2(135f, 0f), new Vector2(230f, 66f), CyberButtonColor.Crimson);
-            CreateText(blackTimerCapsule.transform, "RedIcon", "⚔️", 28, TextAnchor.MiddleCenter, new Vector2(-80f, 0f), new Vector2(36f, 50f), new Color(0.95f, 0.45f, 0.45f), defaultFont, false);
-            _blackTimerText = CreateText(blackTimerCapsule.transform, "BlackTimer", "10:00", 40, TextAnchor.MiddleCenter, new Vector2(8f, 0f), new Vector2(170f, 56f), Color.white, defaultFont, true);
-            CreateText(blackTimerCapsule.transform, "ChevronRight", "〕", 30, TextAnchor.MiddleCenter, new Vector2(80f, 0f), new Vector2(36f, 50f), new Color(0.95f, 0.45f, 0.45f), defaultFont, true);
-
-            // Subtle Status Ticker under clocks
-            _turnIndicatorText = CreateText(centerGroup.transform, "TurnIndicator", AegisLocalization.T("⚔️ LƯỢT: HOÀNG GIA (TRẮNG) ⚔️", "⚔️ TURN: ROYAL ALLIANCE (WHITE) ⚔️"), 22, TextAnchor.MiddleCenter, new Vector2(0f, -46f), new Vector2(600f, 30f), new Color(0.92f, 0.80f, 0.45f), defaultFont, true);
-            _firstMoveWarningText = CreateText(centerGroup.transform, "FirstMoveWarning", AegisLocalization.T("⏱️ LƯỢT ĐẦU: 60s", "⏱️ 1ST MOVE: 60s"), 18, TextAnchor.MiddleCenter, new Vector2(0f, -74f), new Vector2(600f, 26f), new Color(0.85f, 0.70f, 0.35f), defaultFont, true);
-
-            // --- C. Right Wing: AI / Opponent Profile ---
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             GameObject aiProfile = new GameObject("AIProfile");
             aiProfile.transform.SetParent(_standardHudRoot.transform, false);
             RectTransform aipRt = aiProfile.AddComponent<RectTransform>();
             aipRt.anchorMin = new Vector2(1f, 1f);
             aipRt.anchorMax = new Vector2(1f, 1f);
             aipRt.pivot = new Vector2(1f, 1f);
-<<<<<<< HEAD
             aipRt.anchoredPosition = new Vector2(-28f, -16f);
             aipRt.sizeDelta = new Vector2(520f, 160f);
 
@@ -979,26 +909,12 @@ namespace MechChess.UI
             Image aiAvFrameImg = aiAvFrame.AddComponent<Image>();
             aiAvFrameImg.sprite = MedievalUIAssetLoader.GetSprite("avatar_frame_gold") ?? ArcaneAssetLoader.GetCircleSprite(154, new Color(0.18f, 0.08f, 0.10f, 0.95f), new Color(0.490f, 0.224f, 0.259f), 4f);
             aiAvFrameImg.color = Color.white;
-=======
-            aipRt.anchoredPosition = new Vector2(-24f, -14f);
-            aipRt.sizeDelta = new Vector2(360f, 100f);
-
-            // AI Avatar Frame with Blood Red Glow
-            GameObject aiAvFrame = new GameObject("AIAvatarFrame");
-            aiAvFrame.transform.SetParent(aiProfile.transform, false);
-            Image aiAvFrameImg = aiAvFrame.AddComponent<Image>();
-            aiAvFrameImg.sprite = ArcaneAssetLoader.GetCircleSprite(96, new Color(0.18f, 0.08f, 0.10f, 0.95f), new Color(0.490f, 0.224f, 0.259f), 3.0f);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             RectTransform aiafRt = aiAvFrame.GetComponent<RectTransform>();
             aiafRt.anchorMin = new Vector2(1f, 0.5f);
             aiafRt.anchorMax = new Vector2(1f, 0.5f);
             aiafRt.pivot = new Vector2(1f, 0.5f);
             aiafRt.anchoredPosition = new Vector2(0f, 0f);
-<<<<<<< HEAD
             aiafRt.sizeDelta = new Vector2(154f, 154f);
-=======
-            aiafRt.sizeDelta = new Vector2(96f, 96f);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
 
             // Inner AI Avatar Image
             GameObject aiAvObj = new GameObject("AIAvatarImg");
@@ -1012,46 +928,28 @@ namespace MechChess.UI
             }
             else
             {
-<<<<<<< HEAD
                 CreateText(aiAvObj.transform, "Icon", "AI", 32, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(120f, 120f), Color.white, defaultFont, true);
-=======
-                CreateText(aiAvObj.transform, "Icon", "AI", 24, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(80f, 80f), Color.white, defaultFont, true);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             }
             RectTransform aiavRt = aiAvObj.GetComponent<RectTransform>();
             aiavRt.anchorMin = new Vector2(0.5f, 0.5f);
             aiavRt.anchorMax = new Vector2(0.5f, 0.5f);
             aiavRt.pivot = new Vector2(0.5f, 0.5f);
             aiavRt.anchoredPosition = Vector2.zero;
-<<<<<<< HEAD
             aiavRt.sizeDelta = new Vector2(136f, 136f);
 
             // AI / Opponent Name & Level (Right-aligned next to avatar)
             _opponentNameText = CreateText(aiProfile.transform, "AIName", "AI", 44, TextAnchor.MiddleRight, Vector2.zero, new Vector2(340f, 52f), new Color(0.96f, 0.94f, 0.88f), defaultFont, true);
-=======
-            aiavRt.sizeDelta = new Vector2(84f, 84f);
-
-            // AI / Opponent Name & Level (Right-aligned next to avatar)
-            _opponentNameText = CreateText(aiProfile.transform, "AIName", "AI", 28, TextAnchor.MiddleRight, Vector2.zero, new Vector2(240f, 36f), new Color(0.96f, 0.94f, 0.88f), defaultFont, true);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             RectTransform ainRt = _opponentNameText.rectTransform;
             ainRt.anchorMin = new Vector2(1f, 0.5f);
             ainRt.anchorMax = new Vector2(1f, 0.5f);
             ainRt.pivot = new Vector2(1f, 0.5f);
-<<<<<<< HEAD
             ainRt.anchoredPosition = new Vector2(-170f, 26f);
 
             _opponentLevelText = CreateText(aiProfile.transform, "AILevel", "Lv. 5", 30, TextAnchor.MiddleRight, Vector2.zero, new Vector2(260f, 38f), new Color(0.95f, 0.45f, 0.55f), defaultFont, true);
-=======
-            ainRt.anchoredPosition = new Vector2(-112f, 16f);
-
-            _opponentLevelText = CreateText(aiProfile.transform, "AILevel", "Lv. 5", 20, TextAnchor.MiddleRight, Vector2.zero, new Vector2(180f, 26f), new Color(0.95f, 0.45f, 0.55f), defaultFont, true);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             RectTransform ailRt = _opponentLevelText.rectTransform;
             ailRt.anchorMin = new Vector2(1f, 0.5f);
             ailRt.anchorMax = new Vector2(1f, 0.5f);
             ailRt.pivot = new Vector2(1f, 0.5f);
-<<<<<<< HEAD
             ailRt.anchoredPosition = new Vector2(-170f, -24f);
 
             // Sleek Blood Red Accent Bar under Level
@@ -1060,16 +958,6 @@ namespace MechChess.UI
 
             // =========================================================================
             // 2. QUICK ACTION TOOLBAR (Enlarged 88x88 Royal Carved Buttons)
-=======
-            ailRt.anchoredPosition = new Vector2(-112f, -16f);
-
-            // Sleek Blood Red Accent Bar under Level
-            CreateCyberUnderline(aiProfile.transform, "AIUnderline", new Vector2(-112f, -30f), new Vector2(100f, 4f), new Color(0.490f, 0.224f, 0.259f, 0.95f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
-
-
-            // =========================================================================
-            // 2. LEFT QUICK ACTION TOOLBAR (Sleek Compact Frosted Cyber Dock)
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             // =========================================================================
             GameObject leftToolbar = new GameObject("LeftQuickToolbar");
             leftToolbar.transform.SetParent(_standardHudRoot.transform, false);
@@ -1077,13 +965,8 @@ namespace MechChess.UI
             ltRt.anchorMin = new Vector2(0f, 0.5f);
             ltRt.anchorMax = new Vector2(0f, 0.5f);
             ltRt.pivot = new Vector2(0f, 0.5f);
-<<<<<<< HEAD
             ltRt.anchoredPosition = new Vector2(36f, 10f);
             ltRt.sizeDelta = new Vector2(130f, 680f);
-=======
-            ltRt.anchoredPosition = new Vector2(16f, 10f);
-            ltRt.sizeDelta = new Vector2(68f, 500f);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
 
             // Sleek frosted glass dock backdrop
             Image dockBg = leftToolbar.AddComponent<Image>();
@@ -1093,22 +976,14 @@ namespace MechChess.UI
 
             // 7 Compact self-contained buttons with 68f pitch (zero overlap!)
             // 1. Tạm dừng (Pause)
-<<<<<<< HEAD
             CreateArcaneToolbarButton(leftToolbar.transform, "BtnPause", MedievalUIAssetLoader.GetIcon(MedievalIcon.Pause) ?? ArcaneAssetLoader.GetPauseIconSprite(64), AegisLocalization.T("Tạm dừng", "Pause"), new Vector2(0f, 260f), () =>
-=======
-            CreateArcaneToolbarButton(leftToolbar.transform, "BtnPause", ArcaneAssetLoader.GetPauseIconSprite(64), AegisLocalization.T("Tạm dừng", "Pause"), new Vector2(0f, 204f), () =>
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             {
                 if (MainMenu2D.Instance != null) MainMenu2D.Instance.ShowPauseModal();
                 else ToggleTacticalDrawer();
             }, defaultFont);
 
             // 2. Gợi ý (Hint / AI Advice)
-<<<<<<< HEAD
             CreateArcaneToolbarButton(leftToolbar.transform, "BtnHint", MedievalUIAssetLoader.GetIcon(MedievalIcon.Hint) ?? ArcaneAssetLoader.GetHintIconSprite(64), AegisLocalization.T("Gợi ý", "Hint"), new Vector2(0f, 130f), () =>
-=======
-            CreateArcaneToolbarButton(leftToolbar.transform, "BtnHint", ArcaneAssetLoader.GetHintIconSprite(64), AegisLocalization.T("Gợi ý", "Hint"), new Vector2(0f, 136f), () =>
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             {
                 OnTriggerAIClicked?.Invoke();
             }, defaultFont);
@@ -1123,10 +998,6 @@ namespace MechChess.UI
                 }
             }, defaultFont);
 
-<<<<<<< HEAD
-            // 4. Hủy nước đi (Undo Move)
-            CreateArcaneToolbarButton(leftToolbar.transform, "BtnUndo", ArcaneAssetLoader.GetUndoIconSprite(64), AegisLocalization.T("Hủy nước đi", "Undo"), new Vector2(0f, -130f), () =>
-=======
             // 4. Biểu cảm (In-Game Emotes)
             Sprite emoteIcon = Resources.Load<Sprite>("Textures/Emotes/emote_laugh");
             CreateArcaneToolbarButton(leftToolbar.transform, "BtnEmotes", emoteIcon, AegisLocalization.T("Biểu cảm", "Emote"), new Vector2(0f, 0f), () =>
@@ -1138,8 +1009,7 @@ namespace MechChess.UI
             }, defaultFont);
 
             // 5. Hủy nước đi (Undo Move)
-            CreateArcaneToolbarButton(leftToolbar.transform, "BtnUndo", ArcaneAssetLoader.GetUndoIconSprite(64), AegisLocalization.T("Hoàn tác", "Undo"), new Vector2(0f, -68f), () =>
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
+            CreateArcaneToolbarButton(leftToolbar.transform, "BtnUndo", ArcaneAssetLoader.GetUndoIconSprite(64), AegisLocalization.T("Hủy nước đi", "Undo"), new Vector2(0f, -68f), () =>
             {
                 if (isRankedMode)
                 {
@@ -1150,10 +1020,6 @@ namespace MechChess.UI
                     MechChess.Chess3D.ChessBoard3DManager.Instance.UndoMove();
             }, defaultFont);
 
-<<<<<<< HEAD
-            // 5. Thiết lập (Settings Modal)
-            CreateArcaneToolbarButton(leftToolbar.transform, "BtnSettings", ArcaneAssetLoader.GetSettingsGearIconSprite(64), AegisLocalization.T("Thiết lập", "Settings"), new Vector2(0f, -260f), () =>
-=======
             // 6. Chọn Nhạc / Jukebox (Music Selector)
             CreateArcaneToolbarButton(leftToolbar.transform, "BtnMusic", ArcaneAssetLoader.GetMusicNoteIconSprite(64), AegisLocalization.T("Nhạc", "Music"), new Vector2(0f, -136f), () =>
             {
@@ -1161,14 +1027,11 @@ namespace MechChess.UI
             }, defaultFont);
 
             // 7. Thiết lập (Settings Modal)
-            CreateArcaneToolbarButton(leftToolbar.transform, "BtnSettings", ArcaneAssetLoader.GetSettingsGearIconSprite(64), AegisLocalization.T("Cài đặt", "Settings"), new Vector2(0f, -204f), () =>
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
+            CreateArcaneToolbarButton(leftToolbar.transform, "BtnSettings", ArcaneAssetLoader.GetSettingsGearIconSprite(64), AegisLocalization.T("Thiết lập", "Settings"), new Vector2(0f, -204f), () =>
             {
                 if (MainMenu2D.Instance != null) MainMenu2D.Instance.OpenSettingsModal();
             }, defaultFont);
 
-<<<<<<< HEAD
-=======
             // Sleek Tab Handle attached cleanly to right dock border (Center: x = 40f, y = 0f)
             GameObject chevObj = new GameObject("ToolbarChevron");
             chevObj.transform.SetParent(leftToolbar.transform, false);
@@ -1183,7 +1046,6 @@ namespace MechChess.UI
             chevBtn.onClick.AddListener(ToggleTacticalDrawer);
             CreateText(chevObj.transform, "Icon", "›", 20, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(16f, 54f), new Color(0.0f, 0.92f, 1.0f, 0.95f), defaultFont, true);
 
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             // =========================================================================
             // 2. IN-GAME COLLAPSIBLE SIDEBAR DRAWER (Tucked away, slides out on demand)
             // =========================================================================
@@ -1746,11 +1608,7 @@ namespace MechChess.UI
             rtRt.anchorMax = new Vector2(1f, 0.5f);
             rtRt.pivot = new Vector2(1f, 0.5f);
             rtRt.anchoredPosition = new Vector2(-28f, -10f);
-<<<<<<< HEAD
-            rtRt.sizeDelta = new Vector2(110f, 500f);
-=======
             rtRt.sizeDelta = new Vector2(110f, 510f); // 320 * 1.2 = 384, expanded to fit music tile
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
 
             // 1. Đổi chế độ AR (Toggle AR Mode)
             CreateARActionTile(rightToolbar.transform, "BtnToggleARMode", ArcaneAssetLoader.GetUndoIconSprite(64), AegisLocalization.T("Đổi AR", "Switch AR"), new Vector2(0f, 180f), () =>
@@ -2584,17 +2442,10 @@ namespace MechChess.UI
 
             RectTransform rt = btnObj.AddComponent<RectTransform>();
             rt.anchoredPosition = pos;
-<<<<<<< HEAD
             rt.sizeDelta = new Vector2(88f, 88f);
 
             Image img = btnObj.AddComponent<Image>();
             img.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodCarved) ?? ProceduralUISpriteGenerator.GetCyberSprite(CyberButtonColor.PanelFrame, 88, 88, 14f, 2f);
-=======
-            rt.sizeDelta = new Vector2(52f, 52f);
-
-            Image img = btnObj.AddComponent<Image>();
-            img.sprite = ProceduralUISpriteGenerator.GetCyberSprite(CyberButtonColor.PanelFrame, 52, 52, 10f, 1.6f);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             img.type = Image.Type.Sliced;
             img.color = new Color(0.12f, 0.18f, 0.26f, 0.95f);
 
@@ -2627,7 +2478,6 @@ namespace MechChess.UI
                 iconImg.raycastTarget = false;
 
                 RectTransform iconRt = iconObj.GetComponent<RectTransform>();
-<<<<<<< HEAD
                 iconRt.anchoredPosition = Vector2.zero;
                 iconRt.sizeDelta = new Vector2(56f, 56f);
             }
@@ -2637,14 +2487,6 @@ namespace MechChess.UI
             Shadow lblSh = lblTxt.gameObject.AddComponent<Shadow>();
             lblSh.effectColor = new Color(0f, 0f, 0f, 0.85f);
             lblSh.effectDistance = new Vector2(1f, -1f);
-=======
-                iconRt.anchoredPosition = new Vector2(0f, 4f);
-                iconRt.sizeDelta = new Vector2(28f, 28f);
-            }
-
-            // Compact Label text neatly contained inside the button frame (Zero overlap!)
-            CreateText(btnObj.transform, "Label", label, 11, TextAnchor.MiddleCenter, new Vector2(0f, -17f), new Vector2(50f, 14f), new Color(0.92f, 0.88f, 0.80f, 0.95f), font, true);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
 
             return btnObj;
         }
@@ -2669,17 +2511,10 @@ namespace MechChess.UI
 
             RectTransform rt = btnObj.AddComponent<RectTransform>();
             rt.anchoredPosition = pos;
-<<<<<<< HEAD
             rt.sizeDelta = new Vector2(88f, 88f);
 
             Image img = btnObj.AddComponent<Image>();
             img.sprite = MedievalUIAssetLoader.GetButtonSprite(MedievalButtonStyle.WoodCarved) ?? ProceduralUISpriteGenerator.GetCyberSprite(CyberButtonColor.PanelFrame, 88, 88, 14f, 2f);
-=======
-            rt.sizeDelta = new Vector2(52f, 52f);
-
-            Image img = btnObj.AddComponent<Image>();
-            img.sprite = ProceduralUISpriteGenerator.GetCyberSprite(CyberButtonColor.PanelFrame, 52, 52, 10f, 1.6f);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             img.type = Image.Type.Sliced;
             img.color = new Color(0.12f, 0.18f, 0.26f, 0.95f);
 
@@ -2700,7 +2535,6 @@ namespace MechChess.UI
             });
             btnObj.AddComponent<CyberButtonEffect>();
 
-<<<<<<< HEAD
             Text glyphTxt = CreateText(btnObj.transform, "Icon", icon, 34, TextAnchor.MiddleCenter, new Vector2(0f, 0f), new Vector2(68f, 68f), new Color(1.0f, 0.90f, 0.62f, 1f), font, true);
             glyphTxt.gameObject.AddComponent<Shadow>().effectColor = new Color(0f, 0f, 0f, 0.85f);
 
@@ -2708,10 +2542,6 @@ namespace MechChess.UI
             Shadow labelSh = labelTxt.gameObject.AddComponent<Shadow>();
             labelSh.effectColor = new Color(0f, 0f, 0f, 0.85f);
             labelSh.effectDistance = new Vector2(1f, -1f);
-=======
-            CreateText(btnObj.transform, "Glyph", icon, 18, TextAnchor.MiddleCenter, new Vector2(0f, 4f), new Vector2(28f, 28f), new Color(0.96f, 0.94f, 0.88f), font, true);
-            CreateText(btnObj.transform, "Label", label, 11, TextAnchor.MiddleCenter, new Vector2(0f, -17f), new Vector2(50f, 14f), new Color(0.92f, 0.88f, 0.80f, 0.95f), font, true);
->>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
 
             return btnObj;
         }
