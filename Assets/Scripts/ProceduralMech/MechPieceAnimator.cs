@@ -128,6 +128,176 @@ namespace MechChess.ProceduralMech
             _cbtPhase     = CombatPhase.Idle;
             _cbtProgress  = 0f;
             _locoWeight   = 0f;
+            TriggerLocomotionAnimation(false);
+        }
+
+        // ── Blender / Mixamo Animator Support ──────────────────────────────────
+        private Animator _unityAnimator;
+        private Animation _legacyAnimation;
+        private bool _animatorChecked = false;
+
+        public void InitializeMixamoAnimator()
+        {
+            _unityAnimator = GetComponentInChildren<Animator>(true);
+            _legacyAnimation = GetComponentInChildren<Animation>(true);
+            _animatorChecked = true;
+        }
+
+        public void TriggerLocomotionAnimation(bool isMoving)
+        {
+            if (!_animatorChecked || (_unityAnimator == null && _legacyAnimation == null)) InitializeMixamoAnimator();
+
+            if (_unityAnimator != null && _unityAnimator.runtimeAnimatorController != null)
+            {
+                TrySetAnimatorBool("IsMoving", isMoving);
+                TrySetAnimatorBool("Moving", isMoving);
+                TrySetAnimatorBool("Run", isMoving);
+                TrySetAnimatorFloat("Speed", isMoving ? 1.0f : 0.0f);
+
+                if (isMoving)
+                {
+                    TryPlayAnimatorState("Run", "Walk", "Move", "Locomotion");
+                }
+                else
+                {
+                    TryPlayAnimatorState("Idle", "Stand", "Default");
+                }
+            }
+
+            if (_legacyAnimation != null)
+            {
+                if (isMoving)
+                {
+                    PlayLegacyClip("run", "walk", "move");
+                }
+                else
+                {
+                    PlayLegacyClip("idle", "stand");
+                }
+            }
+        }
+
+        public void TriggerAttackAnimation()
+        {
+            if (!_animatorChecked || (_unityAnimator == null && _legacyAnimation == null)) InitializeMixamoAnimator();
+
+            if (_unityAnimator != null && _unityAnimator.runtimeAnimatorController != null)
+            {
+                TrySetAnimatorTrigger("Attack", "Slash", "Shoot", "Strike", "Hit");
+                TryPlayAnimatorState("Attack", "Slash", "Shoot", "Strike", "Combat", "Action");
+            }
+
+            if (_legacyAnimation != null)
+            {
+                PlayLegacyClip("attack", "slash", "shoot", "strike");
+            }
+        }
+
+        public void TriggerHitAnimation()
+        {
+            if (!_animatorChecked || (_unityAnimator == null && _legacyAnimation == null)) InitializeMixamoAnimator();
+
+            if (_unityAnimator != null && _unityAnimator.runtimeAnimatorController != null)
+            {
+                TrySetAnimatorTrigger("Hit", "Hurt", "Impact", "Damaged");
+                TryPlayAnimatorState("Hit", "Hurt", "Impact", "Damaged");
+            }
+
+            if (_legacyAnimation != null)
+            {
+                PlayLegacyClip("hit", "hurt", "impact");
+            }
+        }
+
+        public void TriggerDeathAnimation()
+        {
+            if (!_animatorChecked || (_unityAnimator == null && _legacyAnimation == null)) InitializeMixamoAnimator();
+
+            if (_unityAnimator != null && _unityAnimator.runtimeAnimatorController != null)
+            {
+                TrySetAnimatorTrigger("Die", "Death", "Defeat", "Dead");
+                TrySetAnimatorBool("IsDead", true);
+                TryPlayAnimatorState("Die", "Death", "Defeat");
+            }
+
+            if (_legacyAnimation != null)
+            {
+                PlayLegacyClip("die", "death", "defeat");
+            }
+        }
+
+        private void TrySetAnimatorTrigger(params string[] paramNames)
+        {
+            if (_unityAnimator == null) return;
+            foreach (var p in _unityAnimator.parameters)
+            {
+                if (p.type == AnimatorControllerParameterType.Trigger)
+                {
+                    foreach (var name in paramNames)
+                    {
+                        if (string.Equals(p.name, name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _unityAnimator.SetTrigger(p.name);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void TrySetAnimatorBool(string paramName, bool val)
+        {
+            if (_unityAnimator == null) return;
+            foreach (var p in _unityAnimator.parameters)
+            {
+                if (p.type == AnimatorControllerParameterType.Bool && string.Equals(p.name, paramName, StringComparison.OrdinalIgnoreCase))
+                {
+                    _unityAnimator.SetBool(p.name, val);
+                    return;
+                }
+            }
+        }
+
+        private void TrySetAnimatorFloat(string paramName, float val)
+        {
+            if (_unityAnimator == null) return;
+            foreach (var p in _unityAnimator.parameters)
+            {
+                if (p.type == AnimatorControllerParameterType.Float && string.Equals(p.name, paramName, StringComparison.OrdinalIgnoreCase))
+                {
+                    _unityAnimator.SetFloat(p.name, val);
+                    return;
+                }
+            }
+        }
+
+        private void TryPlayAnimatorState(params string[] stateNames)
+        {
+            if (_unityAnimator == null) return;
+            foreach (var s in stateNames)
+            {
+                if (_unityAnimator.HasState(0, Animator.StringToHash(s)))
+                {
+                    _unityAnimator.CrossFadeInFixedTime(s, 0.15f);
+                    return;
+                }
+            }
+        }
+
+        private void PlayLegacyClip(params string[] clipNames)
+        {
+            if (_legacyAnimation == null) return;
+            foreach (var name in clipNames)
+            {
+                foreach (AnimationState state in _legacyAnimation)
+                {
+                    if (state.name.ToLower().Contains(name.ToLower()))
+                    {
+                        _legacyAnimation.CrossFade(state.name, 0.15f);
+                        return;
+                    }
+                }
+            }
         }
 
 
@@ -205,9 +375,8 @@ namespace MechChess.ProceduralMech
                 // ── LEGS: thighs, shins, bipedal & hydraulic legs ──
                 if (n.Contains("thigh") || n.Contains("shin") || n.Contains("hydraulicleg") || n.Contains("leg_") || n.Contains("talon"))
                 {
-                    float side   = pa.sideSign != 0f ? pa.sideSign : 1f;
-                    pa.rotAxis   = new Vector3(side, 0, 0);
-                    pa.rotAmp    = 6f;
+                    pa.rotAxis   = Vector3.right;
+                    pa.rotAmp    = 5f;
                     pa.rotFreq   = 1.2f;
                     pa.rotPhase  = isLeft ? 0f : Mathf.PI;
                     pa.partType  = PT_LEG;
@@ -226,8 +395,7 @@ namespace MechChess.ProceduralMech
                 // ── ARMS: upper arm, forearm, gauntlet ──
                 else if (n.Contains("upperarm") || n.Contains("upper_arm") || n.Contains("forearm") || n.Contains("gauntlet"))
                 {
-                    float side   = pa.sideSign != 0f ? pa.sideSign : 1f;
-                    pa.rotAxis   = new Vector3(0, 0, side);
+                    pa.rotAxis   = Vector3.right;
                     pa.rotAmp    = 4.5f;
                     pa.rotFreq   = 0.9f;
                     pa.rotPhase  = isLeft ? 0f : Mathf.PI;
@@ -885,6 +1053,7 @@ namespace MechChess.ProceduralMech
         {
             _isMoving = true;
             ResetCombatPoses();
+            TriggerLocomotionAnimation(true);
             if (_moveSparks != null) _moveSparks.Play();
 
             Vector3 startPos = transform.position;
@@ -896,27 +1065,34 @@ namespace MechChess.ProceduralMech
             Quaternion initialRot = transform.localRotation;
 
             float elapsed = 0f;
-            float jumpHeight = 0.55f;
+            float strideSpeed = Mathf.Max(3.2f, dist * 3.5f + 2.0f);
 
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
                 float progress = Mathf.Clamp01(elapsed / duration);
 
-                // Smooth step trajectory with parabolic arc
+                // Smooth step trajectory
                 float smoothT = Mathf.SmoothStep(0f, 1f, progress);
                 Vector3 current = Vector3.Lerp(startPos, targetWorldPos, smoothT);
-                current.y += Mathf.Sin(progress * Mathf.PI) * jumpHeight;
+
+                // Stride cycle and locomotion weight
+                float strideCycle = progress * strideSpeed * Mathf.PI * 2f;
+                float locoWeight = Mathf.Sin(progress * Mathf.PI);
+
+                // Running footstep bounce (heels lift & step rhythm) and smooth path arc
+                float stepBounce = Mathf.Abs(Mathf.Sin(strideCycle)) * 0.07f * locoWeight;
+                float pathHop = Mathf.Sin(progress * Mathf.PI) * 0.12f;
+                current.y += stepBounce + pathHop;
                 transform.position = current;
 
-                // Dynamic facing and forward lean while moving
-                float forwardLean = Mathf.Sin(progress * Mathf.PI) * 15f;
-                Quaternion facing = Quaternion.Slerp(initialRot, targetFacing, Mathf.Clamp01(progress * 2.5f));
-                transform.localRotation = facing * Quaternion.Euler(forwardLean, 0f, 0f);
+                // Dynamic facing, athletic forward lean, and torso roll sway
+                float forwardLean = locoWeight * 12f;
+                float torsoRoll = Mathf.Sin(strideCycle) * 3.5f * locoWeight;
+                Quaternion facing = Quaternion.Slerp(initialRot, targetFacing, Mathf.Clamp01(progress * 3.0f));
+                transform.localRotation = facing * Quaternion.Euler(forwardLean, 0f, torsoRoll);
 
-                // Drive full-body locomotion (running legs, swinging arms, flapping wings)
-                float locoWeight = Mathf.Sin(progress * Mathf.PI);
-                float strideCycle = progress * (dist * 2.5f + 2.0f) * Mathf.PI * 2f;
+                // Drive full-body locomotion (running legs, swinging arms)
                 SetLocomotion(locoWeight, strideCycle);
 
                 yield return null;
@@ -944,8 +1120,8 @@ namespace MechChess.ProceduralMech
         /// </summary>
         public void AnimateAttackAndCapture(Vector3 defenderWorldPos, MechPieceAnimator defender, Action onImpact, Action onComplete)
         {
-            ChessPiece3D selfPiece = (this != null && gameObject != null) ? GetComponent<ChessPiece3D>() : null;
-            ChessPiece3D defPiece = (defender != null && defender.gameObject != null) ? defender.GetComponent<ChessPiece3D>() : null;
+            ChessPiece3D selfPiece = GetComponent<ChessPiece3D>();
+            ChessPiece3D defPiece = defender != null ? defender.GetComponent<ChessPiece3D>() : null;
             if (CaptureCutsceneDirector.TryPlay(selfPiece, defPiece, onImpact, onComplete)) return;
             AnimateAttackAndCaptureClassic(defenderWorldPos, defender, onImpact, onComplete);
         }
@@ -1015,6 +1191,7 @@ namespace MechChess.ProceduralMech
             }
 
             PlayCombatAudio(CombatAudioType.Slash);
+            TriggerAttackAnimation();
 
             // ── Phase 3: Signature Finisher (per piece type) ─────────────────────
             float slashDuration = 0.28f;
@@ -1059,6 +1236,7 @@ namespace MechChess.ProceduralMech
                     Vector3 hitPoint = Vector3.Lerp(transform.position, defenderWorldPos, 0.65f) + Vector3.up * 0.40f;
                     SpawnSlashImpact(hitPoint, _glowColor);
                     PlayCombatAudio(CombatAudioType.Impact);
+                    if (defender != null) defender.TriggerHitAnimation();
                     var impact = onImpact ?? _onImpactCallback;
                     _onImpactCallback = null;
                     impact?.Invoke();
@@ -1073,6 +1251,7 @@ namespace MechChess.ProceduralMech
                 Vector3 hitPoint = Vector3.Lerp(transform.position, defenderWorldPos, 0.65f) + Vector3.up * 0.40f;
                 SpawnSlashImpact(hitPoint, _glowColor);
                 PlayCombatAudio(CombatAudioType.Impact);
+                if (defender != null) defender.TriggerHitAnimation();
                 var impact = onImpact ?? _onImpactCallback;
                 _onImpactCallback = null;
                 impact?.Invoke();
@@ -1118,7 +1297,7 @@ namespace MechChess.ProceduralMech
             done?.Invoke();
         }
 
-        internal GameObject CreateEnergyBlade()
+        private GameObject CreateEnergyBlade()
         {
             GameObject bladeRoot = new GameObject("CombatEnergyBlade");
 
@@ -1177,7 +1356,7 @@ namespace MechChess.ProceduralMech
             return mat;
         }
 
-        internal void SpawnSlashImpact(Vector3 hitPoint, Color color)
+        private void SpawnSlashImpact(Vector3 hitPoint, Color color)
         {
             GameObject impactObj = new GameObject("CombatSlashImpact");
             impactObj.transform.position = hitPoint;
@@ -1213,12 +1392,12 @@ namespace MechChess.ProceduralMech
             Destroy(impactObj, 0.55f);
         }
 
-        internal enum CombatAudioType { Slash, Impact }
+        private enum CombatAudioType { Slash, Impact }
         private static AudioSource _combatAudioSource;
         private static AudioClip _slashClip;
         private static AudioClip _impactClip;
 
-        internal static void PlayCombatAudio(CombatAudioType type)
+        private static void PlayCombatAudio(CombatAudioType type)
         {
             try
             {
@@ -1289,6 +1468,8 @@ namespace MechChess.ProceduralMech
             ChessPiece3D piece = GetComponent<ChessPiece3D>();
             if (piece != null) piece.isCaptured = true;
 
+            TriggerDeathAnimation();
+
             StartCoroutine(DestructionRoutine(onDone));
         }
 
@@ -1353,31 +1534,6 @@ namespace MechChess.ProceduralMech
             transform.localPosition = originalPos;
         }
 
-        public Color GlowColor { get { return _glowColor; } }
-        public Quaternion BaseLocalRotation { get { return _baseLocalRotation; } }
-
-        /// <summary>Hands control of this piece's transform to the capture cutscene.</summary>
-        public void BeginCutscene(bool thrusters)
-        {
-            SetSelected(false);
-            if (_activeAnimationRoutine != null) { StopCoroutine(_activeAnimationRoutine); _activeAnimationRoutine = null; }
-            _onImpactCallback = null;
-            _onCompleteCallback = null;
-            _isMoving = true;
-            if (thrusters && _moveSparks != null) _moveSparks.Play();
-        }
-
-        /// <summary>Returns control to the idle animation and rests the piece on the given square.</summary>
-        public void EndCutscene(Vector3 restWorldPos)
-        {
-            if (this == null) return;
-            transform.position = restWorldPos;
-            _baseLocalPosition = transform.localPosition;
-            transform.localRotation = _baseLocalRotation;
-            if (_moveSparks != null) _moveSparks.Stop();
-            _isMoving = false;
-        }
-
         private void CreateMoveSparkParticles()
         {
             GameObject pObj = new GameObject("ThrusterSparks");
@@ -1412,7 +1568,7 @@ namespace MechChess.ProceduralMech
 
 
         private static Material _particleMat;
-        internal static Material GetParticleMaterial()
+        private static Material GetParticleMaterial()
         {
             if (_particleMat == null)
             {

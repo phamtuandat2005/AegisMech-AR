@@ -129,7 +129,7 @@ namespace MechChess.UI
         {
             get
             {
-                if (_instance == null) _instance = FindObjectOfType<MainMenu2D>();
+                if (_instance == null) _instance = FindFirstObjectByType<MainMenu2D>();
                 return _instance;
             }
             private set => _instance = value;
@@ -233,6 +233,10 @@ namespace MechChess.UI
         private Image _inspectEquipBtnBg;
         private Text _inspectEquipBtnTxt;
         private Button _inspectEquipBtn;
+
+        // Profile Avatar references for live equipment sync
+        private Image _profileAvatarImg;
+        private Image _profileModalAvatarImg;
 
         // Player preference keys for equipped cosmetics
         public const string PrefsEquippedSkin = "AegisMech_Equipped_Skin";
@@ -338,6 +342,7 @@ namespace MechChess.UI
         private GameObject _modeChevronRight;
         private Coroutine _modeScrollCoroutine;
 
+<<<<<<< HEAD
         // Shop State (3 category tabs, 4 feature items, user reference design)
         private int _selectedShopTab = 0; // 0: Skin quân cờ, 1: Bàn cờ, 2: Hiệu ứng
         private readonly Image[] _shopTabBgs = new Image[3];
@@ -347,12 +352,20 @@ namespace MechChess.UI
         private GameObject _shopChevronLeft;
         private GameObject _shopChevronRight;
         private Coroutine _shopScrollCoroutine;
+=======
+        // Shop State (2 category tabs: Maps & Arenas, Avatars)
+        private int _selectedShopTab = 0; // 0: Bản đồ & Bàn cờ, 1: Avatar
+        private readonly Image[] _shopTabBgs = new Image[2];
+        private readonly Text[] _shopTabTexts = new Text[2];
+        private readonly GameObject[] _shopCategoryContainers = new GameObject[2];
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
         private Text _shopGoldTxt;
         private Text _shopGemTxt;
         private Text _headerGoldText;
         private Text _headerGemText;
         private GameObject _topRightToolbar;
         private int _currentGold = 1250;
+        private Font _cachedShopFont;
 
         // Profile Modal State (3 tabs: Lịch sử đấu, Thành tích, Skin, user reference design)
         private int _selectedProfileTab = 0;
@@ -517,7 +530,11 @@ namespace MechChess.UI
 
             MedievalUIAssetLoader.ClearCache();
             AegisAudioManager.EnsureInitialized();
+<<<<<<< HEAD
             AegisAudioManager.Prewarm();
+=======
+            AegisMusicManager.EnsureInitialized();
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             AegisLocalization.LoadSavedLanguage();
             AegisLocalization.OnLanguageChanged += OnLanguageChanged;
 
@@ -1741,6 +1758,7 @@ namespace MechChess.UI
             hlg.childForceExpandHeight = false;
             hlg.spacing = 16f;
 
+<<<<<<< HEAD
             // 0. Player Profile Button (Royal Golden Medallion Avatar with Lv badge) -> opens Profile Modal
             CreateHeaderProfileButton(toolbarObj.transform, font);
 
@@ -1771,6 +1789,12 @@ namespace MechChess.UI
                 AegisAudioManager.PlayButtonClick();
                 OpenMailboxModal();
             }, font);
+=======
+            CreateHeaderIconButton(toolbarObj.transform, "BtnMail", "icon_nav_mail.png", "✉", false, Vector2.zero, () => ShowToast(AegisLocalization.T("Không có thư mới.", "No new mail."), ToastType.Info), font);
+            CreateHeaderIconButton(toolbarObj.transform, "BtnInbox", "icon_nav_reward.png", "★", true, Vector2.zero, () => ShowToast(AegisLocalization.T("1 phần thưởng chưa nhận!", "1 unclaimed reward!"), ToastType.Success), font);
+            CreateHeaderIconButton(toolbarObj.transform, "BtnQuickMusic", "icon_set_audio.png", "🎵", false, Vector2.zero, () => InGameMusicSelectorUI.ToggleSelector(transform), font);
+            CreateHeaderIconButton(toolbarObj.transform, "BtnQuickSettings", "icon_nav_settings.png", "⚙", false, Vector2.zero, OpenSettingsModal, font);
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
         }
 
         private void CreateCurrencyCapsule(Transform parent, string name, string iconGlyph, string defaultAmount, Sprite capsuleSprite, Font font)
@@ -2238,8 +2262,14 @@ namespace MechChess.UI
             avRt.sizeDelta = new Vector2(64f, 64f);
 
             Image avRing = avObj.AddComponent<Image>();
+<<<<<<< HEAD
             avRing.sprite = MedievalUIAssetLoader.GetSprite("avatar_frame_gold") ?? MedievalUIAssetLoader.GetSprite("avatar_medallion_gold") ?? ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png");
             if (avRing.sprite == null) avRing.color = new Color(0.85f, 0.70f, 0.35f);
+=======
+            _profileAvatarImg = avRing;
+            avRing.sprite = AvatarCatalog.GetEquippedSprite();
+            AvatarCatalog.Bind(avRing);
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
             avRing.preserveAspect = true;
             avRing.raycastTarget = false;
 
@@ -5776,10 +5806,11 @@ namespace MechChess.UI
             stRt.anchoredPosition = new Vector2(0f, -160f);
             stRt.sizeDelta = new Vector2(1420f, 76f);
 
+            _cachedShopFont = font;
+
             string[] sTabs = {
-                AegisLocalization.T("Skin quân cờ", "Piece Skins"),
-                AegisLocalization.T("Bàn cờ", "Chessboards"),
-                AegisLocalization.T("Hiệu ứng", "Effects")
+                AegisLocalization.T("Bản Đồ & Bàn Cờ", "Maps & Arenas"),
+                AegisLocalization.T("Avatar", "Avatars")
             };
             Sprite tabActSprite = MedievalUIAssetLoader.GetSprite("tab_tutorial_gold_active")
                                 ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_active")
@@ -5789,7 +5820,7 @@ namespace MechChess.UI
                                   ?? MedievalUIAssetLoader.GetSprite("tab_parchment_gold_inactive")
                                   ?? MedievalUIAssetLoader.GetSprite("btn_blank_black_banner");
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 2; i++)
             {
                 int tabIdx = i;
                 bool active = (i == _selectedShopTab);
@@ -5806,12 +5837,20 @@ namespace MechChess.UI
                 tObj.AddComponent<MenuButtonEffect>();
 
                 RectTransform rt = tObj.GetComponent<RectTransform>();
+<<<<<<< HEAD
                 rt.anchorMin = new Vector2(0f, 0.5f);
                 rt.anchorMax = new Vector2(0f, 0.5f);
                 rt.pivot = new Vector2(0f, 0.5f);
                 float[] sTabX = { 84f, 430f, 744f };
                 rt.anchoredPosition = new Vector2(sTabX[i], 0f);
                 rt.sizeDelta = new Vector2(310f, 74f);
+=======
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = new Vector2(-160f + i * 320f, 0f);
+                rt.sizeDelta = new Vector2(290f, 46f);
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
 
                 GameObject txtObj = new GameObject("Txt");
                 txtObj.transform.SetParent(tObj.transform, false);
@@ -5834,6 +5873,7 @@ namespace MechChess.UI
                 txtRt.offsetMax = new Vector2(-16f, 0f);
             }
 
+<<<<<<< HEAD
             // Category Horizontal ScrollViews (0: Skins, 1: Boards, 2: Effects)
             string[] skinNames = { "Knight of Light", "Dark Legion", "Arcane Paladin", "Forest Spirit" };
             string[] skinTextures = { "skin_knight_light.png", "skin_dark_legion.png", "skin_cyber_future.png", "skin_forest_spirit.png" };
@@ -5908,7 +5948,32 @@ namespace MechChess.UI
             rChvRt.anchoredPosition = new Vector2(710f, -80f);
             rChvRt.sizeDelta = new Vector2(64f, 64f);
             _shopChevronRight.transform.SetAsLastSibling();
+=======
+            // Container 0: Maps & Arenas
+            GameObject mapsContainer = new GameObject("Category_Maps");
+            mapsContainer.transform.SetParent(cardObj.transform, false);
+            _shopCategoryContainers[0] = mapsContainer;
+            RectTransform mcRt = mapsContainer.AddComponent<RectTransform>();
+            mcRt.anchorMin = new Vector2(0.5f, 0.5f);
+            mcRt.anchorMax = new Vector2(0.5f, 0.5f);
+            mcRt.pivot = new Vector2(0.5f, 0.5f);
+            mcRt.anchoredPosition = new Vector2(0f, -14f);
+            mcRt.sizeDelta = new Vector2(1440f, 480f);
 
+            // Container 1: Avatars
+            GameObject avatarsContainer = new GameObject("Category_Avatars");
+            avatarsContainer.transform.SetParent(cardObj.transform, false);
+            _shopCategoryContainers[1] = avatarsContainer;
+            RectTransform avRt = avatarsContainer.AddComponent<RectTransform>();
+            avRt.anchorMin = new Vector2(0.5f, 0.5f);
+            avRt.anchorMax = new Vector2(0.5f, 0.5f);
+            avRt.pivot = new Vector2(0.5f, 0.5f);
+            avRt.anchoredPosition = new Vector2(0f, -14f);
+            avRt.sizeDelta = new Vector2(1440f, 480f);
+            avatarsContainer.SetActive(false);
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
+
+            SwitchShopTab(0);
             _shopModal.SetActive(false);
         }
 
@@ -5954,8 +6019,11 @@ namespace MechChess.UI
                     _shopCategoryContainers[i].SetActive(active);
                 }
             }
+
+            PopulateShopCategory(tabIndex);
         }
 
+<<<<<<< HEAD
         public void SmoothScrollShopDelta(float delta)
         {
             int tab = _selectedShopTab;
@@ -6050,14 +6118,258 @@ namespace MechChess.UI
         }
 
         private void CreateShopSkinCard(Transform parent, string name, string textureName, string frameSpriteName, int priceGold, int priceGems, Vector2 pos, Font font)
+=======
+        private void PopulateShopCategory(int tabIndex)
+        {
+            if (_shopCategoryContainers == null || tabIndex < 0 || tabIndex >= _shopCategoryContainers.Length) return;
+            GameObject container = _shopCategoryContainers[tabIndex];
+            if (container == null) return;
+            Transform parent = container.transform;
+            Font font = _cachedShopFont ?? GetDefaultFont();
+
+            if (tabIndex == 1)
+            {
+                PopulateAvatarShopCards(parent, font);
+                return;
+            }
+
+            for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(parent.GetChild(i).gameObject);
+            }
+
+            float skinCardWidth = 330f;
+            float skinCardGap = 35f;
+            float skinStartX = -((4 * skinCardWidth + 3 * skinCardGap) / 2f) + skinCardWidth / 2f;
+
+            string[] frameSprites = { "card_frame_gold.png", "card_frame_silver.png", "card_frame_gold.png", "card_frame_silver.png" };
+            string[] mapTextures = { "menu_board_preview.png", "ingame_3d_table_bg.png", "mode_card_ai.png", "mode_card_online.png" };
+
+            string[] boardNames = {
+                AegisLocalization.T("Thánh Địa Hoa Anh Đào", "Spirit Blossom Sanctuary"),
+                AegisLocalization.T("Đấu Trường Hy Lạp Cổ", "Classical Pantheon"),
+                AegisLocalization.T("Địa Ngục Dung Nham", "Magma Hellfire Core"),
+                AegisLocalization.T("Cực Quang Pha Lê Băng", "Glacial Arcane Matrix")
+            };
+            string[] boardEquipValues = { "Royal Antique Board", "Classic Board", "Magma Board", "Crystal Board" };
+            int[] boardPrices = { 0, 800, 1200, 1600 };
+
+            for (int i = 0; i < 4; i++)
+            {
+                CreateShopSkinCard(parent, boardNames[i], mapTextures[i], frameSprites[i], boardPrices[i],
+                    new Vector2(skinStartX + i * (skinCardWidth + skinCardGap), 0f), font,
+                    PrefsEquippedBoard, boardEquipValues[i], 0);
+            }
+        }
+
+        private void PopulateAvatarShopCards(Transform parent, Font font)
+        {
+            if (parent == null) return;
+            for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(parent.GetChild(i).gameObject);
+            }
+
+            var all = AvatarCatalog.All;
+            if (all == null || all.Length == 0) return;
+
+            float cardW = 265f;
+            float cardH = 220f;
+            float gapX = 22f;
+            float startX = -((5 * cardW + 4 * gapX) / 2f) + cardW / 2f;
+
+            for (int i = 0; i < all.Length && i < 10; i++)
+            {
+                var entry = all[i];
+                int col = i % 5;
+                int row = i / 5;
+                float posX = startX + col * (cardW + gapX);
+                float posY = (row == 0) ? 116f : -116f;
+
+                bool isEquipped = AvatarCatalog.IsEquipped(entry);
+                bool isOwned = AvatarCatalog.IsOwned(entry);
+
+                GameObject card = new GameObject("AvatarCard_" + entry.id);
+                card.transform.SetParent(parent, false);
+
+                RectTransform cRt = card.AddComponent<RectTransform>();
+                cRt.anchorMin = new Vector2(0.5f, 0.5f);
+                cRt.anchorMax = new Vector2(0.5f, 0.5f);
+                cRt.pivot = new Vector2(0.5f, 0.5f);
+                cRt.anchoredPosition = new Vector2(posX, posY);
+                cRt.sizeDelta = new Vector2(cardW, cardH);
+
+                Image bg = card.AddComponent<Image>();
+                Color borderCol = isEquipped ? ColAntiqueGold : (isOwned ? ColCyanGlow : ColCyanBorder);
+                bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite((int)cardW, (int)cardH, 14f, new Color(0.04f, 0.09f, 0.18f, 0.92f), borderCol, isEquipped ? 2.0f : 1.2f);
+                bg.type = Image.Type.Sliced;
+
+                // Avatar Round Portrait (Size 74 x 74)
+                GameObject portraitObj = new GameObject("Portrait");
+                portraitObj.transform.SetParent(card.transform, false);
+                Image portImg = portraitObj.AddComponent<Image>();
+                portImg.sprite = AvatarCatalog.GetRoundSprite(entry.file);
+                portImg.preserveAspect = true;
+                RectTransform portRt = portraitObj.GetComponent<RectTransform>();
+                portRt.anchorMin = new Vector2(0.5f, 0.5f);
+                portRt.anchorMax = new Vector2(0.5f, 0.5f);
+                portRt.pivot = new Vector2(0.5f, 0.5f);
+                portRt.anchoredPosition = new Vector2(0f, 48f);
+                portRt.sizeDelta = new Vector2(74f, 74f);
+
+                // Glow Ring around avatar portrait
+                GameObject ringObj = new GameObject("Ring");
+                ringObj.transform.SetParent(portraitObj.transform, false);
+                Image ringImg = ringObj.AddComponent<Image>();
+                ringImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(80, 80, 40f, Color.clear, borderCol, 1.8f);
+                ringImg.type = Image.Type.Sliced;
+                RectTransform ringRt = ringObj.GetComponent<RectTransform>();
+                ringRt.anchorMin = Vector2.zero;
+                ringRt.anchorMax = Vector2.one;
+                ringRt.offsetMin = new Vector2(-3f, -3f);
+                ringRt.offsetMax = new Vector2(3f, 3f);
+
+                // Avatar Name Text
+                GameObject nameObj = new GameObject("NameTxt");
+                nameObj.transform.SetParent(card.transform, false);
+                Text nameTxt = nameObj.AddComponent<Text>();
+                nameTxt.text = entry.Name;
+                nameTxt.font = font;
+                nameTxt.fontSize = 16;
+                nameTxt.fontStyle = FontStyle.Bold;
+                nameTxt.alignment = TextAnchor.MiddleCenter;
+                nameTxt.color = ColTextWhite;
+                RectTransform nRt = nameObj.GetComponent<RectTransform>();
+                nRt.anchorMin = new Vector2(0.5f, 0.5f);
+                nRt.anchorMax = new Vector2(0.5f, 0.5f);
+                nRt.pivot = new Vector2(0.5f, 0.5f);
+                nRt.anchoredPosition = new Vector2(0f, -4f);
+                nRt.sizeDelta = new Vector2(240f, 22f);
+
+                // Status / Price badge text
+                GameObject statusObj = new GameObject("StatusTxt");
+                statusObj.transform.SetParent(card.transform, false);
+                Text statusTxt = statusObj.AddComponent<Text>();
+                if (isEquipped)
+                {
+                    statusTxt.text = AegisLocalization.T("✦ ĐANG DÙNG ✦", "✦ EQUIPPED ✦");
+                    statusTxt.color = ColAntiqueGold;
+                }
+                else if (isOwned)
+                {
+                    statusTxt.text = AegisLocalization.T("✓ ĐÃ SỞ HỮU", "✓ OWNED");
+                    statusTxt.color = ColCyanGlow;
+                }
+                else
+                {
+                    statusTxt.text = entry.price > 0 ? $"💰 {entry.price} Vàng" : AegisLocalization.T("Miễn Phí", "Free");
+                    statusTxt.color = ColGoldBorder;
+                }
+                statusTxt.font = font;
+                statusTxt.fontSize = 13;
+                statusTxt.fontStyle = FontStyle.Bold;
+                statusTxt.alignment = TextAnchor.MiddleCenter;
+                RectTransform sRt = statusObj.GetComponent<RectTransform>();
+                sRt.anchorMin = new Vector2(0.5f, 0.5f);
+                sRt.anchorMax = new Vector2(0.5f, 0.5f);
+                sRt.pivot = new Vector2(0.5f, 0.5f);
+                sRt.anchoredPosition = new Vector2(0f, -28f);
+                sRt.sizeDelta = new Vector2(240f, 18f);
+
+                // Bottom Action Button (Equip / Buy)
+                GameObject btnObj = new GameObject("ActionBtn");
+                btnObj.transform.SetParent(card.transform, false);
+                Image btnBg = btnObj.AddComponent<Image>();
+                Color btnBgCol = isEquipped 
+                    ? new Color(0.06f, 0.22f, 0.32f, 0.6f) 
+                    : (isOwned ? new Color(0.05f, 0.28f, 0.38f, 0.9f) : new Color(0.28f, 0.18f, 0.05f, 0.9f));
+                Color btnBorderCol = isEquipped ? ColCyanGlow : (isOwned ? ColCyanBorder : ColGoldBorder);
+                btnBg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(190, 36, 8f, btnBgCol, btnBorderCol, 1.4f);
+                btnBg.type = Image.Type.Sliced;
+
+                Button btn = btnObj.AddComponent<Button>();
+                btnObj.AddComponent<MenuButtonEffect>();
+                RectTransform bRt = btnObj.GetComponent<RectTransform>();
+                bRt.anchorMin = new Vector2(0.5f, 0.5f);
+                bRt.anchorMax = new Vector2(0.5f, 0.5f);
+                bRt.pivot = new Vector2(0.5f, 0.5f);
+                bRt.anchoredPosition = new Vector2(0f, -68f);
+                bRt.sizeDelta = new Vector2(190f, 36f);
+
+                GameObject btnTxtObj = new GameObject("BtnTxt");
+                btnTxtObj.transform.SetParent(btnObj.transform, false);
+                Text btnTxt = btnTxtObj.AddComponent<Text>();
+                btnTxt.text = isEquipped 
+                    ? AegisLocalization.T("ĐANG DÙNG", "IN USE")
+                    : (isOwned ? AegisLocalization.T("TRANG BỊ", "EQUIP") : AegisLocalization.T("MUA AVATAR", "BUY"));
+                btnTxt.font = font;
+                btnTxt.fontSize = 14;
+                btnTxt.fontStyle = FontStyle.Bold;
+                btnTxt.alignment = TextAnchor.MiddleCenter;
+                btnTxt.color = isEquipped ? ColCyanGlow : ColTextWhite;
+                RectTransform btRt = btnTxtObj.GetComponent<RectTransform>();
+                btRt.anchorMin = Vector2.zero;
+                btRt.anchorMax = Vector2.one;
+                btRt.offsetMin = Vector2.zero;
+                btRt.offsetMax = Vector2.zero;
+
+                btn.onClick.AddListener(() =>
+                {
+                    if (AvatarCatalog.IsEquipped(entry))
+                    {
+                        return;
+                    }
+                    else if (AvatarCatalog.IsOwned(entry))
+                    {
+                        AvatarCatalog.Equip(entry);
+                        AegisAudioManager.PlayButtonClick();
+                        UpdateUserProfileUI();
+                        ShowToast(AegisLocalization.T($"Đã trang bị avatar '{entry.Name}'!", $"Equipped avatar '{entry.Name}'!"), ToastType.Success);
+                        PopulateAvatarShopCards(parent, font);
+                    }
+                    else
+                    {
+                        int currentGold = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentGold : _currentGold;
+                        if (currentGold < entry.price)
+                        {
+                            ShowToast(AegisLocalization.T($"Không đủ vàng! Cần {entry.price} vàng (bạn có {currentGold}).", $"Not enough gold! Need {entry.price} gold (you have {currentGold})."), ToastType.Error);
+                            return;
+                        }
+
+                        bool spent = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.SpendGold(entry.price) : true;
+                        if (spent)
+                        {
+                            if (UserAccountManager.Instance == null)
+                            {
+                                _currentGold -= entry.price;
+                                AegisMech.UI.AegisPrefs.Coins = _currentGold;
+                            }
+                            if (_shopGoldTxt != null) _shopGoldTxt.text = _currentGold.ToString();
+                            AegisMech.UI.AegisPrefs.Own(entry.id);
+                            AvatarCatalog.Equip(entry);
+                            AegisAudioManager.PlayButtonClick();
+                            UpdateUserProfileUI();
+                            ShowToast(AegisLocalization.T($"Mua và trang bị thành công avatar '{entry.Name}'!", $"Successfully purchased and equipped avatar '{entry.Name}'!"), ToastType.Success);
+                            PopulateAvatarShopCards(parent, font);
+                        }
+                    }
+                });
+            }
+        }
+
+        private void CreateShopSkinCard(Transform parent, string name, string textureName, string frameSpriteName, int price, Vector2 pos, Font font, string prefsKey, string equipValue, int categoryIndex)
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
         {
             string cleanId = "item_" + System.Text.RegularExpressions.Regex.Replace(name.ToLower(), @"[^a-z0-9]", "_");
-            bool isOwned = AegisMech.UI.AegisPrefs.Owns(cleanId);
+            bool isOwned = AegisMech.UI.AegisPrefs.Owns(cleanId) || price <= 0 || (categoryIndex == 0 && equipValue == "Knight of Light") || (categoryIndex == 1 && equipValue == "Royal Antique Board") || (categoryIndex == 2 && equipValue == "Arcane Lightning");
+            string currentEquipped = PlayerPrefs.GetString(prefsKey, "");
+            bool isEquipped = (currentEquipped == equipValue || currentEquipped == name || (string.IsNullOrEmpty(currentEquipped) && price <= 0));
 
-            GameObject card = new GameObject("Skin_" + name);
+            GameObject card = new GameObject("Card_" + equipValue);
             card.transform.SetParent(parent, false);
 
             Image bg = card.AddComponent<Image>();
+<<<<<<< HEAD
             // Use authentic royal parchment card frame (filigree gold corners & rim)
             Sprite frameSp = MedievalUIAssetLoader.GetSprite("frame_parchment_tall");
             if (frameSp != null)
@@ -6070,6 +6382,11 @@ namespace MechChess.UI
                 bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(330, 480, 20f, new Color(0.18f, 0.12f, 0.05f, 0.95f), ColGoldBorder, 1.5f);
                 bg.type = Image.Type.Sliced;
             }
+=======
+            Color borderCol = isEquipped ? ColAntiqueGold : (isOwned ? ColCyanGlow : ColCyanBorder);
+            bg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(330, 480, 20f, ColGlassFill, borderCol, isEquipped ? 2.2f : 1.5f);
+            bg.type = Image.Type.Sliced;
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
 
             RectTransform rt = card.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0f, 0.5f);
@@ -6119,6 +6436,7 @@ namespace MechChess.UI
             tRt.anchoredPosition = new Vector2(0f, 134f);
             tRt.sizeDelta = new Vector2(390f, 36f);
 
+<<<<<<< HEAD
             // Button containers
             GameObject ownedBtnObj = new GameObject("BtnOwned");
             ownedBtnObj.transform.SetParent(card.transform, false);
@@ -6173,6 +6491,72 @@ namespace MechChess.UI
             bgRt.pivot = new Vector2(0.5f, 0.5f);
             bgRt.anchoredPosition = new Vector2(-96f, 50f);
             bgRt.sizeDelta = new Vector2(182f, 52f);
+=======
+            // Buy / Equip Button (Pill with Coin icon + Price)
+            GameObject buyBtnObj = new GameObject("BtnBuy");
+            buyBtnObj.transform.SetParent(card.transform, false);
+            Image bbImg = buyBtnObj.AddComponent<Image>();
+            Color btnBgCol = isEquipped 
+                ? new Color(0.12f, 0.22f, 0.16f, 0.95f) 
+                : (isOwned ? new Color(0.05f, 0.28f, 0.38f, 0.9f) : new Color(0.28f, 0.18f, 0.05f, 0.9f));
+            Color btnBorderCol = isEquipped ? ColAntiqueGold : (isOwned ? ColCyanBorder : ColGoldBorder);
+            bbImg.sprite = ArcaneAssetLoader.GetGlassBoxSprite(190, 42, 14f, btnBgCol, btnBorderCol, 1.8f);
+            bbImg.type = Image.Type.Sliced;
+
+            RectTransform bbrt = buyBtnObj.GetComponent<RectTransform>();
+            bbrt.anchorMin = new Vector2(0.5f, 0f);
+            bbrt.anchorMax = new Vector2(0.5f, 0f);
+            bbrt.pivot = new Vector2(0.5f, 0f);
+            bbrt.anchoredPosition = new Vector2(0f, 20f);
+            bbrt.sizeDelta = new Vector2(190f, 42f);
+
+            // Gold Coin Icon inside button (only visible if unowned)
+            GameObject btnCoinObj = new GameObject("CoinIcon");
+            btnCoinObj.transform.SetParent(buyBtnObj.transform, false);
+            Image btnCoinImg = btnCoinObj.AddComponent<Image>();
+            Sprite coinSprite = ArcaneAssetLoader.LoadArcaneSprite("icon_gold_coin.png");
+            if (coinSprite != null) btnCoinImg.sprite = coinSprite;
+            else btnCoinImg.color = ColGoldBorder;
+            btnCoinImg.preserveAspect = true;
+            btnCoinImg.enabled = !isOwned;
+            RectTransform bciRt = btnCoinObj.GetComponent<RectTransform>();
+            bciRt.anchorMin = new Vector2(0f, 0.5f);
+            bciRt.anchorMax = new Vector2(0f, 0.5f);
+            bciRt.pivot = new Vector2(0f, 0.5f);
+            bciRt.anchoredPosition = new Vector2(24f, 0f);
+            bciRt.sizeDelta = new Vector2(22f, 22f);
+
+            // Price / Status Text
+            GameObject priceTxtObj = new GameObject("PriceTxt");
+            priceTxtObj.transform.SetParent(buyBtnObj.transform, false);
+            Text priceComp = priceTxtObj.AddComponent<Text>();
+            if (isEquipped)
+            {
+                priceComp.text = AegisLocalization.T("✦ ĐANG DÙNG ✦", "✦ IN USE ✦");
+                priceComp.color = ColAntiqueGold;
+            }
+            else if (isOwned)
+            {
+                priceComp.text = AegisLocalization.T("TRANG BỊ", "EQUIP");
+                priceComp.color = ColCyanGlow;
+            }
+            else
+            {
+                priceComp.text = price.ToString();
+                priceComp.color = ColGoldBorder;
+            }
+            priceComp.font = font;
+            priceComp.fontSize = 17;
+            priceComp.fontStyle = FontStyle.Bold;
+            priceComp.alignment = isOwned ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft;
+            priceComp.horizontalOverflow = HorizontalWrapMode.Overflow;
+            priceComp.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform ptRt = priceTxtObj.GetComponent<RectTransform>();
+            ptRt.anchorMin = new Vector2(0f, 0f);
+            ptRt.anchorMax = new Vector2(1f, 1f);
+            ptRt.offsetMin = isOwned ? new Vector2(10f, 0f) : new Vector2(56f, 0f);
+            ptRt.offsetMax = new Vector2(-10f, 0f);
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
 
             // Note: counter_gold_capsule already features the embossed coin on the left and '+' on the right; no duplicate icon overlay
             GameObject goldTxtObj = new GameObject("GoldTxt");
@@ -6240,10 +6624,29 @@ namespace MechChess.UI
             // Buy with Gold handler
             buyGoldBtn.onClick.AddListener(() =>
             {
+<<<<<<< HEAD
                 int currentGold = (UserAccountManager.Instance != null) ? UserAccountManager.Instance.CurrentGold : AegisMech.UI.AegisPrefs.Coins;
                 if (currentGold < priceGold)
                 {
                     ShowToast(AegisLocalization.T($"Không đủ vàng! Cần {priceGold:N0} vàng (bạn có {currentGold:N0}).", $"Not enough gold! Need {priceGold:N0} gold (you have {currentGold:N0})."), ToastType.Error);
+=======
+                if (isEquipped)
+                {
+                    return;
+                }
+
+                if (isOwned)
+                {
+                    PlayerPrefs.SetString(prefsKey, equipValue);
+                    PlayerPrefs.Save();
+                    AegisAudioManager.PlayButtonClick();
+                    if (categoryIndex == 0 && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+                        MechChess.Chess3D.ChessBoard3DManager.Instance.ApplySkinTheme(equipValue);
+                    else if (categoryIndex == 1 && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+                        MechChess.Chess3D.ChessBoard3DManager.Instance.ApplyBoardTheme(equipValue);
+                    ShowToast(AegisLocalization.T($"Đã trang bị: {name}!", $"Equipped: {name}!"), ToastType.Success);
+                    PopulateShopCategory(categoryIndex);
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
                     return;
                 }
 
@@ -6252,6 +6655,7 @@ namespace MechChess.UI
                 {
                     AegisMech.UI.AegisPrefs.Coins = Mathf.Max(0, AegisMech.UI.AegisPrefs.Coins - priceGold);
                     AegisMech.UI.AegisPrefs.Own(cleanId);
+<<<<<<< HEAD
                     ownedBtnObj.SetActive(true);
                     buyGoldObj.SetActive(false);
                     buyGemObj.SetActive(false);
@@ -6280,6 +6684,18 @@ namespace MechChess.UI
                     buyGemObj.SetActive(false);
                     UpdateUserProfileUI();
                     ShowToast(AegisLocalization.T($"Mua thành công: '{name}' bằng {priceGems:N0} Kim Cương!", $"Successfully purchased: '{name}' for {priceGems:N0} Gems!"), ToastType.Success);
+=======
+                    PlayerPrefs.SetString(prefsKey, equipValue);
+                    PlayerPrefs.Save();
+                    AegisAudioManager.PlayButtonClick();
+                    if (categoryIndex == 0 && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+                        MechChess.Chess3D.ChessBoard3DManager.Instance.ApplySkinTheme(equipValue);
+                    else if (categoryIndex == 1 && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+                        MechChess.Chess3D.ChessBoard3DManager.Instance.ApplyBoardTheme(equipValue);
+                    UpdateUserProfileUI();
+                    ShowToast(AegisLocalization.T($"Mua và trang bị thành công: {name}!", $"Successfully purchased and equipped: {name}!"), ToastType.Success);
+                    PopulateShopCategory(categoryIndex);
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
                 }
             });
         }
@@ -7660,6 +8076,11 @@ namespace MechChess.UI
             PlayerPrefs.Save();
             AegisAudioManager.PlayButtonClick();
 
+            if (item.prefsKey == PrefsEquippedSkin && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+                MechChess.Chess3D.ChessBoard3DManager.Instance.ApplySkinTheme(item.nameVi);
+            else if (item.prefsKey == PrefsEquippedBoard && MechChess.Chess3D.ChessBoard3DManager.Instance != null)
+                MechChess.Chess3D.ChessBoard3DManager.Instance.ApplyBoardTheme(item.nameVi);
+
             string toastMsg = AegisLocalization.T($"Đã trang bị: {item.nameVi}!", $"Equipped: {item.nameEn}!");
             ShowToast(toastMsg, ToastType.Success);
 
@@ -8080,12 +8501,25 @@ namespace MechChess.UI
             divRt.anchoredPosition = new Vector2(0f, 68f);
             divRt.sizeDelta = new Vector2(500f, 22f);
 
+<<<<<<< HEAD
             // Stats Container (3-Stripe Layout as shown in Reference Image)
             GameObject statsContainer = new GameObject("StatsContainer");
             statsContainer.transform.SetParent(cardObj.transform, false);
             RectTransform scRt = statsContainer.AddComponent<RectTransform>();
             scRt.anchoredPosition = new Vector2(0f, -30f);
             scRt.sizeDelta = new Vector2(520f, 150f);
+=======
+            // Circular Avatar with Cyan Ring
+            GameObject avObj = new GameObject("Avatar");
+            avObj.transform.SetParent(profileBadge.transform, false);
+            Image avImg = avObj.AddComponent<Image>();
+            avImg.sprite = AvatarCatalog.GetEquippedSprite();
+            avImg.preserveAspect = true;
+            AvatarCatalog.Bind(avImg);
+            RectTransform avRt = avObj.GetComponent<RectTransform>();
+            avRt.anchoredPosition = new Vector2(-118f, 0f);
+            avRt.sizeDelta = new Vector2(40f, 40f);
+>>>>>>> 959255fbc64281a361371c8d30177903fb4a062c
 
             _resultDurationTxt = CreateStatRow(statsContainer.transform, AegisLocalization.T("Thời gian", "Duration"), "02:15", 48f, font);
             _resultMovesTxt = CreateStatRow(statsContainer.transform, AegisLocalization.T("Nước đi", "Moves"), "32", 0f, font);
@@ -8608,9 +9042,10 @@ namespace MechChess.UI
             GameObject avObj = new GameObject("AvatarImg");
             avObj.transform.SetParent(avFrame.transform, false);
             Image avImg = avObj.AddComponent<Image>();
-            Sprite avSp = ArcaneAssetLoader.LoadArcaneSprite("profile_avatar_round.png");
-            if (avSp != null) avImg.sprite = avSp;
-            else avImg.color = ColCyanBorder;
+            _profileModalAvatarImg = avImg;
+            avImg.sprite = AvatarCatalog.GetEquippedSprite();
+            avImg.preserveAspect = true;
+            AvatarCatalog.Bind(avImg);
             RectTransform avRt = avObj.GetComponent<RectTransform>();
             avRt.anchorMin = new Vector2(0.5f, 0.5f);
             avRt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -12062,6 +12497,19 @@ namespace MechChess.UI
 
             if (_profileNameTxt != null) _profileNameTxt.text = username;
             if (_profileLevelTxt != null) _profileLevelTxt.text = $"Lv. {level} • Elo {elo}";
+
+            // Live Avatar Display Update
+            Sprite equippedAvatar = AvatarCatalog.GetEquippedSprite();
+            if (_profileAvatarImg != null && equippedAvatar != null)
+            {
+                _profileAvatarImg.sprite = equippedAvatar;
+                _profileAvatarImg.color = Color.white;
+            }
+            if (_profileModalAvatarImg != null && equippedAvatar != null)
+            {
+                _profileModalAvatarImg.sprite = equippedAvatar;
+                _profileModalAvatarImg.color = Color.white;
+            }
 
             if (_profileModalNameComp != null) _profileModalNameComp.text = username;
             if (_profileModalLevelComp != null) _profileModalLevelComp.text = $"Lv. {level}";

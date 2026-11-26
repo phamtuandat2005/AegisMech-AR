@@ -39,24 +39,17 @@ namespace AegisMech.UI
         {
             new Item[]
             {
-                new Item("skin_light", "Knight of Light", "K", 1000, "#D8B450"),
-                new Item("skin_dark", "Dark Legion", "D", 1000, "#9B4DCA"),
-                new Item("skin_cyber", "Arcane Paladin", "A", 1000, "#33C8FF"),
-                new Item("skin_forest", "Forest Spirit", "F", 1000, "#3DBE6A"),
+                new Item("board_royal", "Thánh Địa Anh Đào", "🌸", 0, "#FF9FC8"),
+                new Item("board_classic", "Đấu Trường Hy Lạp", "🏛️", 800, "#C9A24B"),
+                new Item("board_magma", "Địa Ngục Dung Nham", "🔥", 1200, "#FF4500"),
+                new Item("board_crystal", "Cực Quang Pha Lê", "❄️", 1600, "#7FD6FF"),
             },
             new Item[]
             {
-                new Item("board_royal", "Hoàng Cung", "H", 800, "#C9A24B"),
-                new Item("board_ice", "Pha Lê Băng", "P", 1200, "#7FD6FF"),
-                new Item("board_neon", "Thành Trì Cổ", "T", 1500, "#B99A61"),
-                new Item("board_wood", "Rừng Cổ Thụ", "R", 900, "#6B8F3E"),
-            },
-            new Item[]
-            {
-                new Item("fx_lightning", "Tia Sét", "S", 500, "#FFE45C"),
-                new Item("fx_fire", "Lửa Thiêng", "L", 600, "#FF7A3D"),
-                new Item("fx_star", "Sao Băng", "B", 700, "#8FA8FF"),
-                new Item("fx_petal", "Cánh Hoa", "C", 400, "#FF9FC8"),
+                new Item("avatar_mech", "Cỗ Máy", "M", 500, "#33C8FF"),
+                new Item("avatar_commander", "Chỉ Huy", "C", 600, "#D8B450"),
+                new Item("avatar_guardian", "Hộ Vệ AI", "G", 800, "#9B4DCA"),
+                new Item("avatar_victory", "Hiệp Sĩ", "V", 1500, "#FFE45C"),
             },
         };
 
@@ -106,6 +99,23 @@ namespace AegisMech.UI
             var it = Items[_tab][i];
             if (AegisPrefs.Owns(it.id))
             {
+                if (_tab == 1 || it.id.StartsWith("avatar_"))
+                {
+                    for (int a = 0; a < MechChess.UI.AvatarCatalog.All.Length; a++)
+                    {
+                        if (MechChess.UI.AvatarCatalog.All[a].id == it.id)
+                        {
+                            MechChess.UI.AvatarCatalog.Equip(MechChess.UI.AvatarCatalog.All[a]);
+                            break;
+                        }
+                    }
+                }
+                else if (_tab == 0)
+                {
+                    PlayerPrefs.SetString(MechChess.UI.MainMenu2D.PrefsEquippedBoard, it.name);
+                    PlayerPrefs.Save();
+                    MechChess.Chess3D.ChessBoard3DManager.Instance?.ApplyBoardTheme(it.name);
+                }
                 AegisUIManager.Toast("Đã trang bị: " + it.name, AegisToast.Kind.Info);
                 return;
             }
@@ -123,6 +133,23 @@ namespace AegisMech.UI
         {
             AegisPrefs.Coins = AegisPrefs.Coins - it.price;
             AegisPrefs.Own(it.id);
+            if (_tab == 1 || it.id.StartsWith("avatar_"))
+            {
+                for (int a = 0; a < MechChess.UI.AvatarCatalog.All.Length; a++)
+                {
+                    if (MechChess.UI.AvatarCatalog.All[a].id == it.id)
+                    {
+                        MechChess.UI.AvatarCatalog.Equip(MechChess.UI.AvatarCatalog.All[a]);
+                        break;
+                    }
+                }
+            }
+            else if (_tab == 0)
+            {
+                PlayerPrefs.SetString(MechChess.UI.MainMenu2D.PrefsEquippedBoard, it.name);
+                PlayerPrefs.Save();
+                MechChess.Chess3D.ChessBoard3DManager.Instance?.ApplyBoardTheme(it.name);
+            }
             Bind();
             AegisUIManager.Toast("Đã mua: " + it.name, AegisToast.Kind.Success);
         }

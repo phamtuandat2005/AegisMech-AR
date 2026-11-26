@@ -53,43 +53,21 @@ namespace MechChess
                 esObj.AddComponent<InputSystemUIInputModule>();
                 Object.DontDestroyOnLoad(esObj);
             }
-            else
-            {
-                // Fix: Legacy StandaloneInputModule crashes with InvalidOperationException in Unity New Input System
-                var legacyInput = es.GetComponent<StandaloneInputModule>();
-                if (legacyInput != null)
-                {
-                    Object.DestroyImmediate(legacyInput);
-                }
-                if (es.GetComponent<InputSystemUIInputModule>() == null)
-                {
-                    es.gameObject.AddComponent<InputSystemUIInputModule>();
-                }
-            }
 
-            // 1. Find or create Core GameController
-            GameObject controller = GameObject.Find("GameController");
-            if (controller == null)
-            {
-                controller = new GameObject("GameController");
-                Object.DontDestroyOnLoad(controller);
-            }
+            // 1. Create Core GameController
+            GameObject controller = new GameObject("GameController");
+            Object.DontDestroyOnLoad(controller);
 
-#if UNITY_EDITOR
-            // Clean up any missing/broken script references on GameController
-            UnityEditor.GameObjectUtility.RemoveMonoBehavioursWithMissingScript(controller);
-#endif
-
-            // 2. Attach Central Managers if not present
-            if (controller.GetComponent<MainMenu2D>() == null) controller.AddComponent<MainMenu2D>();
-            if (controller.GetComponent<ChessBoard3DManager>() == null) controller.AddComponent<ChessBoard3DManager>();
-            if (controller.GetComponent<UIManager2D>() == null) controller.AddComponent<UIManager2D>();
-            if (controller.GetComponent<CombatMinigame2D>() == null) controller.AddComponent<CombatMinigame2D>();
-            if (controller.GetComponent<HybridARController>() == null) controller.AddComponent<HybridARController>();
-            if (controller.GetComponent<AdafruitIOCloudConnector>() == null) controller.AddComponent<AdafruitIOCloudConnector>();
-            if (controller.GetComponent<MechChess.Multiplayer.UserAccountManager>() == null) controller.AddComponent<MechChess.Multiplayer.UserAccountManager>();
-            if (controller.GetComponent<MechChess.Multiplayer.OnlineMultiplayerManager>() == null) controller.AddComponent<MechChess.Multiplayer.OnlineMultiplayerManager>();
-            if (controller.GetComponent<MechChess.Multiplayer.LichessBridge>() == null) controller.AddComponent<MechChess.Multiplayer.LichessBridge>();
+            // 2. Attach Central Managers
+            controller.AddComponent<MainMenu2D>();
+            controller.AddComponent<ChessBoard3DManager>();
+            controller.AddComponent<UIManager2D>();
+            controller.AddComponent<CombatMinigame2D>();
+            controller.AddComponent<HybridARController>();
+            controller.AddComponent<AdafruitIOCloudConnector>();
+            controller.AddComponent<MechChess.Multiplayer.UserAccountManager>();
+            controller.AddComponent<MechChess.Multiplayer.OnlineMultiplayerManager>();
+            controller.AddComponent<MechChess.Multiplayer.LichessBridge>();
 
             // 3. Configure Main Camera and attach Mobile Touch Orbit
             Camera mainCam = Camera.main;

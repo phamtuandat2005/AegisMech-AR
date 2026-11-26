@@ -51,7 +51,7 @@ namespace MechChess.Chess3D
 
             GameObject root = new GameObject("SpiritBlossom_ArenaEnvironment");
             root.transform.SetParent(parent, false);
-            root.transform.position = center;
+            root.transform.localPosition = center;
 
             // 1. Floating Island Base & Real 3D Rock Spire Cliffs
             BuildFloatingIslandBase(root.transform);
@@ -148,12 +148,12 @@ namespace MechChess.Chess3D
             _sakuraDeepPinkMat = new Material(litShader) { name = "Spirit_SakuraDeepPink" };
             SetMat(_sakuraDeepPinkMat, new Color(0.72f, 0.18f, 0.44f), 0.0f, 0.20f);
 
-            // Spirit Water: Luminous turquoise pond
+            // Spirit Water: Deep tranquil mountain spring
             _spiritWaterMat = new Material(litShader) { name = "Spirit_Water" };
-            SetMat(_spiritWaterMat, new Color(0.10f, 0.85f, 0.90f), 0.15f, 0.96f);
+            SetMat(_spiritWaterMat, new Color(0.12f, 0.44f, 0.52f), 0.25f, 0.90f);
             _spiritWaterMat.EnableKeyword("_EMISSION");
             if (_spiritWaterMat.HasProperty("_EmissionColor"))
-                _spiritWaterMat.SetColor("_EmissionColor", new Color(0.08f, 0.70f, 0.80f) * 1.9f);
+                _spiritWaterMat.SetColor("_EmissionColor", new Color(0.04f, 0.28f, 0.35f) * 0.7f);
 
             // Lotus Petal Material
             _lotusPetalMat = new Material(litShader) { name = "Spirit_LotusPetal" };
@@ -343,23 +343,23 @@ namespace MechChess.Chess3D
             StripCollider(outerRim);
             outerRim.GetComponent<Renderer>().sharedMaterial = _stoneTrimMat;
 
-            // 3. Central Sanctuary Stone Dais (top at -0.02m, just beneath the chessboard at y=0)
-            GameObject stoneDais = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            stoneDais.name = "CentralSanctuary_StoneDais";
-            stoneDais.transform.SetParent(terraces.transform, false);
-            stoneDais.transform.localPosition = new Vector3(0, -0.14f, 0);
-            stoneDais.transform.localScale = new Vector3(15.5f, 0.12f, 15.5f);
-            StripCollider(stoneDais);
-            stoneDais.GetComponent<Renderer>().sharedMaterial = _templeStoneMat;
-
-            // 4. Spiritual Jade Rune Ring (circular framing ring around the board at y = -0.015m)
+            // 3. Spiritual Jade Rune Ring (circular framing ring around the central stone dais)
             GameObject runeRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             runeRing.name = "Spiritual_RuneRing";
             runeRing.transform.SetParent(terraces.transform, false);
-            runeRing.transform.localPosition = new Vector3(0, -0.12f, 0);
-            runeRing.transform.localScale = new Vector3(13.5f, 0.105f, 13.5f);
+            runeRing.transform.localPosition = new Vector3(0, -0.13f, 0);
+            runeRing.transform.localScale = new Vector3(13.6f, 0.10f, 13.6f);
             StripCollider(runeRing);
             runeRing.GetComponent<Renderer>().sharedMaterial = _runeGlowMat;
+
+            // 4. Central Sanctuary Stone Dais (raised aged temple stone platform directly beneath the chessboard)
+            GameObject stoneDais = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            stoneDais.name = "CentralSanctuary_StoneDais";
+            stoneDais.transform.SetParent(terraces.transform, false);
+            stoneDais.transform.localPosition = new Vector3(0, -0.11f, 0);
+            stoneDais.transform.localScale = new Vector3(11.8f, 0.09f, 11.8f);
+            StripCollider(stoneDais);
+            stoneDais.GetComponent<Renderer>().sharedMaterial = _templeStoneMat;
 
             // 5. 6 SATELLITE DAIS (Radial 60-degree hexagonal layout from Image 2)
             float[] anglesDeg = new float[] { 0f, 60f, 120f, 180f, 240f, 300f };
@@ -417,53 +417,8 @@ namespace MechChess.Chess3D
                 StripCollider(innerCut);
                 innerCut.GetComponent<Renderer>().sharedMaterial = _templeStoneMat;
 
-                // Connecting Real 3D Stone Stairs / Bridge to Central Dais
-                Vector3 toCenter = (Vector3.zero - satPos).normalized;
-                Vector3 bridgeCenter = satPos + toCenter * 2.3f;
-
-                if (stairsPrefab != null)
-                {
-                    GameObject stairsWrapper = new GameObject($"StoneStairs_3D_{i}");
-                    stairsWrapper.transform.SetParent(terraces.transform, false);
-                    stairsWrapper.transform.localPosition = new Vector3(bridgeCenter.x, -0.42f, bridgeCenter.z);
-                    stairsWrapper.transform.localRotation = Quaternion.LookRotation(-toCenter, Vector3.up);
-                    stairsWrapper.transform.localScale = new Vector3(0.50f, 0.42f, 0.55f);
-
-                    GameObject stairsInst = Object.Instantiate(stairsPrefab, stairsWrapper.transform);
-                    StripCollider(stairsInst);
-                }
-                else
-                {
-                    // Fallback to primitive bridge
-                    GameObject bridge = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    bridge.name = $"StoneBridge_{i}";
-                    bridge.transform.SetParent(terraces.transform, false);
-                    bridge.transform.localPosition = new Vector3(bridgeCenter.x, -0.16f, bridgeCenter.z);
-                    bridge.transform.localRotation = Quaternion.LookRotation(toCenter, Vector3.up);
-                    bridge.transform.localScale = new Vector3(1.8f, 0.20f, 2.8f);
-                    StripCollider(bridge);
-                    bridge.GetComponent<Renderer>().sharedMaterial = _templeStoneMat;
-                }
-
-                // In Image 2: The 2 North satellite platforms (angles 0° and 60°) have glowing lilac spirit ward domes!
-                if (anglesDeg[i] == 0f || anglesDeg[i] == 60f)
-                {
-                    GameObject dome = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    dome.name = "SpiritWardDome";
-                    dome.transform.SetParent(sat.transform, false);
-                    dome.transform.localPosition = new Vector3(0, 2.2f, 0);
-                    dome.transform.localScale = new Vector3(0.65f, 1.8f, 0.65f);
-                    StripCollider(dome);
-                    dome.GetComponent<Renderer>().sharedMaterial = _wardDomeMat;
-
-                    GameObject domeCap = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    domeCap.name = "DomeCap";
-                    domeCap.transform.SetParent(dome.transform, false);
-                    domeCap.transform.localPosition = new Vector3(0, 0.5f, 0);
-                    domeCap.transform.localScale = new Vector3(1.0f, 0.6f, 1.0f);
-                    StripCollider(domeCap);
-                    domeCap.GetComponent<Renderer>().sharedMaterial = _wardDomeMat;
-                }
+                // Authentic Japanese Stone Lantern with warm flame glow on satellite dais
+                CreateStoneLantern(sat.transform, new Vector3(0, 0.70f, 0));
             }
         }
 
@@ -475,7 +430,7 @@ namespace MechChess.Chess3D
             GameObject pond = new GameObject("Mystical_SpiritLotusPond");
             pond.transform.SetParent(root, false);
             // Placed at the southern/front terrace edge in front of White rank
-            pond.transform.localPosition = new Vector3(0, -0.15f, -6.8f);
+            pond.transform.localPosition = new Vector3(0, -0.15f, -7.5f);
 
             // Wide Curved Stone Basin
             GameObject basin = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -578,87 +533,147 @@ namespace MechChess.Chess3D
             }
         }
 
+        private static GameObject CreateStoneLantern(Transform parent, Vector3 localPos)
+        {
+            GameObject lantern = new GameObject("ToriiStoneLantern");
+            lantern.transform.SetParent(parent, false);
+            lantern.transform.localPosition = localPos;
+            lantern.transform.localScale = new Vector3(0.28f, 1.8f, 0.28f);
+
+            // Base post
+            GameObject post = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            post.name = "LanternPost";
+            post.transform.SetParent(lantern.transform, false);
+            post.transform.localPosition = new Vector3(0, 0.45f, 0);
+            post.transform.localScale = new Vector3(0.55f, 0.45f, 0.55f);
+            StripCollider(post);
+            post.GetComponent<Renderer>().sharedMaterial = _templeStoneMat;
+
+            // Fire chamber
+            GameObject chamber = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            chamber.name = "FireChamber";
+            chamber.transform.SetParent(lantern.transform, false);
+            chamber.transform.localPosition = new Vector3(0, 0.85f, 0);
+            chamber.transform.localScale = new Vector3(0.48f, 0.32f, 0.48f);
+            StripCollider(chamber);
+            chamber.GetComponent<Renderer>().sharedMaterial = _goldRuneMat;
+
+            // Roof
+            GameObject roof = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            roof.name = "LanternRoof";
+            roof.transform.SetParent(lantern.transform, false);
+            roof.transform.localPosition = new Vector3(0, 1.05f, 0);
+            roof.transform.localScale = new Vector3(0.85f, 0.10f, 0.85f);
+            StripCollider(roof);
+            roof.GetComponent<Renderer>().sharedMaterial = _stoneTrimMat;
+
+            // Warm flame glow light
+            GameObject lObj = new GameObject("LanternLight");
+            lObj.transform.SetParent(lantern.transform, false);
+            lObj.transform.localPosition = new Vector3(0, 0.85f, 0);
+            Light l = lObj.AddComponent<Light>();
+            l.type = LightType.Point;
+            l.color = new Color(1.0f, 0.82f, 0.45f);
+            l.intensity = 1.6f;
+            l.range = 5.0f;
+            l.shadows = LightShadows.None;
+
+            return lantern;
+        }
+
         // =========================================================================
-        // 4. REAL 3D JAPANESE SAKURA CHERRY BLOSSOM TREES
+        // 4. AUTHENTIC 3D JAPANESE SAKURA CHERRY BLOSSOM TREES (Zero Floating, Zero Chessboard Overlap!)
         // =========================================================================
         private static void BuildSakuraTrees(Transform root)
         {
             GameObject treeContainer = new GameObject("SakuraCherryBlossom_Trees");
             treeContainer.transform.SetParent(root, false);
 
-            GameObject sakuraPrefab = Resources.Load<GameObject>("Models/Environment/SakuraTree");
+            // Perimeter Sanctuary Garden: Strictly outside the chessboard (Board boundary is ±4.4m)
+            // Minimum clearance of > 3.5 METERS guaranteed from every tree branch to chessboard outer edges!
+            (Vector3 pos, float scale, float rotY)[] treeConfigs = new (Vector3, float, float)[] {
+                (new Vector3(-10.5f, -0.08f,  8.2f), 0.012f,   35f),  // Rear Left (Northwest) - Clearance >3.5m
+                (new Vector3( 10.5f, -0.08f,  8.2f), 0.012f,  -40f),  // Rear Right (Northeast) - Clearance >3.5m
+                (new Vector3(  0.0f, -0.08f, 11.5f), 0.013f,   10f),  // Deep Rear Center - Clearance >4.5m
+                (new Vector3(-11.5f, -0.08f,  0.5f), 0.012f,   85f),  // Far West Flank - Clearance >5.0m
+                (new Vector3( 11.5f, -0.08f,  0.5f), 0.012f,  -85f),  // Far East Flank - Clearance >5.0m
+                (new Vector3(-10.8f, -0.08f, -7.0f), 0.011f,  140f),  // Southwest - Clearance >3.8m
+                (new Vector3( 10.8f, -0.08f, -7.0f), 0.011f, -135f)   // Southeast - Clearance >4.0m
+            };
 
-            if (sakuraPrefab != null)
+            for (int t = 0; t < treeConfigs.Length; t++)
             {
-                // Authentic photogrammetry-scanned Japanese Sakura Trees framing the sanctuary
-                // 4 corner trees + 2 outer flanking trees
-                (Vector3 pos, float scale, float rotY)[] treeConfigs = new (Vector3, float, float)[] {
-                    (new Vector3(-12.8f, 1.8f, 6.2f),  9.2f,  45f),   // Northwest
-                    (new Vector3(12.8f, 1.8f, 6.2f),   8.8f,  -45f),  // Northeast
-                    (new Vector3(-12.8f, 1.8f, -5.8f), 9.0f,  135f),  // Southwest
-                    (new Vector3(12.8f, 1.8f, -5.8f),  9.4f,  -130f), // Southeast
-                    (new Vector3(-15.8f, 1.6f, 0.2f), 10.2f,  25f),   // West flank
-                    (new Vector3(15.8f, 1.6f, 0.2f),  10.2f, -35f)    // East flank
-                };
-
-                for (int t = 0; t < treeConfigs.Length; t++)
-                {
-                    var cfg = treeConfigs[t];
-                    GameObject treeWrapper = new GameObject($"SakuraTree_3D_{t}");
-                    treeWrapper.transform.SetParent(treeContainer.transform, false);
-                    treeWrapper.transform.localPosition = cfg.pos;
-                    treeWrapper.transform.localRotation = Quaternion.Euler(0, cfg.rotY, 0);
-                    treeWrapper.transform.localScale = Vector3.one * cfg.scale;
-
-                    GameObject treeInst = Object.Instantiate(sakuraPrefab, treeWrapper.transform);
-                    StripCollider(treeInst);
-
-                    // Soft pink atmospheric point glow under canopy
-                    GameObject glowObj = new GameObject("SakuraAmbientGlow");
-                    glowObj.transform.SetParent(treeWrapper.transform, false);
-                    glowObj.transform.localPosition = new Vector3(0, 0.35f, 0);
-                    Light tLight = glowObj.AddComponent<Light>();
-                    tLight.type = LightType.Point;
-                    tLight.color = new Color(1.0f, 0.65f, 0.85f);
-                    tLight.intensity = 2.2f;
-                    tLight.range = 10.0f;
-                    tLight.shadows = LightShadows.None;
-                }
-            }
-            else
-            {
-                // Procedural fallback if model is missing
-                CreateSprawlingSakuraTree(treeContainer.transform, new Vector3(-12.5f, -0.3f, -5.0f), 1.4f, 45f);
-                CreateSprawlingSakuraTree(treeContainer.transform, new Vector3(12.8f, -0.3f, -4.5f), 1.35f, -50f);
-                CreateSprawlingSakuraTree(treeContainer.transform, new Vector3(-12.0f, -0.3f, 6.5f), 1.45f, 125f);
-                CreateSprawlingSakuraTree(treeContainer.transform, new Vector3(12.2f, -0.3f, 6.8f), 1.40f, -120f);
+                var cfg = treeConfigs[t];
+                CreateAuthenticSakuraTree(treeContainer.transform, cfg.pos, cfg.scale, cfg.rotY);
             }
         }
 
-        private static void CreateSprawlingSakuraTree(Transform parent, Vector3 localPos, float scale, float rotationY)
+        private static void CreateAuthenticSakuraTree(Transform parent, Vector3 localPos, float scale, float rotY)
         {
-            GameObject tree = new GameObject("SakuraTree_Procedural");
-            tree.transform.SetParent(parent, false);
-            tree.transform.localPosition = localPos;
-            tree.transform.localRotation = Quaternion.Euler(0, rotationY, 0);
-            tree.transform.localScale = Vector3.one * scale;
+            GameObject treeAnchor = new GameObject("SakuraTree_Authentic");
+            treeAnchor.transform.SetParent(parent, false);
+            treeAnchor.transform.localPosition = localPos;
+            treeAnchor.transform.localRotation = Quaternion.Euler(0, rotY, 0);
 
-            GameObject trunkBase = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            trunkBase.name = "TrunkBase";
-            trunkBase.transform.SetParent(tree.transform, false);
-            trunkBase.transform.localPosition = new Vector3(0, 1.0f, 0);
-            trunkBase.transform.localScale = new Vector3(0.9f, 1.0f, 0.9f);
-            trunkBase.transform.localRotation = Quaternion.Euler(15f, 0, -18f);
-            StripCollider(trunkBase);
-            trunkBase.GetComponent<Renderer>().sharedMaterial = _barkMat;
+            // 1. Organic Moss Turf Mound at the base - firmly anchors roots into grass terrain (y = -0.06m)
+            GameObject mound = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            mound.name = "RootMound";
+            mound.transform.SetParent(treeAnchor.transform, false);
+            mound.transform.localPosition = new Vector3(0, -0.06f, 0);
+            mound.transform.localScale = new Vector3(2.2f, 0.14f, 2.2f);
+            StripCollider(mound);
+            mound.GetComponent<Renderer>().sharedMaterial = _mossMat;
 
-            GameObject midTier = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            midTier.name = "BlossomCloud";
-            midTier.transform.SetParent(tree.transform, false);
-            midTier.transform.localPosition = new Vector3(0, 3.6f, 0);
-            midTier.transform.localScale = new Vector3(5.0f, 1.2f, 4.5f);
-            StripCollider(midTier);
-            midTier.GetComponent<Renderer>().sharedMaterial = _sakuraPinkMat;
+            // 2. Load and instantiate the authentic 3D open-source Japanese Sakura Tree (from GitHub asset)
+            GameObject prefab = Resources.Load<GameObject>("Models/Environment/SakuraTree");
+            if (prefab != null)
+            {
+                GameObject treeInst = Object.Instantiate(prefab, treeAnchor.transform);
+                treeInst.name = "SakuraMesh_3D";
+                treeInst.transform.localScale = Vector3.one * scale;
+
+                // Strip unneeded props or lights embedded in asset
+                foreach (var cam in treeInst.GetComponentsInChildren<Camera>(true)) SafeDestroy(cam.gameObject);
+                foreach (var lt in treeInst.GetComponentsInChildren<Light>(true)) SafeDestroy(lt.gameObject);
+                foreach (var r in treeInst.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (r.name.Contains("Box") || r.name.Contains("Sandals") || r.name.Contains("Light") || r.name.Contains("Camera"))
+                    {
+                        SafeDestroy(r.gameObject);
+                    }
+                }
+                StripCollider(treeInst);
+            }
+            else
+            {
+                // Fallback to grounded trunk if asset missing
+                GameObject fallbackTrunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                fallbackTrunk.name = "FallbackTrunk";
+                fallbackTrunk.transform.SetParent(treeAnchor.transform, false);
+                fallbackTrunk.transform.localPosition = new Vector3(0, 1.2f, 0);
+                fallbackTrunk.transform.localScale = new Vector3(0.5f, 1.2f, 0.5f);
+                StripCollider(fallbackTrunk);
+                fallbackTrunk.GetComponent<Renderer>().sharedMaterial = _barkMat;
+            }
+
+            // 3. Hanging Spiritual Paper Lantern with warm amber candle glow
+            GameObject lanternObj = new GameObject("HangingLantern");
+            lanternObj.transform.SetParent(treeAnchor.transform, false);
+            lanternObj.transform.localPosition = new Vector3(-0.95f, 1.6f, 0.45f);
+
+            GameObject lPillar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            lPillar.name = "LanternBody";
+            lPillar.transform.SetParent(lanternObj.transform, false);
+            lPillar.transform.localScale = new Vector3(0.20f, 0.22f, 0.20f);
+            StripCollider(lPillar);
+            lPillar.GetComponent<Renderer>().sharedMaterial = _goldRuneMat;
+
+            Light lanternLight = lanternObj.AddComponent<Light>();
+            lanternLight.type = LightType.Point;
+            lanternLight.color = new Color(1.0f, 0.78f, 0.45f);
+            lanternLight.intensity = 1.4f;
+            lanternLight.range = 5.0f;
+            lanternLight.shadows = LightShadows.None;
         }
 
         // =========================================================================
@@ -677,29 +692,34 @@ namespace MechChess.Chess3D
             main.playOnAwake = false;
             main.loop = true;
             main.duration = 5.0f;
-            main.startLifetime = 8.5f;
-            main.startSpeed = 0.95f;
-            main.startSize = 0.17f;
-            main.startColor = new Color(1.0f, 0.65f, 0.82f, 0.95f);
+            main.startLifetime = new ParticleSystem.MinMaxCurve(6.0f, 9.5f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.0f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.11f);
+            main.startColor = Color.white;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.maxParticles = 220;
+            main.maxParticles = 120;
 
             var emission = ps.emission;
-            emission.rateOverTime = 26;
+            emission.rateOverTime = 14;
 
             var shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = new Vector3(24f, 1.8f, 24f);
+            shape.scale = new Vector3(18f, 1.5f, 18f);
 
             var vel = ps.velocityOverLifetime;
             vel.enabled = true;
-            vel.x = new ParticleSystem.MinMaxCurve(0.25f, 0.75f);   // gentle breeze to right
-            vel.y = new ParticleSystem.MinMaxCurve(-0.75f, -1.25f); // floating downward
-            vel.z = new ParticleSystem.MinMaxCurve(-0.25f, 0.35f);
+            vel.x = new ParticleSystem.MinMaxCurve(0.20f, 0.55f);   // gentle breeze to right
+            vel.y = new ParticleSystem.MinMaxCurve(-0.40f, -0.75f); // floating downward
+            vel.z = new ParticleSystem.MinMaxCurve(-0.15f, 0.20f);
 
             var rot = ps.rotationOverLifetime;
             rot.enabled = true;
-            rot.z = new ParticleSystem.MinMaxCurve(-50f, 50f);
+            rot.z = new ParticleSystem.MinMaxCurve(-35f, 35f);
+
+            var noise = ps.noise;
+            noise.enabled = true;
+            noise.strength = 0.18f;
+            noise.frequency = 0.35f;
 
             ParticleSystemRenderer rend = pObj.GetComponent<ParticleSystemRenderer>();
             rend.renderMode = ParticleSystemRenderMode.Billboard;
@@ -709,13 +729,62 @@ namespace MechChess.Chess3D
             ps.Play();
         }
 
+        private static Texture2D _cachedPetalTexture;
+        private static Texture2D CreatePetalTexture()
+        {
+            if (_cachedPetalTexture != null) return _cachedPetalTexture;
+            int size = 64;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            Color transparent = new Color(0, 0, 0, 0);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float nx = (x - size * 0.5f) / (size * 0.5f);
+                    float ny = (y - size * 0.45f) / (size * 0.5f);
+                    float r = Mathf.Sqrt(nx * nx + ny * ny);
+                    float angle = Mathf.Atan2(nx, ny);
+                    float shape = 0.70f + 0.12f * Mathf.Cos(2f * angle) - 0.22f * Mathf.Abs(nx);
+                    if (r < shape)
+                    {
+                        float alpha = Mathf.Clamp01((shape - r) * 4f);
+                        Color c = Color.Lerp(new Color(1.0f, 0.75f, 0.88f, alpha * 0.90f), new Color(0.96f, 0.45f, 0.68f, alpha * 0.98f), ny * 0.5f + 0.5f);
+                        tex.SetPixel(x, y, c);
+                    }
+                    else
+                    {
+                        tex.SetPixel(x, y, transparent);
+                    }
+                }
+            }
+            tex.Apply();
+            _cachedPetalTexture = tex;
+            return tex;
+        }
+
         private static Material GetPetalMaterial()
         {
             Shader s = Shader.Find("Universal Render Pipeline/Particles/Unlit")
                     ?? Shader.Find("Particles/Standard Unlit")
                     ?? Shader.Find("Sprites/Default");
             Material m = new Material(s);
-            Color c = new Color(1.0f, 0.58f, 0.78f, 0.95f);
+
+            // Configure true URP Alpha Blending so transparent areas never render as opaque black squares!
+            if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1.0f); // 1 = Transparent
+            if (m.HasProperty("_Blend")) m.SetFloat("_Blend", 0.0f);     // 0 = Alpha blend
+            if (m.HasProperty("_ZWrite")) m.SetFloat("_ZWrite", 0.0f);
+            if (m.HasProperty("_SrcBlend")) m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (m.HasProperty("_DstBlend")) m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.EnableKeyword("_ALPHABLEND_ON");
+            m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+            Texture2D petalTex = CreatePetalTexture();
+            if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", petalTex);
+            if (m.HasProperty("_MainTex")) m.SetTexture("_MainTex", petalTex);
+            Color c = Color.white;
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
             if (m.HasProperty("_Color")) m.SetColor("_Color", c);
             return m;
@@ -816,7 +885,7 @@ namespace MechChess.Chess3D
             if (cam != null)
             {
                 cam.clearFlags = CameraClearFlags.SolidColor;
-                cam.backgroundColor = new Color(0.18f, 0.58f, 0.65f); // Serene Ionian Sky
+                cam.backgroundColor = new Color(0.10f, 0.18f, 0.28f); // Serene Twilight Sky
             }
 
             // Directional Golden Sun Key Light

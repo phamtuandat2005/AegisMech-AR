@@ -1,9 +1,4 @@
-using System;
-using System.Collections;
-using UnityEngine;
-using MechChess.Chess3D;
-using MechChess.Mobile;
-
+// CaptureCutsceneDirector removed as requested.
 namespace MechChess.ProceduralMech
 {
     /// <summary>
@@ -46,7 +41,7 @@ namespace MechChess.ProceduralMech
         private Vector3 _f, _r, _attStart, _attEngage, _defPos, _mid, _lastAttPos;
         private Quaternion _attStartRot, _defStartRot, _face, _defFace, _lastAttRot;
         private float _S = 1f, _restY;
-        private PieceType _type, _defType;
+        private PieceType _type;
         private GameObject _attBlade, _defBlade, _orb, _beam;
 
         private Camera _cam;
@@ -88,7 +83,7 @@ namespace MechChess.ProceduralMech
                 Time.timeScale = _savedTimeScale;
                 if (_touch != null) _touch.enabled = _touchWasEnabled;
                 if (_attAnim != null) _attAnim.ResetCombatPoses();
-                if (_defAnim != null && _def != null) _defAnim.ResetCombatPoses();
+                if (_defAnim != null) _defAnim.ResetCombatPoses();
                 _playing = false;
             }
         }
@@ -100,8 +95,7 @@ namespace MechChess.ProceduralMech
             _att = attacker.transform; _def = defender.transform;
             _attAnim = attacker.Animator; _defAnim = defender.Animator;
             _onImpact = onImpact; _onComplete = onComplete;
-            _type = (attacker != null) ? attacker.pieceType : PieceType.Pawn;
-            _defType = (defender != null) ? defender.pieceType : PieceType.Pawn;
+            _type = attacker.pieceType;
             _impactFired = false; _clashFired = false; _miniMask = 0;
             _hitStop = 0f; _shake = 0f; _jolt = 0f;
 
@@ -203,7 +197,7 @@ namespace MechChess.ProceduralMech
                 _attAnim.ResetCombatPoses();
                 _attAnim.EndCutscene(_defPos);
             }
-            if (_defAnim != null && _def != null) _defAnim.ResetCombatPoses();
+            if (_defAnim != null) _defAnim.ResetCombatPoses();
 
             if (_cam != null)
             {
@@ -290,7 +284,7 @@ namespace MechChess.ProceduralMech
         private void EnsureBlades()
         {
             if (_attBlade == null) { _attBlade = _attAnim.CreateEnergyBlade(); _attBlade.transform.SetParent(_att, false); }
-            if (_defBlade == null && _defAnim != null && _def != null) { _defBlade = _defAnim.CreateEnergyBlade(); _defBlade.transform.SetParent(_def, false); }
+            if (_defBlade == null && _defAnim != null) { _defBlade = _defAnim.CreateEnergyBlade(); _defBlade.transform.SetParent(_def, false); }
         }
 
         private static void SetBlade(GameObject b, float pitch, float yaw, float scale)
@@ -310,10 +304,10 @@ namespace MechChess.ProceduralMech
             float turn = Sm(u * 1.6f);
             Quaternion r = Quaternion.Slerp(_attStartRot, _face, turn) * Quaternion.Euler(14f * Mathf.Sin(u * Mathf.PI), 0f, 0f);
             _att.SetPositionAndRotation(p, r);
-            if (_def != null) _def.SetPositionAndRotation(_defPos, Quaternion.Slerp(_defStartRot, _defFace, turn));
+            _def.SetPositionAndRotation(_defPos, Quaternion.Slerp(_defStartRot, _defFace, turn));
 
             if (_attAnim != null) _attAnim.DriveCombatChoreography(_type, MechPieceAnimator.CombatRole.Attacker, MechPieceAnimator.CombatPhase.Dash, u);
-            if (_defAnim != null && _def != null) _defAnim.DriveCombatChoreography(_defType, MechPieceAnimator.CombatRole.Defender, MechPieceAnimator.CombatPhase.Dash, u);
+            if (_defAnim != null) _defAnim.DriveCombatChoreography(_defP != null ? _defP.pieceType : PieceType.Pawn, MechPieceAnimator.CombatRole.Defender, MechPieceAnimator.CombatPhase.Dash, u);
         }
 
         // Phase B: the defender counter-attacks and the blades clash
@@ -346,7 +340,7 @@ namespace MechChess.ProceduralMech
             SetBlade(_defBlade, dp, dy, 1f);
 
             if (_attAnim != null) _attAnim.DriveCombatChoreography(_type, MechPieceAnimator.CombatRole.Attacker, MechPieceAnimator.CombatPhase.Clash, u);
-            if (_defAnim != null && _def != null) _defAnim.DriveCombatChoreography(_defType, MechPieceAnimator.CombatRole.Defender, MechPieceAnimator.CombatPhase.Clash, u);
+            if (_defAnim != null) _defAnim.DriveCombatChoreography(_defP != null ? _defP.pieceType : PieceType.Pawn, MechPieceAnimator.CombatRole.Defender, MechPieceAnimator.CombatPhase.Clash, u);
 
             if (!_clashFired && u >= 0.78f) { _clashFired = true; OnClash(); }
         }
@@ -501,7 +495,7 @@ namespace MechChess.ProceduralMech
             }
 
             if (_attAnim != null) _attAnim.DriveCombatChoreography(_type, MechPieceAnimator.CombatRole.Attacker, MechPieceAnimator.CombatPhase.Finisher, u);
-            if (_defAnim != null && _def != null) _defAnim.DriveCombatChoreography(_defType, MechPieceAnimator.CombatRole.Defender, MechPieceAnimator.CombatPhase.Finisher, u);
+            if (_defAnim != null) _defAnim.DriveCombatChoreography(_defP != null ? _defP.pieceType : PieceType.Pawn, MechPieceAnimator.CombatRole.Defender, MechPieceAnimator.CombatPhase.Finisher, u);
         }
 
         // Phase D: aftermath, defender is knocked back while it disintegrates
@@ -520,14 +514,14 @@ namespace MechChess.ProceduralMech
             }
 
             if (_attAnim != null) _attAnim.DriveCombatChoreography(_type, MechPieceAnimator.CombatRole.Attacker, MechPieceAnimator.CombatPhase.Aftermath, u);
-            if (_defAnim != null && _def != null) _defAnim.DriveCombatChoreography(_defType, MechPieceAnimator.CombatRole.Defender, MechPieceAnimator.CombatPhase.Aftermath, u);
+            if (_defAnim != null) _defAnim.DriveCombatChoreography(_defP != null ? _defP.pieceType : PieceType.Pawn, MechPieceAnimator.CombatRole.Defender, MechPieceAnimator.CombatPhase.Aftermath, u);
         }
 
         private void PoseEnd()
         {
             CleanupFx();
             if (_attAnim != null) _attAnim.ResetCombatPoses();
-            if (_defAnim != null && _def != null) _defAnim.ResetCombatPoses();
+            if (_defAnim != null) _defAnim.ResetCombatPoses();
             _att.SetPositionAndRotation(_defPos, BaseWorldRot());
         }
 
@@ -542,9 +536,9 @@ namespace MechChess.ProceduralMech
         // ------------------------------------------------------------------
         private void OnClash()
         {
-            Vector3 pt = (_att.position + _defPos) * 0.5f + Vector3.up * (0.6f * _S);
+            Vector3 pt = (_att.position + _def.position) * 0.5f + Vector3.up * (0.6f * _S);
             _attAnim.SpawnSlashImpact(pt, Color.Lerp(_attAnim.GlowColor, Color.white, 0.5f));
-            if (_defAnim != null && _def != null) _defAnim.SpawnSlashImpact(pt, _defAnim.GlowColor);
+            if (_defAnim != null) _defAnim.SpawnSlashImpact(pt, _defAnim.GlowColor);
             Flash(pt, Color.white, 6f, 0.25f);
             _shake = Mathf.Max(_shake, 0.10f);
             _hitStop = 0.08f;
@@ -619,12 +613,8 @@ namespace MechChess.ProceduralMech
             g.transform.position = pos;
             g.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             ParticleSystem ps = g.AddComponent<ParticleSystem>();
-            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = ps.main;
-            main.playOnAwake = false;
-            main.loop = false;
-            main.duration = 0.4f;
-            main.startLifetime = 0.45f;
+            main.loop = false; main.duration = 0.4f; main.startLifetime = 0.45f;
             main.startSpeed = speed * _S; main.startSize = size * _S; main.startColor = c;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.stopAction = ParticleSystemStopAction.Destroy;

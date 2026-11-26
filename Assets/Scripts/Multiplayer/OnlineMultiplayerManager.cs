@@ -56,6 +56,9 @@ namespace MechChess.Multiplayer
         // Presence & Heartbeat extensions
         public double server_time;
         public string status;
+
+        // Emote & Reaction extensions
+        public string emote;
     }
 
     /// <summary>
@@ -834,6 +837,16 @@ namespace MechChess.Multiplayer
                             }
                             break;
 
+                        case "emote":
+                        case "opponent_emote":
+                        case "chat_emote":
+                            string emotePayload = !string.IsNullOrEmpty(packet.emote) ? packet.emote : packet.message;
+                            if (InGameEmoteManager.Instance != null && !string.IsNullOrEmpty(emotePayload))
+                            {
+                                InGameEmoteManager.Instance.ShowRemoteEmote(emotePayload, isOpponent: true);
+                            }
+                            break;
+
                         case "error":
                             if (UIManager2D.Instance != null)
                             {
@@ -872,6 +885,14 @@ namespace MechChess.Multiplayer
             if (!IsGameConnected || !IsOnlineMatch) return;
 
             string payload = $"{{\"type\":\"move\",\"from\":\"{fromSquare}\",\"to\":\"{toSquare}\",\"notation\":\"{moveNotation}\"}}";
+            await SendRawGameJson(payload);
+        }
+
+        public async void SendEmote(string emoteId)
+        {
+            if (!IsGameConnected || !IsOnlineMatch) return;
+            string safeName = !string.IsNullOrEmpty(playerName) ? playerName : "Player";
+            string payload = $"{{\"type\":\"emote\",\"message\":\"{emoteId}\",\"emote\":\"{emoteId}\",\"name\":\"{safeName}\"}}";
             await SendRawGameJson(payload);
         }
 

@@ -845,7 +845,139 @@ namespace MechChess.ProceduralMech
                 }
             }
 
+            // Auto-rig humanoids & pieces with modular arm/leg bones for dynamic locomotion
+            AutoRigPieceModel(modelInstance, type, color);
+
             return true;
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<string, Mesh> _riggedMeshCache = new System.Collections.Generic.Dictionary<string, Mesh>();
+
+        private static void AutoRigPieceModel(GameObject modelInstance, PieceType type, PieceColor color)
+        {
+            // If the model is already rigged by the user in Blender/Mixamo with bones or an Animator, preserve user rig!
+            if (modelInstance.GetComponentInChildren<SkinnedMeshRenderer>() != null ||
+                modelInstance.GetComponentInChildren<Animator>() != null)
+            {
+                return;
+            }
+
+            var mf = modelInstance.GetComponentInChildren<MeshFilter>();
+            var mr = modelInstance.GetComponentInChildren<MeshRenderer>();
+            if (mf == null || mr == null || mf.sharedMesh == null) return;
+
+            // Dense meshes (hundreds of thousands to ~1M vertices) must not be converted to a SkinnedMeshRenderer:
+            // Unity's GPU (compute) skinning would exceed the D3D12 dispatch limit of 65535 thread groups and spam
+            // "Thread group count is above the maximum allowed limit". No script animates these auto-rig bones,
+            // so such meshes stay as static MeshRenderers.
+            const int MaxAutoRigVertices = 60000;
+            if (mf.sharedMesh.vertexCount > MaxAutoRigVertices) return;
+
+            string cacheKey = $"{type}_{color}_{mf.sharedMesh.name}";
+            Mesh sharedRiggedMesh;
+            bool isCached = _riggedMeshCache.TryGetValue(cacheKey, out sharedRiggedMesh) && sharedRiggedMesh != null;
+
+            Bounds b = mf.sharedMesh.bounds;
+            Vector3 center = b.center;
+            Vector3 ext = b.extents;
+
+            // Create bone hierarchy under modelInstance
+            GameObject rootBone = new GameObject("RootBone");
+            rootBone.transform.SetParent(modelInstance.transform, false);
+            rootBone.transform.localPosition = center;
+
+            GameObject pelvis = new GameObject("Pelvis");
+            pelvis.transform.SetParent(rootBone.transform, false);
+            pelvis.transform.localPosition = Vector3.zero;
+
+            // Dimensions for hips and shoulders based on bounding box
+            float hipY = center.y - ext.y * 0.12f;
+            float legX = Mathf.Max(0.12f, ext.x * 0.35f);
+
+            GameObject thighL = new GameObject("Thigh_L");
+            thighL.transform.SetParent(pelvis.transform, false);
+            thighL.transform.localPosition = new Vector3(-legX, hipY - center.y, 0);
+
+            GameObject thighR = new GameObject("Thigh_R");
+            thighR.transform.SetParent(pelvis.transform, false);
+            thighR.transform.localPosition = new Vector3(legX, hipY - center.y, 0);
+
+            float shoulderY = center.y + ext.y * 0.42f;
+            float armX = Mathf.Max(0.18f, ext.x * 0.45f);
+
+            GameObject armL = new GameObject("UpperArm_L");
+            armL.transform.SetParent(pelvis.transform, false);
+            armL.transform.localPosition = new Vector3(-armX, shoulderY - center.y, 0);
+
+            GameObject armR = new GameObject("UpperArm_R");
+            armR.transform.SetParent(pelvis.transform, false);
+            armR.transform.localPosition = new Vector3(armX, shoulderY - center.y, 0);
+
+            GameObject head = new GameObject("Head");
+            head.transform.SetParent(pelvis.transform, false);
+            head.transform.localPosition = new Vector3(0, ext.y * 0.72f, 0);
+
+            Transform[] bones = new Transform[] {
+                pelvis.transform,
+                thighL.transform,
+                thighR.transform,
+                armL.transform,
+                armR.transform,
+                head.transform
+            };
+
+            if (!isCached)
+            {
+                sharedRiggedMesh = UnityEngine.Object.Instantiate(mf.sharedMesh);
+                sharedRiggedMesh.name = $"{mf.sharedMesh.name}_Rigged";
+
+                Matrix4x4[] bindPoses = new Matrix4x4[bones.Length];
+                for (int i = 0; i < bones.Length; i++)
+                {
+                    bindPoses[i] = bones[i].worldToLocalMatrix * modelInstance.transform.localToWorldMatrix;
+                }
+                sharedRiggedMesh.bindposes = bindPoses;
+
+                Vector3[] verts = sharedRiggedMesh.vertices;
+                BoneWeight[] weights = new BoneWeight[verts.Length];
+                float armThreshold = ext.x * 0.30f;
+
+                for (int i = 0; i < verts.Length; i++)
+                {
+                    Vector3 v = verts[i];
+                    int bIdx;
+                    if (v.y < hipY)
+                    {
+                        bIdx = (v.x < 0) ? 1 : 2; // Thigh_L : Thigh_R
+                    }
+                    else if (v.y > center.y)
+                    {
+                        if (v.x < -armThreshold) bIdx = 3; // UpperArm_L
+                        else if (v.x > armThreshold) bIdx = 4; // UpperArm_R
+                        else if (v.y > shoulderY) bIdx = 5; // Head
+                        else bIdx = 0; // Pelvis / Torso
+                    }
+                    else
+                    {
+                        bIdx = 0; // Pelvis / Torso
+                    }
+                    weights[i].boneIndex0 = bIdx;
+                    weights[i].weight0 = 1.0f;
+                }
+                sharedRiggedMesh.boneWeights = weights;
+                _riggedMeshCache[cacheKey] = sharedRiggedMesh;
+            }
+
+            Material[] mats = mr.sharedMaterials;
+            UnityEngine.Object.DestroyImmediate(mr);
+            UnityEngine.Object.DestroyImmediate(mf);
+
+            var smr = modelInstance.AddComponent<SkinnedMeshRenderer>();
+            smr.sharedMesh = sharedRiggedMesh;
+            smr.bones = bones;
+            smr.rootBone = rootBone.transform;
+            smr.sharedMaterials = mats;
+            smr.updateWhenOffscreen = false;
         }
 
         // =========================================================================
