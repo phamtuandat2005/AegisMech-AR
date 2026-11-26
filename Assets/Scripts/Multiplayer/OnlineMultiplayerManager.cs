@@ -314,25 +314,35 @@ namespace MechChess.Multiplayer
         {
             _manualDisconnect = true;
 
-            if (_lobbyCts != null)
-            {
-                _lobbyCts.Cancel();
-                _lobbyCts.Dispose();
-                _lobbyCts = null;
-            }
-
-            if (_lobbyWebSocket != null)
+            var cts = _lobbyCts;
+            _lobbyCts = null;
+            if (cts != null)
             {
                 try
                 {
-                    if (_lobbyWebSocket.State == WebSocketState.Open)
+                    cts.Cancel();
+                    cts.Dispose();
+                }
+                catch { }
+            }
+
+            var ws = _lobbyWebSocket;
+            _lobbyWebSocket = null;
+            if (ws != null)
+            {
+                try
+                {
+                    if (ws.State == WebSocketState.Open)
                     {
-                        await _lobbyWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Lobby close", CancellationToken.None);
+                        await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Lobby close", CancellationToken.None);
                     }
                 }
                 catch { }
-                _lobbyWebSocket.Dispose();
-                _lobbyWebSocket = null;
+                try
+                {
+                    ws.Dispose();
+                }
+                catch { }
             }
         }
 
@@ -672,25 +682,35 @@ namespace MechChess.Multiplayer
             IsOnlineMatch = false;
             HasBothPlayers = false;
 
-            if (_gameCts != null)
-            {
-                _gameCts.Cancel();
-                _gameCts.Dispose();
-                _gameCts = null;
-            }
-
-            if (_gameWebSocket != null)
+            var cts = _gameCts;
+            _gameCts = null;
+            if (cts != null)
             {
                 try
                 {
-                    if (_gameWebSocket.State == WebSocketState.Open)
+                    cts.Cancel();
+                    cts.Dispose();
+                }
+                catch { }
+            }
+
+            var ws = _gameWebSocket;
+            _gameWebSocket = null;
+            if (ws != null)
+            {
+                try
+                {
+                    if (ws.State == WebSocketState.Open)
                     {
-                        await _gameWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client leaving", CancellationToken.None);
+                        await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client leaving", CancellationToken.None);
                     }
                 }
                 catch { }
-                _gameWebSocket.Dispose();
-                _gameWebSocket = null;
+                try
+                {
+                    ws.Dispose();
+                }
+                catch { }
             }
         }
 
